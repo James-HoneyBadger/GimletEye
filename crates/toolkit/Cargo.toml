@@ -1,0 +1,21 @@
+[package]
+name = "mellivora-toolkit"
+description = "Composition root: assembles the toolkit's modules and runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+mellivora-core = { workspace = true }
+mellivora-crypto = { workspace = true }
+mellivora-scrub = { workspace = true }
+mellivora-server = { workspace = true }
+mellivora-sysadmin = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

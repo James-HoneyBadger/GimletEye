@@ -87,7 +87,17 @@ pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), MellivoraErr
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .map_err(|err| MellivoraError::Io(format!("cannot bind {addr}: {err}")))?;
-    tracing::info!(%addr, "listening");
+    serve_listener(state, listener).await
+}
+
+/// Serve on a listener the caller already bound, so the port is known first.
+pub async fn serve_listener(
+    state: AppState,
+    listener: tokio::net::TcpListener,
+) -> Result<(), MellivoraError> {
+    if let Ok(addr) = listener.local_addr() {
+        tracing::info!(%addr, "listening");
+    }
     axum::serve(listener, router(state))
         .await
         .map_err(|err| MellivoraError::Internal(err.to_string()))

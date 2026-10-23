@@ -7,11 +7,20 @@ All notable changes to Mellivora ToolKit. Format follows
 ## [Unreleased]
 
 Native cryptography: authenticated file encryption, Ed25519 signatures, and the
-`.melv` container. Plus removal policies, GPS redaction, and CI-friendly exit
-codes.
+`.melv` container. Plus removal policies, GPS redaction, a workbench interface,
+a self-contained desktop app, and CI-friendly exit codes.
 
 ### Added
 
+- **Self-contained desktop app.** The Tauri window now hosts the engine: it
+  binds an ephemeral loopback port, runs the same `Runtime` the CLI uses on a
+  background thread, and hands the port to the window before its first script.
+  No second process, no fixed port, and no configuration; packs are discovered
+  beside the binary or in the checkout.
+- **`mellivora-toolkit` composition crate.** Module wiring and the serve
+  helpers moved out of the CLI, so the CLI and the desktop shell cannot drift
+  apart: both build their registry from `Runtime`. `serve_on_listener` lets a
+  caller bind first and serve later.
 - **Workbench interface.** A proper application shell replaces the previous
   single-page dump: category filters and search, forms generated from each
   tool's manifest, results rendered as findings, report bodies, and

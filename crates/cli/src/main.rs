@@ -1,4 +1,3 @@
-mod app;
 mod cli;
 mod commands;
 

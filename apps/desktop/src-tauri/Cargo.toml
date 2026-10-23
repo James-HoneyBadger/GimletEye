@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+mellivora-toolkit = { path = "../../../crates/toolkit" }
 
 [profile.release]
 lto = true

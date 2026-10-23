@@ -658,12 +658,8 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "mellivora-core",
- "mellivora-crypto",
- "mellivora-scrub",
- "mellivora-server",
- "mellivora-sysadmin",
+ "mellivora-toolkit",
  "serde_json",
- "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -724,6 +720,19 @@ dependencies = [
  "mellivora-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "mellivora-toolkit"
+version = "0.1.0"
+dependencies = [
+ "mellivora-core",
+ "mellivora-crypto",
+ "mellivora-scrub",
+ "mellivora-server",
+ "mellivora-sysadmin",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

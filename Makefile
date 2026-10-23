@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-dev pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -32,6 +32,12 @@ ui: ## Type-check and build the shared UI
 
 ui-dev: ## Run the UI dev server (needs `make serve` in another terminal)
 	cd $(UI_DIR) && npm run dev
+
+desktop-install: ## Install desktop shell dependencies
+	cd apps/desktop && npm install
+
+desktop: ui ## Build the desktop app, engine included
+	cd apps/desktop && npm run build
 
 pack-check: ## Syntax-check the Perl pack
 	perl -c plugins/perlden-pack/pack.pl

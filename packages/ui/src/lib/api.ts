@@ -60,10 +60,9 @@ declare global {
 }
 
 function defaultApiBase(): string {
-  if (location.port === '7878') {
-    return '';
-  }
-  return 'http://127.0.0.1:7878';
+  // The dev server is a separate origin from the engine; a built bundle is
+  // served by the engine itself, or has its base injected by the desktop shell.
+  return import.meta.env.DEV ? 'http://127.0.0.1:7878' : '';
 }
 
 export const API_BASE: string =

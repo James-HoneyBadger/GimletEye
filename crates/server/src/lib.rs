@@ -8,4 +8,4 @@ mod error;
 mod routes;
 
 pub use error::ApiError;
-pub use routes::{router, serve, AppState};
+pub use routes::{router, serve, serve_listener, AppState};

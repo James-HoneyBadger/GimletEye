@@ -5,10 +5,9 @@ use std::process::ExitCode;
 use mellivora_core::{
     Args, AuditEntry, Category, MellivoraError, OutputFormat, Report, Result, Status, Tool,
 };
-use mellivora_server::AppState;
 
-use crate::app::Runtime;
 use crate::cli::{Cli, Command, ConfigCommand, PluginsCommand, ToolsCommand};
+use mellivora_toolkit::Runtime;
 
 struct Globals {
     home: Option<PathBuf>,
@@ -356,26 +355,13 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
         MellivoraError::InvalidArgs(format!("invalid host/port '{address}': {err}"))
     })?;
 
-    let mut state = {
-        let context = runtime.context(globals.dry_run);
-        let packs = runtime.pack_summaries();
-        let audit = runtime.audit_log();
-        let config = runtime.config.clone();
-        let mut state =
-            AppState::new(std::sync::Arc::new(runtime.registry), context, config).with_packs(packs);
-        if let Some(log) = audit {
-            state = state.with_audit(log);
-        }
-        state
-    };
-    if let Some(dir) = ui_dir {
+    if let Some(dir) = &ui_dir {
         if !dir.is_dir() {
             return Err(MellivoraError::NotFound(format!(
                 "UI directory {} does not exist",
                 dir.display()
             )));
         }
-        state = state.with_ui_dir(dir);
     }
 
     println!(
@@ -383,16 +369,11 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
         mellivora_core::VERSION
     );
     println!("  API   http://{address}/api/v1/health");
-    if state.ui_dir.is_some() {
+    if ui_dir.is_some() {
         println!("  UI    http://{address}/");
     }
 
-    let runtime_builder = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .map_err(|err| MellivoraError::Internal(err.to_string()))?;
-    runtime_builder.block_on(mellivora_server::serve(state, addr))?;
-
+    mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run)?;
     Ok(ExitCode::SUCCESS)
 }
 

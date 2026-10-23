@@ -76,8 +76,13 @@ cannot be written in Rust today.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ surfaces        crates/cli, crates/server, apps/desktop,     │
-│                 packages/ui, crates/wasm (planned)           │
+│ surfaces        crates/cli, apps/desktop, packages/ui,       │
+│                 crates/wasm (planned)                        │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ may depend on: composition only
+┌───────────────────────────┴──────────────────────────────────┐
+│ composition     crates/toolkit, crates/server                │
+│                 registry wiring · runtime · serve helpers    │
 └───────────────────────────┬──────────────────────────────────┘
                             │ may depend on: core + modules
 ┌───────────────────────────┴──────────────────────────────────┐
@@ -103,8 +108,9 @@ Rules, enforced by review and by `cargo` itself:
    renders a `Report`. `crates/server` is ~250 lines for that reason.
 4. **Packs are processes, not libraries.** They cannot see the host's memory,
    so a pack bug cannot corrupt the engine. The protocol is the whole interface.
-5. **`crates/cli` is the composition root.** It is the only place that knows
-   the list of modules:
+5. **`crates/toolkit` is the composition root.** It is the only crate that
+   knows the list of modules, and the only one that knows how to assemble a
+   `Runtime`:
 
 ```rust
 registry.register_all(mellivora_sysadmin::tools()?)?;
@@ -112,7 +118,10 @@ registry.register_all(mellivora_crypto::tools()?)?;
 registry.register_all(mellivora_scrub::tools()?)?;
 ```
 
-Adding a module is one line. Adding a surface never touches a module.
+Adding a module is one line. Adding a surface never touches a module: the CLI
+and the desktop shell both go through `Runtime`, so they see the same tools,
+the same configuration, and the same audit trail by construction. A surface
+that assembled its own registry could drift; this one cannot.
 
 ### Why a workspace rather than one crate
 
@@ -198,10 +207,17 @@ wins over a pack** — a pack must not be able to silently take over
 | Surface | Crate | Responsibility |
 |---|---|---|
 | `mellivora` CLI | `crates/cli` | parse, resolve, run, render, audit |
+| Composition root | `crates/toolkit` | wire modules into a `Runtime`, serve it |
 | HTTP API | `crates/server` | resolve, run, serialize |
-| Desktop | `apps/desktop` | window + bundle only |
+| Desktop | `apps/desktop` | window, embedded engine, port hand-off |
 | Web UI | `packages/ui` | render manifests, forms, and reports (no tool-specific code) |
 | WASM (planned) | `crates/wasm` | run pure tools in-browser |
+
+The desktop shell is self-contained. It binds a loopback port, starts the same
+`Runtime` the CLI uses on a background thread, and hands the port to the window
+through an initialization script (`window.__MELLIVORA_API__`). There is no
+second process to start and no port to configure; `mellivora serve` remains for
+browser and LAN use.
 
 The HTTP API is intentionally boring:
 
@@ -215,9 +231,10 @@ GET  /api/v1/config          → effective config (no secrets)
 ```
 
 Blocking work runs on `spawn_blocking`; the API binds to loopback by default
-and allows any origin because the desktop shell and the Vite dev server are
-different origins. If it is ever exposed beyond loopback, add authentication
-*before* changing the bind address — see [Security](#7-security-model).
+and allows any origin because the desktop window, the Vite dev server, and the
+`file://`-style webview origin are all different origins. If it is ever exposed
+beyond loopback, add authentication *before* changing the bind address — see
+[Security](#7-security-model).
 
 The UI renders forms from `ToolManifest.args`, so a new tool appears in the UI
 with no frontend change. That is the payoff of the manifest contract — and the
@@ -425,9 +442,9 @@ The provenance of any adapter is recorded in
 
 Stated plainly, because a design document that hides them is not useful:
 
-1. **The crypto engine is not linked yet.** `crypto.passgen` and
-   `crypto.sha256` are real; AEAD, signatures, HBZF, and keystore are a defined
-   seam with no implementation behind it.
+1. **No keystore, no asymmetric encryption.** Files are encrypted with a
+   passphrase; Ed25519 signs but cannot encrypt, and there is no keyring,
+   X25519 exchange, or OpenPGP interop yet.
 2. **Three of thirteen metadata formats are native.** The rest return a clear
    `unsupported` error that names the pack to install — not a silent success.
    GPS redaction is likewise limited to those three containers.
@@ -435,7 +452,10 @@ Stated plainly, because a design document that hides them is not useful:
    interactive use, a limitation for bulk runs.
 4. **No scheduler or TUI yet.** Perl Den's crontab integration is not ported;
    cron remains the supported way to schedule.
-5. **The desktop shell requires the API process.** It renders UI only. Embedding
-   the server in the Tauri process is a small, deliberate later step.
+5. **The desktop shell embeds the engine but exposes no native menu or file
+   dialogs.** Everything is driven from the shared web UI, so a "choose a
+   file" button would need a Tauri command — deliberately deferred until the
+   UI needs it.
 6. **`crates/server` has no authentication.** It must stay on loopback until it
-   does.
+   does. The desktop shell binds an ephemeral loopback port for exactly this
+   reason.

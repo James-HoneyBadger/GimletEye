@@ -10,18 +10,8 @@
     "frontendDist": "../../../packages/ui/dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "Mellivora ToolKit",
-        "width": 1200,
-        "height": 820,
-        "minWidth": 900,
-        "minHeight": 600
-      }
-    ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:7878 http://localhost:7878"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*"
     }
   },
   "bundle": {

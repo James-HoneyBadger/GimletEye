@@ -74,7 +74,8 @@ trade-offs behind each decision.
 - Dark and light themes follow the OS by default and are remembered, along with
   your last tool and filter.
 
-The desktop shell (`apps/desktop`) renders the same bundle in a native window.
+The desktop app (`apps/desktop`) is the same bundle in a native window, with the
+engine running inside the app: no server to start, no port to configure.
 
 ## Quick start
 
@@ -123,9 +124,10 @@ crates/
   crypto/     cryptographic tools + CryptoBackend engine seam
   scrub/      metadata inspection, redaction, removal
   server/     HTTP API
-  cli/        `mellivora` binary (composition root)
+  toolkit/    composition root: modules wired into a runtime, serve helpers
+  cli/        `mellivora` binary
 packages/ui/  one TypeScript UI for browser and desktop
-apps/desktop/ Tauri 2 desktop shell
+apps/desktop/ Tauri 2 shell with the engine embedded
 plugins/      compatibility packs (optional)
 docs/         architecture, plugin SDK, compatibility, roadmap, ADRs
 scripts/      developer tooling
@@ -149,11 +151,11 @@ Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
 `--strict` turns warnings into exit code `1`, so CI can gate on findings rather
 than only on failures.
 
-Desktop shell:
+Desktop app — one command, engine included:
 
 ```bash
-cargo run -p mellivora-cli -- serve           # terminal 1
-cd apps/desktop && npm install && npm run dev # terminal 2
+cd apps/desktop && npm install && npm run build   # bundles for this platform
+npm run dev                                       # or run it hot-reloading
 ```
 
 ## Development
