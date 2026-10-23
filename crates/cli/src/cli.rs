@@ -35,6 +35,10 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub no_plugins: bool,
 
+    /// Treat warnings as failures (useful in CI)
+    #[arg(long, global = true)]
+    pub strict: bool,
+
     /// Increase log verbosity (repeatable)
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,

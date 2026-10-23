@@ -79,6 +79,69 @@ cli metadata-strip input="$work/photo.jpg" --format json >/dev/null
 cli metadata-verify input="$work/photo.clean.jpg" --format json | grep -q '"status": "ok"' \
     || fail "stripped file is not clean"
 
+step "privacy profiles and GPS redaction"
+python3 - "$work/gps.jpg" <<'PYGEN'
+import struct, sys
+
+def rational(value):
+    return struct.pack(">II", int(value * 1_000_000), 1_000_000)
+
+def gps_exif(lat, lon, alt):
+    gps_off = 26
+    data = 26 + 2 + 5 * 12 + 4
+    tiff = b"MM" + struct.pack(">H", 42) + struct.pack(">I", 8)
+    tiff += struct.pack(">H", 1) + struct.pack(">HHI", 0x8825, 4, 1) + struct.pack(">I", gps_off)
+    tiff += struct.pack(">I", 0)
+    tiff += struct.pack(">H", 5)
+    tiff += struct.pack(">HHI", 1, 2, 2) + b"N\x00\x00\x00"
+    tiff += struct.pack(">HHI", 2, 5, 3) + struct.pack(">I", data)
+    tiff += struct.pack(">HHI", 3, 2, 2) + b"W\x00\x00\x00"
+    tiff += struct.pack(">HHI", 4, 5, 3) + struct.pack(">I", data + 24)
+    tiff += struct.pack(">HHI", 6, 5, 1) + struct.pack(">I", data + 48)
+    tiff += struct.pack(">I", 0)
+    assert len(tiff) == data
+    for part in lat:
+        tiff += rational(part)
+    for part in lon:
+        tiff += rational(part)
+    tiff += rational(alt)
+    return b"Exif\x00\x00" + tiff
+
+exif = gps_exif((51, 30, 26.46), (0, 7, 39.93), 35.0)
+jpeg = b"\xff\xd8" + b"\xff\xe1" + struct.pack(">H", len(exif) + 2) + exif
+jpeg += b"\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00" + b"\x01\x02\x03\x04" + b"\xff\xd9"
+open(sys.argv[1], "wb").write(jpeg)
+PYGEN
+
+# archive + redact keeps EXIF and coarsens the coordinates
+cli metadata-strip input="$work/gps.jpg" profile=archive redact_gps=city --format json \
+    | python3 -c '
+import json, sys
+report = json.load(sys.stdin)
+gps = report["data"]["gps"]
+assert gps["latitude"] == 51.5, gps
+assert gps["longitude"] == -0.12, gps
+assert report["data"]["removed_bytes"] == 0, report["data"]
+print("redacted to", gps["precision"], "->", gps["latitude"], gps["longitude"])
+'
+python3 - "$work/gps.clean.jpg" <<'PYCHK'
+import sys
+data = open(sys.argv[1], "rb").read()
+assert b"Exif" in data, "EXIF should survive GPS redaction"
+PYCHK
+
+# the redacted file still carries metadata, so the privacy profile must flag it
+if cli metadata-verify input="$work/gps.clean.jpg" --format json >/dev/null; then
+    fail "verify should report remaining metadata under the privacy profile"
+fi
+cli metadata-verify input="$work/gps.clean.jpg" profile=archive --format json >/dev/null \
+    || fail "archive profile should accept the redacted file"
+
+# --strict promotes warnings to a non-zero exit for CI
+if cli --strict metadata-scan input="$work/gps.jpg" >/dev/null 2>&1; then
+    fail "--strict should fail on a warning"
+fi
+
 step "audit trail records no values"
 cli passgen length=12 count=1 --format json >/dev/null
 cli audit --limit 5 --format json | grep -q '"arg_keys"' || fail "audit trail missing entries"

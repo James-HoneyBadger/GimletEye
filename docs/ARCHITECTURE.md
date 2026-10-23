@@ -317,7 +317,9 @@ The full protocol is in [PLUGIN_SDK.md](PLUGIN_SDK.md).
 Rules that keep this cheap:
 
 - **Parsers are separate from I/O.** The `parse.rs` in `mellivora-sysadmin` has
-  no filesystem access, so every branch is testable with a string.
+  no filesystem access, so every branch is testable with a string. The EXIF
+  reader in `crates/scrub/src/exif.rs` works the same way: it takes a byte slice
+  and a shared fixture builder produces valid structures for tests.
 - **Tools take `ToolContext`.** No globals, no `std::env::set_var` in tests.
 - **Tests never depend on host state** where avoidable; where they must (real
   `df`), they assert shape rather than exact values.
@@ -383,7 +385,9 @@ password → AEAD → keystore/HBZF) without changing a single tool or surface.
 | `formats/{jpeg,png,webp}` | ported natively (done) |
 | `formats/{heic,avif,tiff,pdf,mp4,raw,gif,svg}` | `hb-scrub` Node pack first, then native |
 | `operations/{read,remove,verify}` | `privacy.metadata-scan/strip/verify` |
-| GPS redaction, field control, injection, profiles | roadmap; profiles map naturally onto `modules.privacy` |
+| GPS redaction | ✅ ported: coordinates truncated in place, EXIF preserved |
+| Profiles + field-level control | ✅ ported as `RemovalPolicy` (`privacy`, `sharing`, `archive`, `keep`/`remove` overrides) |
+| Metadata injection | roadmap: needs the TIFF writer |
 | Batch + stream APIs | generic batch (CLI/API) and streaming handlers |
 | Tauri/Electron/web GUI | replaced by the shared UI |
 
@@ -396,6 +400,7 @@ Stated plainly, because a design document that hides them is not useful:
    seam with no implementation behind it.
 2. **Three of thirteen metadata formats are native.** The rest return a clear
    `unsupported` error that names the pack to install — not a silent success.
+   GPS redaction is likewise limited to those three containers.
 3. **The Perl pack is synchronous.** One request at a time per pack; fine for
    interactive use, a limitation for bulk runs.
 4. **No scheduler or TUI yet.** Perl Den's crontab integration is not ported;

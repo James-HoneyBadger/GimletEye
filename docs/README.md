@@ -6,6 +6,7 @@
 | [PLUGIN_SDK.md](PLUGIN_SDK.md) | write a pack in Perl, Python, Node, Go, or Rust |
 | [MIGRATION.md](MIGRATION.md) | know what moves from which project, in what order |
 | [ROADMAP.md](ROADMAP.md) | see phases and their acceptance criteria |
+| [ENHANCEMENTS.md](ENHANCEMENTS.md) | pick the next feature; effort and risk per item |
 | [adr/](adr/) | understand why a decision was made and what it cost |
 | [../SECURITY.md](../SECURITY.md) | review the threat model and data-handling guarantees |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | set up a development environment and open a change |

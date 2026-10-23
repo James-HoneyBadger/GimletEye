@@ -14,6 +14,7 @@ struct Globals {
     home: Option<PathBuf>,
     format: OutputFormat,
     dry_run: bool,
+    strict: bool,
     with_plugins: bool,
 }
 
@@ -26,6 +27,7 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
             cli.format.into()
         },
         dry_run: cli.dry_run,
+        strict: cli.strict,
         with_plugins: !cli.no_plugins,
     };
 
@@ -77,12 +79,15 @@ fn run(globals: &Globals, tool_name: &str, raw_args: &[String]) -> Result<ExitCo
     print!("{}", report.render(globals.format));
     record_audit(&runtime, &report, arg_keys);
 
-    Ok(exit_code(report.status))
+    Ok(exit_code(report.status, globals.strict))
 }
 
-fn exit_code(status: Status) -> ExitCode {
+/// `--strict` turns a warning verdict into a failure so CI gates on findings,
+/// not just on errors.
+fn exit_code(status: Status, strict: bool) -> ExitCode {
     match status {
         Status::Error => ExitCode::from(1),
+        Status::Warning if strict => ExitCode::from(1),
         Status::Ok | Status::Warning => ExitCode::SUCCESS,
     }
 }
@@ -452,6 +457,15 @@ mod tests {
     fn does_not_rewrite_help_flags() {
         let argv = normalize_args(vec!["mellivora".into(), "--help".into()]);
         assert_eq!(argv, vec!["mellivora", "--help"]);
+    }
+
+    #[test]
+    fn strict_promotes_warnings_to_failures() {
+        assert_eq!(exit_code(Status::Ok, false), ExitCode::SUCCESS);
+        assert_eq!(exit_code(Status::Warning, false), ExitCode::SUCCESS);
+        assert_eq!(exit_code(Status::Warning, true), ExitCode::from(1));
+        assert_eq!(exit_code(Status::Error, false), ExitCode::from(1));
+        assert_eq!(exit_code(Status::Error, true), ExitCode::from(1));
     }
 
     #[test]

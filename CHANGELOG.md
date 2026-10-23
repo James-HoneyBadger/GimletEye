@@ -4,6 +4,42 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Privacy parity with HB_Scrub's policy model, plus CI-friendly exit codes.
+
+### Added
+
+- **Removal policies.** `privacy.metadata-{scan,strip,verify}` accept
+  `profile=privacy|sharing|archive` plus comma-separated `remove=` and `keep=`
+  overrides. `keep` always wins, so a broad profile cannot remove something by
+  accident. Segments now carry a `category` (`identity`, `text`, `time`,
+  `structural`, `color`); structure and colour are never removable.
+- **GPS redaction.** `redact_gps=off|country|region|city` truncates coordinates
+  in place to a 1°, 0.1°, or 0.01° grid, leaving the rest of EXIF (camera, dates)
+  intact. Because the replacement is the same size, no offsets move. Works for
+  JPEG `APP1`, PNG `eXIf`, and WebP `EXIF` payloads, big- and little-endian.
+- **`--strict`.** Warning verdicts exit with status 1 so CI can gate on findings
+  rather than only on errors.
+- **`docs/ENHANCEMENTS.md`.** Prioritized backlog with effort and risk.
+
+### Changed
+
+- `Segment.removable` was replaced by `Segment.category`; `metadata_bytes` now
+  means "removable under the default policy", and reports add
+  `removable_bytes` for the policy actually in use.
+- Reports from the privacy tools include the resolved policy and, when
+  applicable, the post-redaction coordinates (never the originals).
+- The smoke test now covers profiles, GPS redaction, and `--strict`.
+
+### Fixed
+
+- Redaction warnings are no longer dropped when a run has nothing to remove.
+- A malformed EXIF block is an error when redaction is requested, rather than a
+  silent no-op.
+- The WebP test fixture declared a RIFF size four bytes too small, which hid the
+  fact that `strip_with` recomputes it correctly.
+
 ## [0.1.0] — 2026-10-23
 
 First scaffold that unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub

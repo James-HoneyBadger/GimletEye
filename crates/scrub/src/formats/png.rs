@@ -1,6 +1,6 @@
 use mellivora_core::{MellivoraError, Result};
 
-use crate::format::{strip_ranges, Format, FormatHandler, ScanResult, Segment};
+use crate::format::{Format, FormatHandler, ScanResult, Segment, SegmentCategory};
 
 pub const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -41,11 +41,11 @@ impl FormatHandler for PngHandler {
                 )));
             }
 
-            let (label, removable) = classify(&kind);
-            if removable {
+            let (label, category) = classify(&kind);
+            if category.is_removable() {
                 metadata_bytes += total;
             }
-            segments.push(Segment::new(kind.clone(), label, pos, total, removable));
+            segments.push(Segment::new(kind.clone(), label, category, pos, total));
             pos += total;
 
             if kind == "IEND" {
@@ -65,33 +65,28 @@ impl FormatHandler for PngHandler {
             metadata_bytes,
         })
     }
-
-    fn strip(&self, bytes: &[u8]) -> Result<Vec<u8>> {
-        let scan = self.scan(bytes)?;
-        Ok(strip_ranges(bytes, &scan))
-    }
 }
 
-fn classify(kind: &str) -> (String, bool) {
+fn classify(kind: &str) -> (String, SegmentCategory) {
     match kind {
-        "IHDR" => ("Image header".into(), false),
-        "PLTE" => ("Palette".into(), false),
-        "IDAT" => ("Image data".into(), false),
-        "IEND" => ("End of image".into(), false),
-        "tEXt" => ("Uncompressed text".into(), true),
-        "zTXt" => ("Compressed text".into(), true),
-        "iTXt" => ("International text".into(), true),
-        "eXIf" => ("EXIF".into(), true),
-        "tIME" => ("Last modified time".into(), true),
-        "gAMA" => ("Gamma".into(), false),
-        "cHRM" => ("Chromaticity".into(), false),
-        "sRGB" => ("sRGB rendering intent".into(), false),
-        "iCCP" => ("ICC profile".into(), false),
-        "pHYs" => ("Pixel dimensions".into(), false),
-        "bKGD" => ("Background colour".into(), false),
-        "sBIT" => ("Significant bits".into(), false),
-        "tRNS" => ("Transparency".into(), false),
-        other => (other.to_string(), false),
+        "IHDR" => ("Image header".into(), SegmentCategory::Structural),
+        "PLTE" => ("Palette".into(), SegmentCategory::Structural),
+        "IDAT" => ("Image data".into(), SegmentCategory::Structural),
+        "IEND" => ("End of image".into(), SegmentCategory::Structural),
+        "tEXt" => ("Uncompressed text".into(), SegmentCategory::Text),
+        "zTXt" => ("Compressed text".into(), SegmentCategory::Text),
+        "iTXt" => ("International text".into(), SegmentCategory::Text),
+        "eXIf" => ("EXIF".into(), SegmentCategory::Identity),
+        "tIME" => ("Last modified time".into(), SegmentCategory::Time),
+        "gAMA" => ("Gamma".into(), SegmentCategory::Color),
+        "cHRM" => ("Chromaticity".into(), SegmentCategory::Color),
+        "sRGB" => ("sRGB rendering intent".into(), SegmentCategory::Color),
+        "iCCP" => ("ICC profile".into(), SegmentCategory::Color),
+        "pHYs" => ("Pixel dimensions".into(), SegmentCategory::Color),
+        "bKGD" => ("Background colour".into(), SegmentCategory::Color),
+        "sBIT" => ("Significant bits".into(), SegmentCategory::Color),
+        "tRNS" => ("Transparency".into(), SegmentCategory::Color),
+        other => (other.to_string(), SegmentCategory::Structural),
     }
 }
 
@@ -124,12 +119,14 @@ fn crc32(bytes: &[u8]) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::format::RemovalPolicy;
 
     fn sample() -> Vec<u8> {
         let mut bytes = SIGNATURE.to_vec();
         bytes.extend_from_slice(&chunk(b"IHDR", &[0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]));
         bytes.extend_from_slice(&chunk(b"tEXt", b"Author\0Jane Doe"));
         bytes.extend_from_slice(&chunk(b"eXIf", b"FAKE-EXIF"));
+        bytes.extend_from_slice(&chunk(b"tIME", &[0x07, 0xE9, 1, 1, 0, 0, 0]));
         bytes.extend_from_slice(&chunk(b"IDAT", &[1, 2, 3, 4, 5]));
         bytes.extend_from_slice(&chunk(b"IEND", &[]));
         bytes
@@ -158,6 +155,14 @@ mod tests {
             PngHandler.scan(&stripped).expect("rescan").metadata_bytes,
             0
         );
+    }
+
+    #[test]
+    fn sharing_profile_keeps_time_chunk_only() {
+        let policy = RemovalPolicy::profile("sharing").expect("profile");
+        let stripped = PngHandler.strip_with(&sample(), &policy).expect("strip");
+        assert!(!stripped.windows(4).any(|w| w == b"tEXt"));
+        assert!(stripped.windows(4).any(|w| w == b"tIME"));
     }
 
     #[test]

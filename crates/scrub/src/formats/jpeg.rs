@@ -1,14 +1,14 @@
 use mellivora_core::{MellivoraError, Result};
 
-use crate::format::{strip_ranges, Format, FormatHandler, ScanResult, Segment};
+use crate::format::{Format, FormatHandler, ScanResult, Segment, SegmentCategory};
 
 /// JPEG segment walker.
 ///
 /// Removable: EXIF and XMP (APP1), IPTC/Photoshop (APP13), Ducky (APP12), and
-/// COM. Kept: JFIF (APP0), ICC profile (APP2), Adobe colour transform (APP14),
-/// and everything from the start-of-scan marker onward. ICC and the Adobe
-/// marker change how pixels are interpreted, so stripping them would corrupt
-/// rendering — one of the ways metadata removal goes wrong.
+/// COM. Kept: JFIF (APP0), ICC profile (APP2), MPF (APP2 multi-picture index),
+/// Adobe colour transform (APP14), and everything from the start-of-scan marker
+/// onward. ICC and the Adobe marker change how pixels are interpreted, and MPF
+/// holds offsets to secondary images, so removing any of them corrupts the file.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct JpegHandler;
 
@@ -45,9 +45,9 @@ impl FormatHandler for JpegHandler {
                     segments.push(Segment::new(
                         "SOS",
                         "Start of scan (pixel data)",
+                        SegmentCategory::Structural,
                         pos,
                         bytes.len() - pos,
-                        false,
                     ));
                     break;
                 }
@@ -68,12 +68,12 @@ impl FormatHandler for JpegHandler {
                 )));
             }
             let payload = &bytes[pos + 4..pos + 2 + length];
-            let (kind, label, removable) = classify(marker, payload);
+            let (kind, label, category) = classify(marker, payload);
 
-            if removable {
+            if category.is_removable() {
                 metadata_bytes += length + 2;
             }
-            segments.push(Segment::new(kind, label, pos, length + 2, removable));
+            segments.push(Segment::new(kind, label, category, pos, length + 2));
             pos += 2 + length;
         }
 
@@ -89,14 +89,9 @@ impl FormatHandler for JpegHandler {
             metadata_bytes,
         })
     }
-
-    fn strip(&self, bytes: &[u8]) -> Result<Vec<u8>> {
-        let scan = self.scan(bytes)?;
-        Ok(strip_ranges(bytes, &scan))
-    }
 }
 
-fn classify(marker: u8, payload: &[u8]) -> (String, String, bool) {
+fn classify(marker: u8, payload: &[u8]) -> (String, String, SegmentCategory) {
     match marker {
         0xE0 => {
             let label = if payload.starts_with(b"JFIF") {
@@ -106,36 +101,77 @@ fn classify(marker: u8, payload: &[u8]) -> (String, String, bool) {
             } else {
                 "APP0"
             };
-            ("APP0".to_string(), label.to_string(), false)
+            (
+                "APP0".to_string(),
+                label.to_string(),
+                SegmentCategory::Structural,
+            )
         }
         0xE1 => {
             if payload.starts_with(b"Exif\0\0") {
-                ("APP1".to_string(), "EXIF (including GPS)".to_string(), true)
+                (
+                    "APP1".to_string(),
+                    "EXIF (including GPS)".to_string(),
+                    SegmentCategory::Identity,
+                )
             } else if payload.starts_with(b"http://ns.adobe.com/xap/1.0/") {
-                ("APP1".to_string(), "XMP".to_string(), true)
+                (
+                    "APP1".to_string(),
+                    "XMP".to_string(),
+                    SegmentCategory::Identity,
+                )
             } else {
-                ("APP1".to_string(), "APP1".to_string(), false)
+                (
+                    "APP1".to_string(),
+                    "APP1".to_string(),
+                    SegmentCategory::Identity,
+                )
             }
         }
         0xE2 => {
-            let label = if payload.starts_with(b"ICC_PROFILE") {
-                "ICC profile"
+            if payload.starts_with(b"ICC_PROFILE") {
+                (
+                    "APP2".to_string(),
+                    "ICC profile".to_string(),
+                    SegmentCategory::Color,
+                )
+            } else if payload.starts_with(b"MPF\0") {
+                (
+                    "APP2".to_string(),
+                    "MPF (multi-picture index)".to_string(),
+                    SegmentCategory::Structural,
+                )
             } else {
-                "APP2"
-            };
-            ("APP2".to_string(), label.to_string(), false)
+                (
+                    "APP2".to_string(),
+                    "APP2".to_string(),
+                    SegmentCategory::Structural,
+                )
+            }
         }
-        0xEC => ("APP12".to_string(), "Ducky / APP12".to_string(), true),
-        0xED => ("APP13".to_string(), "IPTC / Photoshop".to_string(), true),
+        0xEC => (
+            "APP12".to_string(),
+            "Ducky / APP12".to_string(),
+            SegmentCategory::Identity,
+        ),
+        0xED => (
+            "APP13".to_string(),
+            "IPTC / Photoshop".to_string(),
+            SegmentCategory::Identity,
+        ),
         0xEE => (
             "APP14".to_string(),
             "Adobe colour transform".to_string(),
-            false,
+            SegmentCategory::Color,
         ),
-        0xFE => ("COM".to_string(), "Comment".to_string(), true),
+        0xFE => (
+            "COM".to_string(),
+            "Comment".to_string(),
+            SegmentCategory::Text,
+        ),
         _ => {
             let name = marker_name(marker);
-            (name.to_string(), name.to_string(), false)
+            (name.clone(), name, SegmentCategory::Structural)
         }
     }
 }
@@ -154,6 +190,7 @@ fn marker_name(marker: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::format::RemovalPolicy;
 
     /// Minimal JPEG: SOI, JFIF, EXIF, comment, DQT, SOS, entropy data, EOI.
     fn sample() -> Vec<u8> {
@@ -214,12 +251,43 @@ mod tests {
     }
 
     #[test]
+    fn archive_profile_keeps_exif() {
+        let original = sample();
+        let policy = RemovalPolicy::profile("archive").expect("profile");
+        let kept = JpegHandler.strip_with(&original, &policy).expect("strip");
+        assert_eq!(kept, original);
+    }
+
+    #[test]
+    fn keep_override_preserves_exif_but_drops_comments() {
+        let original = sample();
+        let policy = RemovalPolicy::all().with_overrides(None, Some("EXIF"));
+        let stripped = JpegHandler.strip_with(&original, &policy).expect("strip");
+        assert!(stripped.windows(4).any(|w| w == b"Exif"));
+        assert!(!stripped.windows(6).any(|w| w == b"shot o"));
+    }
+
+    #[test]
     fn keeps_icc_profile() {
         let mut bytes = vec![0xFF, 0xD8];
         let icc = b"ICC_PROFILE\0\x01\x01payload";
         bytes.extend_from_slice(&[0xFF, 0xE2]);
         bytes.extend_from_slice(&((icc.len() + 2) as u16).to_be_bytes());
         bytes.extend_from_slice(icc);
+        bytes.extend_from_slice(&[0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00]);
+        bytes.extend_from_slice(&[0xFF, 0xD9]);
+
+        let stripped = JpegHandler.strip(&bytes).expect("strip");
+        assert_eq!(stripped, bytes);
+    }
+
+    #[test]
+    fn keeps_mpf_index() {
+        let mut bytes = vec![0xFF, 0xD8];
+        let mpf = b"MPF\0\x02\x00\x00\x00";
+        bytes.extend_from_slice(&[0xFF, 0xE2]);
+        bytes.extend_from_slice(&((mpf.len() + 2) as u16).to_be_bytes());
+        bytes.extend_from_slice(mpf);
         bytes.extend_from_slice(&[0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00]);
         bytes.extend_from_slice(&[0xFF, 0xD9]);
 

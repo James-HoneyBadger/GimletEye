@@ -61,6 +61,7 @@ cargo build --release
 ./target/release/mellivora system-info
 ./target/release/mellivora passgen length=32
 ./target/release/mellivora metadata-scan input=photo.jpg
+./target/release/mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
 ./target/release/mellivora run perlden.failed-login-detector
 ```
 
@@ -90,8 +91,9 @@ cd apps/desktop && npm install && npm run dev   # terminal 2
 | All 20 Perl Den modules via `perlden` pack | ✅ live, including its `run`/`format_report` contract |
 | `crypto.passgen`, `crypto.sha256` | ✅ native, CSPRNG + SHA-256 |
 | Metadata scan/strip/verify for JPEG, PNG, WebP | ✅ native, byte-preserving |
+| Privacy profiles, field-level keep/remove, GPS redaction | ✅ native |
 | DarkStar crypto engine (AEAD, signatures, HBZF, keystore) | ⏳ `CryptoBackend` seam defined |
-| Remaining 10 metadata formats, GPS redaction, profiles | ⏳ `hb-scrub` pack, then native ports |
+| Remaining 10 metadata formats, metadata injection | ⏳ `hb-scrub` pack, then native ports |
 | WASM target, TUI, scheduler | ⏳ roadmap |
 
 ## Layout
@@ -116,7 +118,7 @@ scripts/      developer tooling (source linking)
 ```bash
 mellivora tools list [--category sysadmin] [--format json]
 mellivora tools show disk-usage
-mellivora run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run]
+mellivora run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run] [--strict]
 mellivora <tool> [key=value ...]        # shorthand for `run`
 mellivora plugins list|doctor
 mellivora config show|init|path
@@ -126,6 +128,8 @@ mellivora serve [--host 127.0.0.1] [--port 7878] [--ui-dir DIR]
 ```
 
 Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
+`--strict` turns warnings into exit code `1`, so CI can gate on findings rather
+than only on failures.
 
 ## Development
 
@@ -144,6 +148,7 @@ Requirements: Rust 1.82+, Node 20+ (UI only), Perl 5.28+ (Perl Den pack only).
 - [Plugin SDK](docs/PLUGIN_SDK.md) — write a pack in any language
 - [Migration plan](docs/MIGRATION.md) — what moves, in what order, and why
 - [Roadmap](docs/ROADMAP.md) — phases and acceptance criteria
+- [Enhancements](docs/ENHANCEMENTS.md) — proposed features, prioritized with effort and risk
 - [ADRs](docs/adr/) — decisions and their trade-offs
 - [Security](SECURITY.md) — threat model and data-handling guarantees
 

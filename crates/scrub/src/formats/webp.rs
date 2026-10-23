@@ -1,12 +1,12 @@
 use mellivora_core::{MellivoraError, Result};
 
-use crate::format::{Format, FormatHandler, ScanResult, Segment};
+use crate::format::{Format, FormatHandler, RemovalPolicy, ScanResult, Segment, SegmentCategory};
 
 /// WebP (RIFF container) walker.
 ///
 /// Removable: `EXIF` and `XMP ` chunks. When the file has a `VP8X` header, the
-/// corresponding presence flags are cleared so viewers do not advertise
-/// metadata that is no longer there.
+/// corresponding presence flags are cleared — but only for chunks actually
+/// removed, so an `archive` profile leaves the header truthful.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WebpHandler;
 
@@ -42,11 +42,11 @@ impl FormatHandler for WebpHandler {
                 )));
             }
 
-            let (label, removable) = classify(&fourcc);
-            if removable {
+            let (label, category) = classify(&fourcc);
+            if category.is_removable() {
                 metadata_bytes += total;
             }
-            segments.push(Segment::new(fourcc.clone(), label, pos, total, removable));
+            segments.push(Segment::new(fourcc.clone(), label, category, pos, total));
             pos += total;
         }
 
@@ -63,23 +63,37 @@ impl FormatHandler for WebpHandler {
         })
     }
 
-    fn strip(&self, bytes: &[u8]) -> Result<Vec<u8>> {
+    fn strip_with(&self, bytes: &[u8], policy: &RemovalPolicy) -> Result<Vec<u8>> {
         let scan = self.scan(bytes)?;
 
-        let mut out = Vec::with_capacity(bytes.len().saturating_sub(scan.metadata_bytes));
+        let clears_exif = scan
+            .segments
+            .iter()
+            .any(|segment| segment.kind == "EXIF" && policy.should_remove(segment));
+        let clears_xmp = scan
+            .segments
+            .iter()
+            .any(|segment| segment.kind == "XMP " && policy.should_remove(segment));
+
+        let mut out = Vec::with_capacity(bytes.len());
         out.extend_from_slice(b"RIFF");
         out.extend_from_slice(&[0, 0, 0, 0]);
         out.extend_from_slice(b"WEBP");
 
         for segment in &scan.segments {
-            if segment.removable {
+            if policy.should_remove(segment) {
                 continue;
             }
             let chunk = &bytes[segment.offset..segment.offset + segment.size];
-            if segment.kind == "VP8X" && segment.size >= 9 {
-                // Copy the chunk, clearing the EXIF (0x08) and XMP (0x04) flags.
+            if segment.kind == "VP8X" && segment.size >= 9 && (clears_exif || clears_xmp) {
+                // Copy the chunk, clearing only the flags for chunks we removed.
                 let mut copy = chunk.to_vec();
-                copy[8] &= !(0x08 | 0x04);
+                if clears_exif {
+                    copy[8] &= !0x08;
+                }
+                if clears_xmp {
+                    copy[8] &= !0x04;
+                }
                 out.extend_from_slice(&copy);
             } else {
                 out.extend_from_slice(chunk);
@@ -92,18 +106,18 @@ impl FormatHandler for WebpHandler {
     }
 }
 
-fn classify(fourcc: &str) -> (String, bool) {
+fn classify(fourcc: &str) -> (String, SegmentCategory) {
     match fourcc {
-        "VP8 " => ("Lossy image data".into(), false),
-        "VP8L" => ("Lossless image data".into(), false),
-        "VP8X" => ("Extended header".into(), false),
-        "ALPH" => ("Alpha channel".into(), false),
-        "ANIM" => ("Animation parameters".into(), false),
-        "ANMF" => ("Animation frame".into(), false),
-        "ICCP" => ("ICC profile".into(), false),
-        "EXIF" => ("EXIF (including GPS)".into(), true),
-        "XMP " => ("XMP".into(), true),
-        other => (other.to_string(), false),
+        "VP8 " => ("Lossy image data".into(), SegmentCategory::Structural),
+        "VP8L" => ("Lossless image data".into(), SegmentCategory::Structural),
+        "VP8X" => ("Extended header".into(), SegmentCategory::Structural),
+        "ALPH" => ("Alpha channel".into(), SegmentCategory::Structural),
+        "ANIM" => ("Animation parameters".into(), SegmentCategory::Structural),
+        "ANMF" => ("Animation frame".into(), SegmentCategory::Structural),
+        "ICCP" => ("ICC profile".into(), SegmentCategory::Color),
+        "EXIF" => ("EXIF (including GPS)".into(), SegmentCategory::Identity),
+        "XMP " => ("XMP".into(), SegmentCategory::Identity),
+        other => (other.to_string(), SegmentCategory::Structural),
     }
 }
 
@@ -133,7 +147,7 @@ mod tests {
 
         let mut out = Vec::new();
         out.extend_from_slice(b"RIFF");
-        out.extend_from_slice(&((body.len() - 4) as u32).to_le_bytes());
+        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
         out.extend_from_slice(&body);
         out
     }
@@ -161,6 +175,26 @@ mod tests {
             WebpHandler.scan(&stripped).expect("rescan").metadata_bytes,
             0
         );
+    }
+
+    #[test]
+    fn archive_profile_leaves_file_untouched() {
+        let original = sample();
+        let policy = RemovalPolicy::profile("archive").expect("profile");
+        let kept = WebpHandler.strip_with(&original, &policy).expect("strip");
+        assert_eq!(kept, original);
+    }
+
+    #[test]
+    fn removing_only_xmp_keeps_the_exif_flag() {
+        // The fixture has both flags set; remove just XMP.
+        let policy = RemovalPolicy::none().with_overrides(Some("XMP"), None);
+        let stripped = WebpHandler.strip_with(&sample(), &policy).expect("strip");
+        assert!(stripped.windows(4).any(|w| w == b"EXIF"));
+        assert!(!stripped.windows(4).any(|w| w == b"XMP "));
+        // EXIF (0x08) stays set, XMP (0x04) is cleared.
+        assert_eq!(stripped[20] & 0x08, 0x08);
+        assert_eq!(stripped[20] & 0x04, 0x00);
     }
 
     #[test]

@@ -18,18 +18,20 @@ acceptance criterion so "done" is not a matter of opinion.
 | `crypto.passgen`, `crypto.sha256` | ✅ | known-answer tests |
 | `privacy.metadata-{scan,strip,verify}` (JPEG/PNG/WebP) | ✅ | strip is byte-preserving and re-verified |
 | CI: fmt, clippy, tests, UI build, live Perl slice | ✅ | green on push |
+| `--strict` exit codes for CI | ✅ | warning verdicts fail the build |
 
 ## v0.2 — Privacy parity
 
+- [x] Privacy profiles and GPS redaction (see [ENHANCEMENTS.md](ENHANCEMENTS.md)).
 - [ ] `hb-scrub` Node pack exposing the remaining 10 formats.
   *Acceptance:* HEIC/PDF/MP4 round-trip through `mellivora metadata-strip`;
   unsupported constructs produce warnings, not silent success.
-- [ ] Privacy profiles (`privacy`, `sharing`, `archive`) from config.
+- [x] Privacy profiles (`privacy`, `sharing`, `archive`) and field-level `keep`/`remove`.
   *Acceptance:* `--profile` changes the removable set; a unit test pins each set.
 - [ ] Batch execution across files with a concurrency limit.
   *Acceptance:* 100 files processed with a per-file report and one aggregate
   summary; failures do not abort the run.
-- [ ] GPS redaction (truncate to region) for JPEG/PNG/WebP.
+- [x] GPS redaction (truncate to region) for JPEG/PNG/WebP.
   *Acceptance:* coordinates reduced to the requested precision; verify mode
   reports remaining precision.
 
