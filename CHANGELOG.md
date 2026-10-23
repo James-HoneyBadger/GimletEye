@@ -12,6 +12,12 @@ codes.
 
 ### Added
 
+- **Workbench interface.** A proper application shell replaces the previous
+  single-page dump: category filters and search, forms generated from each
+  tool's manifest, results rendered as findings, report bodies, and
+  tables/key-value views (with a JSON tab and copy), dry-run switch,
+  dark/light themes, persisted selection, and keyboard shortcuts
+  (`Ctrl/⌘ K`, `Ctrl/⌘ ↵`). Split into `lib/`, `components/`, and `styles/`.
 - **Native crypto engine.** `CryptoBackend` now has a real implementation:
   AES-256-GCM, ChaCha20-Poly1305, Argon2id, Ed25519, SHA-256, and OS randomness,
   with secrets in zeroizing buffers.
@@ -52,6 +58,12 @@ codes.
 
 ### Fixed
 
+- `ArgSpec` serialized as `{"name": ..., "kind": {"type": ...}}` while the
+  documented contract promised a flat `type`. It is now flattened, so consumers
+  can build forms from the wire shape (the UI previously rendered booleans and
+  enums as text inputs because of this).
+- The sidebar lost its scroll position, and then its selection, after choosing a
+  tool; it now keeps both in view.
 - Redaction warnings are no longer dropped when a run has nothing to remove.
 - A malformed EXIF block is an error when redaction is requested, rather than a
   silent no-op.

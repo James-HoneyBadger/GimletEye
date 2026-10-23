@@ -200,7 +200,7 @@ wins over a pack** — a pack must not be able to silently take over
 | `mellivora` CLI | `crates/cli` | parse, resolve, run, render, audit |
 | HTTP API | `crates/server` | resolve, run, serialize |
 | Desktop | `apps/desktop` | window + bundle only |
-| Web UI | `packages/ui` | render manifests, forms, reports |
+| Web UI | `packages/ui` | render manifests, forms, and reports (no tool-specific code) |
 | WASM (planned) | `crates/wasm` | run pure tools in-browser |
 
 The HTTP API is intentionally boring:
@@ -220,7 +220,24 @@ different origins. If it is ever exposed beyond loopback, add authentication
 *before* changing the bind address — see [Security](#7-security-model).
 
 The UI renders forms from `ToolManifest.args`, so a new tool appears in the UI
-with no frontend change. That is the payoff of the manifest contract.
+with no frontend change. That is the payoff of the manifest contract — and the
+reason argument specs are flattened on the wire (`{"name": "path", "type":
+"path"}`) rather than nested.
+
+The UI is organised as a small design system plus components:
+
+```
+packages/ui/src/
+├── lib/          api client, state, formatting, data rendering
+├── components/   topbar, sidebar, workbench, result, icons
+├── styles/       design tokens + layout
+└── main.ts       boot and event wiring
+```
+
+Results are rendered from `Report`, not from tool names: findings become a
+severity-ordered list, `body` becomes a monospace report, and `data` is shaped
+into tables for arrays of objects, key/value lists for scalars, and nested
+sections for the rest. Raw JSON is always one click away.
 
 ## 6. Configuration and state
 

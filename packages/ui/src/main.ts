@@ -1,276 +1,297 @@
-import './style.css';
-import { API_BASE, fetchHealth, fetchTools, runTool } from './api';
-import type { Health, Report, ToolManifest } from './api';
+import './styles/tokens.css';
+import './styles/app.css';
 
-interface State {
-  tools: ToolManifest[];
-  selectedId: string | null;
-  health: Health | null;
-  report: Report | null;
-  error: string | null;
-  running: boolean;
-  dryRun: boolean;
-}
+import { fetchHealth, fetchPacks, fetchTools, runTool } from './lib/api';
+import { persist, state } from './lib/store';
+import { renderSidebar } from './components/sidebar';
+import { renderTopbar } from './components/topbar';
+import { renderWorkbench } from './components/workbench';
+import { renderResult } from './components/result';
+import { icons } from './components/icons';
+import { modLabel } from './lib/format';
 
-const state: State = {
-  tools: [],
-  selectedId: null,
-  health: null,
-  report: null,
-  error: null,
-  running: false,
-  dryRun: false,
-};
-
-const root = document.querySelector<HTMLDivElement>('#app');
-if (!root) {
+const mount = document.querySelector<HTMLDivElement>('#app');
+if (!mount) {
   throw new Error('missing #app root');
 }
-const app: HTMLDivElement = root;
+const root: HTMLDivElement = mount;
 
-const escapeHtml = (value: unknown): string =>
-  String(value ?? '').replace(/[&<>"']/g, (character) => {
-    switch (character) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      default:
-        return '&#39;';
+document.documentElement.dataset.mod = modLabel;
+
+function applyTheme(): void {
+  document.documentElement.dataset.theme = state.theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.setAttribute('content', state.theme === 'dark' ? '#100e0c' : '#f6f4f0');
+  }
+}
+
+function renderAll(): void {
+  applyTheme();
+  const offset = sidebarScroll();
+  root.innerHTML = `
+    <div class="app">
+      ${renderTopbar(state)}
+      <div class="body">
+        ${renderSidebar(state)}
+        ${renderWorkbench(state)}
+      </div>
+      <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    </div>`;
+  restoreSidebarScroll(offset, true);
+}
+
+function sidebarScroll(): number {
+  return root.querySelector<HTMLElement>('.sidebar-scroll')?.scrollTop ?? 0;
+}
+
+function restoreSidebarScroll(offset: number, revealActive: boolean): void {
+  const scroller = root.querySelector<HTMLElement>('.sidebar-scroll');
+  if (!scroller) return;
+  if (revealActive) {
+    const active = scroller.querySelector<HTMLElement>('.tool--active');
+    if (active) {
+      const viewTop = scroller.scrollTop;
+      const viewBottom = viewTop + scroller.clientHeight;
+      const top = active.offsetTop;
+      const bottom = top + active.offsetHeight;
+      if (top < viewTop || bottom > viewBottom) {
+        scroller.scrollTop = Math.max(0, top - 10);
+      }
+      return;
     }
-  });
-
-const selected = (): ToolManifest | null =>
-  state.tools.find((tool) => tool.id === state.selectedId) ?? null;
-
-function render(): void {
-  const tool = selected();
-  app.innerHTML = `
-    <header class="topbar">
-      <div class="brand">
-        <span class="logo" aria-hidden="true">M</span>
-        <div>
-          <h1>Mellivora ToolKit</h1>
-          <p class="tagline">system · crypto · privacy</p>
-        </div>
-      </div>
-      <div class="status" id="status">${renderStatus()}</div>
-    </header>
-    <main class="layout">
-      <aside class="sidebar">${renderSidebar()}</aside>
-      <section class="workbench">${renderWorkbench(tool)}</section>
-    </main>
-  `;
-  bind();
+  }
+  scroller.scrollTop = offset;
 }
 
-function renderStatus(): string {
-  if (state.error) {
-    return `<span class="pill pill--error">offline</span><span class="muted">${escapeHtml(state.error)}</span>`;
-  }
-  if (!state.health) {
-    return `<span class="pill">connecting…</span>`;
-  }
-  return `
-    <span class="pill pill--ok">connected</span>
-    <span class="muted">v${escapeHtml(state.health.version)} · ${state.health.tools} tools · ${state.health.packs} pack(s)</span>
-    <span class="muted endpoint">${escapeHtml(API_BASE || location.origin)}</span>
-  `;
-}
-
-function renderSidebar(): string {
-  if (state.tools.length === 0) {
-    return `<p class="muted pad">No tools loaded.</p>`;
-  }
-
-  const groups = new Map<string, ToolManifest[]>();
-  for (const tool of state.tools) {
-    const group = groups.get(tool.category) ?? [];
-    group.push(tool);
-    groups.set(tool.category, group);
-  }
-
-  return [...groups.entries()]
-    .map(
-      ([category, tools]) => `
-      <div class="group">
-        <h2>${escapeHtml(category)} <span class="count">${tools.length}</span></h2>
-        ${tools
-          .map(
-            (tool) => `
-          <button class="tool ${tool.id === state.selectedId ? 'tool--active' : ''}"
-                  data-tool="${escapeHtml(tool.id)}"
-                  title="${escapeHtml(tool.summary)}">
-            <span class="tool-title">${escapeHtml(tool.title)}</span>
-            <span class="tool-origin">${escapeHtml(tool.origin)}</span>
-          </button>`,
-          )
-          .join('')}
-      </div>`,
-    )
-    .join('');
-}
-
-function renderWorkbench(tool: ToolManifest | null): string {
-  if (!tool) {
-    return `<div class="empty"><h2>Select a tool</h2><p class="muted">Everything runs locally. Nothing leaves this machine.</p></div>`;
-  }
-
-  return `
-    <div class="workbench-head">
-      <div>
-        <h2>${escapeHtml(tool.title)}</h2>
-        <p class="muted">${escapeHtml(tool.summary)}</p>
-        <p class="meta">
-          <code>${escapeHtml(tool.id)}</code>
-          ${(tool.capabilities ?? []).map((capability) => `<span class="chip">${escapeHtml(capability)}</span>`).join('')}
-        </p>
-      </div>
-      <div class="controls">
-        <label class="toggle">
-          <input type="checkbox" id="dry-run" ${state.dryRun ? 'checked' : ''} />
-          dry run
-        </label>
-        <button class="primary" id="run" ${state.running ? 'disabled' : ''}>
-          ${state.running ? 'Running…' : 'Run'}
-        </button>
-      </div>
-    </div>
-    <form class="args" id="args">${renderArgs(tool)}</form>
-    ${renderReport()}
-  `;
-}
-
-function renderArgs(tool: ToolManifest): string {
-  const args = tool.args ?? [];
-  if (args.length === 0) {
-    return `<p class="muted">No arguments.</p>`;
-  }
-  return args
-    .map((spec) => {
-      const id = `arg-${spec.name}`;
-      const label = `<label for="${id}">${escapeHtml(spec.name)}${spec.required ? ' *' : ''}</label>`;
-      const help = spec.help ? `<small>${escapeHtml(spec.help)}</small>` : '';
-      let input: string;
-      if (spec.type === 'boolean') {
-        input = `<input type="checkbox" id="${id}" name="${escapeHtml(spec.name)}" data-type="boolean" ${
-          spec.default === true ? 'checked' : ''
-        } />`;
-      } else if (spec.type === 'enum' && spec.values) {
-        input = `<select id="${id}" name="${escapeHtml(spec.name)}" data-type="string">
-          ${spec.values.map((value) => `<option>${escapeHtml(value)}</option>`).join('')}
-        </select>`;
-      } else {
-        const type = spec.type === 'integer' ? 'number' : 'text';
-        const placeholder = spec.type === 'path' ? '/path/to/file' : '';
-        input = `<input type="${type}" id="${id}" name="${escapeHtml(spec.name)}" data-type="${spec.type}"
-          placeholder="${placeholder}" value="${escapeHtml(spec.default ?? '')}" />`;
-      }
-      return `<div class="field">${label}${input}${help}</div>`;
-    })
-    .join('');
-}
-
-function renderReport(): string {
-  if (!state.report) {
-    return '';
-  }
-  const report = state.report;
-  const findings = report.findings ?? [];
-  const warnings = report.warnings ?? [];
-
-  return `
-    <article class="report report--${report.status}">
-      <header>
-        <span class="badge badge--${report.status}">${report.status}</span>
-        <strong>${escapeHtml(report.summary)}</strong>
-        <span class="muted">${report.duration_ms} ms</span>
-      </header>
-      ${
-        findings.length
-          ? `<ul class="findings">${findings
-              .map(
-                (finding) => `
-            <li class="severity-${finding.severity}">
-              <span class="sev">${finding.severity}</span>
-              <code>${escapeHtml(finding.code)}</code>
-              <span>${escapeHtml(finding.message)}</span>
-            </li>`,
-              )
-              .join('')}</ul>`
-          : ''
-      }
-      ${report.body ? `<pre class="body">${escapeHtml(report.body)}</pre>` : ''}
-      ${report.data ? `<pre class="data">${escapeHtml(JSON.stringify(report.data, null, 2))}</pre>` : ''}
-      ${warnings.length ? `<ul class="warnings">${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>` : ''}
-    </article>
-  `;
-}
-
-function bind(): void {
-  for (const button of app.querySelectorAll<HTMLButtonElement>('[data-tool]')) {
-    button.addEventListener('click', () => {
-      state.selectedId = button.dataset.tool ?? null;
-      state.report = null;
-      render();
-    });
-  }
-
-  const dryRun = app.querySelector<HTMLInputElement>('#dry-run');
-  dryRun?.addEventListener('change', () => {
-    state.dryRun = dryRun.checked;
-  });
-
-  app.querySelector<HTMLButtonElement>('#run')?.addEventListener('click', () => void run());
-}
-
-async function run(): Promise<void> {
-  const tool = selected();
-  if (!tool) {
+function renderSidebarOnly(): void {
+  const current = root.querySelector('.sidebar');
+  if (!current) {
+    renderAll();
     return;
   }
+  const offset = sidebarScroll();
+  current.outerHTML = renderSidebar(state);
+  restoreSidebarScroll(offset, false);
+}
 
+function renderResultOnly(): void {
+  const region = root.querySelector('#result-region');
+  if (!region) {
+    renderAll();
+    return;
+  }
+  region.innerHTML = renderResult(state);
+}
+
+function toast(message: string, tone: 'ok' | 'error' = 'ok'): void {
+  const stack = root.querySelector('#toasts');
+  if (!stack) return;
+  const element = document.createElement('div');
+  element.className = `toast toast--${tone}`;
+  element.textContent = message;
+  stack.append(element);
+  window.setTimeout(() => element.classList.add('toast--out'), 2200);
+  window.setTimeout(() => element.remove(), 2600);
+}
+
+function selectTool(id: string): void {
+  if (state.selectedId === id) return;
+  state.selectedId = id;
+  state.report = null;
+  state.error = null;
+  state.tab = 'details';
+  persist();
+  renderAll();
+}
+
+function toggleTheme(): void {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  persist();
+  renderAll();
+}
+
+function focusSearch(): void {
+  const search = root.querySelector<HTMLInputElement>('#search');
+  search?.focus();
+  search?.select();
+}
+
+function setRunning(running: boolean): void {
+  const button = root.querySelector<HTMLButtonElement>('#run');
+  if (!button) return;
+  button.disabled = running;
+  button.innerHTML = running
+    ? '<span class="spinner" aria-hidden="true"></span>Running…'
+    : `${icons.play}Run`;
+}
+
+function collectArgs(): Record<string, unknown> {
   const args: Record<string, unknown> = {};
-  for (const input of app.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-type]')) {
-    const kind = input.dataset.type;
+  for (const input of root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-type]')) {
     if (input instanceof HTMLInputElement && input.type === 'checkbox') {
       args[input.name] = input.checked;
       continue;
     }
-    if (input.value === '') {
-      continue;
-    }
-    args[input.name] = kind === 'integer' ? Number(input.value) : input.value;
+    if (!input.value) continue;
+    args[input.name] = input.dataset.type === 'integer' ? Number(input.value) : input.value;
   }
+  return args;
+}
+
+async function run(): Promise<void> {
+  const tool = state.tools.find((candidate) => candidate.id === state.selectedId);
+  if (!tool || state.running) return;
+
+  const args = collectArgs();
+  const dryRun = state.dryRun;
 
   state.running = true;
   state.error = null;
-  render();
+  state.report = null;
+  state.tab = 'details';
+  setRunning(true);
+  renderResultOnly();
 
   try {
-    state.report = await runTool(tool.id, args, state.dryRun);
+    state.report = await runTool(tool.id, args, dryRun);
   } catch (error) {
     state.error = error instanceof Error ? error.message : String(error);
   } finally {
     state.running = false;
-    render();
+    setRunning(false);
+    renderResultOnly();
+  }
+}
+
+async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied to clipboard');
+  } catch {
+    toast('Could not copy to clipboard', 'error');
   }
 }
 
 async function boot(): Promise<void> {
+  renderAll();
   try {
-    const [health, tools] = await Promise.all([fetchHealth(), fetchTools()]);
+    const [health, tools, packs] = await Promise.all([fetchHealth(), fetchTools(), fetchPacks()]);
     state.health = health;
     state.tools = tools;
-    state.selectedId = tools[0]?.id ?? null;
+    state.packs = packs;
+    if (!state.selectedId || !tools.some((tool) => tool.id === state.selectedId)) {
+      state.selectedId = tools[0]?.id ?? null;
+    }
+    state.error = null;
   } catch (error) {
     state.error = error instanceof Error ? error.message : String(error);
   }
-  render();
+  renderAll();
 }
+
+root.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement;
+
+  const toolButton = target.closest<HTMLElement>('[data-tool]');
+  if (toolButton?.dataset.tool) {
+    selectTool(toolButton.dataset.tool);
+    return;
+  }
+
+  const filter = target.closest<HTMLElement>('[data-category]');
+  if (filter) {
+    state.category = filter.dataset.category || null;
+    persist();
+    renderAll();
+    return;
+  }
+
+  const tab = target.closest<HTMLElement>('[data-tab]');
+  if (tab) {
+    state.tab = tab.dataset.tab === 'json' ? 'json' : 'details';
+    renderResultOnly();
+    return;
+  }
+
+  const copy = target.closest<HTMLElement>('[data-copy]');
+  if (copy) {
+    void copyText(copy.dataset.copy ?? '');
+    return;
+  }
+
+  if (target.closest('#toggle-theme')) {
+    toggleTheme();
+    return;
+  }
+
+  if (target.closest('#run')) {
+    void run();
+    return;
+  }
+
+  if (target.closest('#retry')) {
+    void boot();
+  }
+});
+
+root.addEventListener('input', (event) => {
+  const target = event.target as HTMLElement;
+  if (target.id === 'search' && target instanceof HTMLInputElement) {
+    state.query = target.value;
+    renderSidebarOnly();
+  }
+});
+
+root.addEventListener('change', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+
+  if (target.id === 'dry-run') {
+    state.dryRun = target.checked;
+    persist();
+    return;
+  }
+
+  if (target.dataset.type === 'boolean') {
+    const text = target.closest('.switch')?.querySelector('.switch-text');
+    if (text) text.textContent = target.checked ? 'Enabled' : 'Disabled';
+  }
+});
+
+root.addEventListener('keydown', (event) => {
+  const mod = event.metaKey || event.ctrlKey;
+  const target = event.target as HTMLElement;
+
+  if (mod && event.key.toLowerCase() === 'k') {
+    event.preventDefault();
+    focusSearch();
+    return;
+  }
+
+  if (mod && event.key === 'Enter') {
+    event.preventDefault();
+    void run();
+    return;
+  }
+
+  if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'search') {
+    const first = root.querySelector<HTMLElement>('[data-tool]');
+    if (first?.dataset.tool) {
+      selectTool(first.dataset.tool);
+    }
+    return;
+  }
+
+  if (event.key === 'Escape' && target instanceof HTMLInputElement && target.id === 'search') {
+    if (state.query) {
+      target.value = '';
+      state.query = '';
+      renderSidebarOnly();
+    } else {
+      target.blur();
+    }
+  }
+});
 
 void boot();

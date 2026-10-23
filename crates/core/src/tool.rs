@@ -183,6 +183,9 @@ pub enum ArgKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArgSpec {
     pub name: String,
+    /// Flattened so the wire shape is `{ "name": "path", "type": "path" }`
+    /// rather than a nested `kind` object. Consumers build forms from this.
+    #[serde(flatten)]
     pub kind: ArgKind,
     #[serde(default)]
     pub required: bool,
@@ -481,4 +484,39 @@ pub trait Tool: Send + Sync {
     fn manifest(&self) -> &ToolManifest;
 
     fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn arg_spec_serializes_with_a_flat_type_field() {
+        let spec = ArgSpec::new("path", ArgKind::Path).required();
+        let value = serde_json::to_value(&spec).expect("serialize");
+
+        assert_eq!(value["name"], "path");
+        assert_eq!(value["type"], "path");
+        assert_eq!(value["required"], true);
+        assert!(value.get("kind").is_none(), "kind must be flattened");
+
+        let decoded: ArgSpec = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(decoded, spec);
+    }
+
+    #[test]
+    fn enum_arguments_carry_their_values() {
+        let spec = ArgSpec::new(
+            "algorithm",
+            ArgKind::Enum {
+                values: vec!["a".into(), "b".into()],
+            },
+        )
+        .default_value(Value::from("a"));
+        let value = serde_json::to_value(&spec).expect("serialize");
+
+        assert_eq!(value["type"], "enum");
+        assert_eq!(value["values"][1], "b");
+        assert_eq!(value["default"], "a");
+    }
 }

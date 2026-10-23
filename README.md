@@ -59,6 +59,23 @@ Four rules keep it maintainable:
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and the
 trade-offs behind each decision.
 
+## Interface
+
+`mellivora serve` opens a local workbench — no cloud, no account, no uploads:
+
+- **Browse** by category or search across names, summaries, and tags (`Ctrl/⌘ K`).
+- **Fill in** generated forms: every field comes from the tool's manifest, so a
+  new tool appears with its own inputs and no frontend change.
+- **Read** results as findings with severity, warnings, formatted report bodies,
+  and structured data rendered as tables or key/value lists — with a JSON view
+  and one-click copy when you want the raw report.
+- **Run** with `Ctrl/⌘ ↵`; enable **dry run** to see what a mutating tool would
+  change without writing.
+- Dark and light themes follow the OS by default and are remembered, along with
+  your last tool and filter.
+
+The desktop shell (`apps/desktop`) renders the same bundle in a native window.
+
 ## Quick start
 
 ```bash
