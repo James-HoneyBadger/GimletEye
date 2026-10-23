@@ -10,6 +10,7 @@ task.
 mellivora system-info                       # what is this host doing?
 mellivora disk-usage --format json          # what is filling the disk?
 mellivora passgen length=32                 # generate a secret
+mellivora crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
 mellivora metadata-strip input=photo.jpg profile=sharing
 mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
 mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or desktop window
@@ -20,7 +21,7 @@ mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or deskto
 | Pillar | Capability |
 |---|---|
 | **System** | Host inventory, filesystem utilisation with thresholds, and — through packs — log, auth, permission, package, and service audits |
-| **Crypto** | OS-backed randomness, SHA-256, password generation with an entropy budget; authenticated encryption, signatures, and key management land behind one engine trait |
+| **Crypto** | Authenticated file encryption (AES-256-GCM, ChaCha20-Poly1305 with Argon2id), Ed25519 signing and verification, SHA-256, password generation with an entropy budget |
 | **Privacy** | Metadata scan, strip, and verify for JPEG, PNG, and WebP; removal profiles; field-level keep/remove; GPS redaction that preserves the rest of EXIF |
 
 Everything runs locally. There is no telemetry, no auto-update, and no network
@@ -88,7 +89,8 @@ Optional compatibility packs add capabilities from other implementations:
 | `crypto.passgen`, `crypto.sha256` | ✅ native |
 | `privacy.metadata-{scan,strip,verify}` for JPEG/PNG/WebP | ✅ native |
 | Removal profiles, field-level control, GPS redaction | ✅ native |
-| Native crypto engine (AEAD, signatures, container, keystore) | ⏳ `CryptoBackend` seam defined |
+| Encryption container, AEAD, Argon2id, Ed25519 signatures | ✅ native |
+| Keystore, secret sharing, shredding, OpenPGP interop | ⏳ roadmap |
 | HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ packs, then native |
 | WASM target, TUI, scheduler | ⏳ roadmap |
 
@@ -154,6 +156,7 @@ the Perl compatibility pack.
 
 - [Architecture](docs/ARCHITECTURE.md) — layers, contracts, dependency rules
 - [Plugin SDK](docs/PLUGIN_SDK.md) — write a pack in any language
+- [Container format](docs/CONTAINER.md) — byte layout of the `.melv` file
 - [Compatibility](docs/COMPATIBILITY.md) — versioning, deprecation, rollback
 - [Roadmap](docs/ROADMAP.md) — phases and acceptance criteria
 - [Enhancements](docs/ENHANCEMENTS.md) — proposed features with effort and risk

@@ -60,9 +60,47 @@ test_digest=$(cli sha256 text=abc --format json | python3 -c 'import json,sys; p
 [ "$test_digest" = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" ] \
     || fail "sha256 known-answer mismatch"
 
-step "metadata strip round trip"
+step "encryption and signatures"
 work="$MELLIVORA_HOME/work"
 mkdir -p "$work"
+export MELLIVORA_SMOKE_PASS="smoke-test-passphrase"
+printf 'the launch code is 0000\n' > "$work/secret.txt"
+
+cli crypto.encrypt input="$work/secret.txt" passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+[ -f "$work/secret.txt.melv" ] || fail "encrypt produced no container"
+
+cli crypto.inspect input="$work/secret.txt.melv" --format json | python3 -c '
+import json, sys
+report = json.load(sys.stdin)
+data = report["data"]
+assert data["algorithm"] == "chacha20-poly1305", data
+assert data["container_version"] == 1, data
+assert data["ciphertext_bytes"] > 0, data
+print("container:", report["summary"])
+'
+
+cli crypto.decrypt input="$work/secret.txt.melv" output="$work/decrypted.txt" \
+    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+cmp -s "$work/secret.txt" "$work/decrypted.txt" || fail "decrypted file does not match the original"
+
+# A wrong passphrase must fail instead of writing garbage.
+if MELLIVORA_SMOKE_PASS=wrong cli crypto.decrypt input="$work/secret.txt.melv" \
+    output="$work/bad.txt" passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null 2>&1; then
+    fail "decrypt should fail with a wrong passphrase"
+fi
+
+cli crypto.keygen label=smoke dir="$work/keys" >/dev/null
+cli crypto.sign input="$work/secret.txt" key="$work/keys/smoke.key" >/dev/null
+cli crypto.verify input="$work/secret.txt" signature="$work/secret.txt.sig" \
+    key="$work/keys/smoke.pub" >/dev/null || fail "signature did not verify"
+
+printf 'tampered\n' >> "$work/secret.txt"
+if cli crypto.verify input="$work/secret.txt" signature="$work/secret.txt.sig" \
+    key="$work/keys/smoke.pub" >/dev/null 2>&1; then
+    fail "verify should fail on a modified file"
+fi
+
+step "metadata strip round trip"
 python3 - "$work/photo.jpg" <<'PY'
 import struct, sys
 path = sys.argv[1]

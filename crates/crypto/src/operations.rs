@@ -1,0 +1,836 @@
+//! File-level cryptographic operations: encrypt, decrypt, inspect, sign,
+//! verify, and key generation.
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
+
+use mellivora_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Tool,
+    ToolContext, ToolManifest,
+};
+use serde_json::{json, Value};
+use zeroize::Zeroizing;
+
+use crate::backend::{AeadAlgorithm, CryptoBackend, KdfParams};
+use crate::container;
+use crate::keys::{self, Ed25519KeyPair};
+
+const ALGORITHMS: [&str; 2] = ["chacha20-poly1305", "aes256-gcm"];
+
+fn passphrase_args() -> [ArgSpec; 2] {
+    [
+        ArgSpec::new("passphrase_env", ArgKind::String)
+            .help("Environment variable holding the passphrase (preferred: keeps it out of shell history)"),
+        ArgSpec::new("passphrase", ArgKind::String)
+            .help("Passphrase inline; visible to other local users and in shell history"),
+    ]
+}
+
+fn input_arg(help: &str) -> ArgSpec {
+    ArgSpec::new("input", ArgKind::Path).required().help(help)
+}
+
+/// Resolve the passphrase from the environment (preferred) or the argument.
+fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
+    if let Some(variable) = args.opt_str("passphrase_env")? {
+        let value = std::env::var(&variable).map_err(|_| {
+            MellivoraError::InvalidArgs(format!("environment variable '{variable}' is not set"))
+        })?;
+        if value.is_empty() {
+            return Err(MellivoraError::InvalidArgs(format!(
+                "environment variable '{variable}' is empty"
+            )));
+        }
+        return Ok(Zeroizing::new(value.into_bytes()));
+    }
+
+    if let Some(value) = args.opt_str("passphrase")? {
+        if value.is_empty() {
+            return Err(MellivoraError::InvalidArgs("passphrase is empty".into()));
+        }
+        return Ok(Zeroizing::new(value.into_bytes()));
+    }
+
+    Err(MellivoraError::InvalidArgs(
+        "provide 'passphrase_env' (preferred) or 'passphrase'".into(),
+    ))
+}
+
+fn read_file(path: &Path) -> Result<Vec<u8>> {
+    if !path.exists() {
+        return Err(MellivoraError::NotFound(path.display().to_string()));
+    }
+    Ok(fs::read(path)?)
+}
+
+/// Refuse to clobber an existing file unless the caller asked for it.
+fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Result<()> {
+    if !context.dry_run && target.exists() && !overwrite {
+        return Err(MellivoraError::Config(format!(
+            "{} already exists (use overwrite=true to replace it)",
+            target.display()
+        )));
+    }
+    Ok(())
+}
+
+fn write_file(context: &ToolContext, target: &Path, bytes: &[u8]) -> Result<()> {
+    if context.dry_run {
+        return Ok(());
+    }
+    context.require(Capability::FsWrite)?;
+    if let Some(parent) = target.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    fs::write(target, bytes)?;
+    Ok(())
+}
+
+fn encrypted_path(input: &Path) -> PathBuf {
+    let name = input.file_name().unwrap_or_default().to_string_lossy();
+    input.with_file_name(format!("{name}.{}", container::EXTENSION))
+}
+
+fn decrypted_path(input: &Path) -> PathBuf {
+    if input.extension().and_then(|ext| ext.to_str()) == Some(container::EXTENSION) {
+        return input.with_extension("");
+    }
+    let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+    input.with_file_name(format!("{stem}.decrypted"))
+}
+
+/// Encrypt a file into a `.melv` container.
+pub struct Encrypt {
+    manifest: ToolManifest,
+    backend: Arc<dyn CryptoBackend>,
+}
+
+impl Encrypt {
+    pub fn new(backend: Arc<dyn CryptoBackend>) -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.encrypt",
+                "Encrypt a file",
+                "Seal a file into an authenticated container using a passphrase (Argon2id + AEAD)",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsRead, Capability::FsWrite, Capability::Secrets])
+            .with_args([
+                input_arg("File to encrypt"),
+                ArgSpec::new("output", ArgKind::Path)
+                    .help("Destination path (default: <input>.melv)"),
+                ArgSpec::new(
+                    "algorithm",
+                    ArgKind::Enum {
+                        values: ALGORITHMS.iter().map(|value| value.to_string()).collect(),
+                    },
+                )
+                .default_value(Value::from("chacha20-poly1305"))
+                .help("Authenticated cipher"),
+                passphrase_args()[0].clone(),
+                passphrase_args()[1].clone(),
+                ArgSpec::new("overwrite", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help("Replace the output file if it exists"),
+            ])
+            .with_tags(["encryption", "container", "aead"]),
+            backend,
+        }
+    }
+}
+
+impl Tool for Encrypt {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::FsRead)?;
+        ctx.require(Capability::Secrets)?;
+        let started = Instant::now();
+
+        let input = args.require_path("input")?;
+        let plaintext = read_file(&input)?;
+        let algorithm = match args.opt_str("algorithm")? {
+            Some(value) => AeadAlgorithm::parse(&value)?,
+            None => AeadAlgorithm::ChaCha20Poly1305,
+        };
+        let target = args
+            .opt_path("output")?
+            .unwrap_or_else(|| encrypted_path(&input));
+        let params = KdfParams::default();
+        let passphrase = passphrase(args)?;
+
+        ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
+        let sealed = container::seal(
+            &*self.backend,
+            passphrase.as_ref(),
+            algorithm,
+            params,
+            &plaintext,
+        )?;
+        write_file(ctx, &target, &sealed)?;
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!(
+                "{} {} → {} ({}, {})",
+                if ctx.dry_run { "would encrypt" } else { "encrypted" },
+                input.display(),
+                target.display(),
+                algorithm.as_str(),
+                "argon2id"
+            ))
+            .with_data(json!({
+                "input": input.display().to_string(),
+                "output": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
+                "algorithm": algorithm,
+                "kdf": params,
+                "plaintext_bytes": plaintext.len(),
+                "container_bytes": sealed.len(),
+                "dry_run": ctx.dry_run,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+/// Decrypt a `.melv` container.
+pub struct Decrypt {
+    manifest: ToolManifest,
+    backend: Arc<dyn CryptoBackend>,
+}
+
+impl Decrypt {
+    pub fn new(backend: Arc<dyn CryptoBackend>) -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.decrypt",
+                "Decrypt a file",
+                "Open an authenticated container with its passphrase",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsRead, Capability::FsWrite, Capability::Secrets])
+            .with_args([
+                input_arg("Container to decrypt"),
+                ArgSpec::new("output", ArgKind::Path)
+                    .help("Destination path (default: input without the .melv suffix)"),
+                passphrase_args()[0].clone(),
+                passphrase_args()[1].clone(),
+                ArgSpec::new("overwrite", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help("Replace the output file if it exists"),
+            ])
+            .with_tags(["decryption", "container", "aead"]),
+            backend,
+        }
+    }
+}
+
+impl Tool for Decrypt {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::FsRead)?;
+        ctx.require(Capability::Secrets)?;
+        let started = Instant::now();
+
+        let input = args.require_path("input")?;
+        let sealed = read_file(&input)?;
+        let header = container::inspect(&sealed)?;
+        let target = args
+            .opt_path("output")?
+            .unwrap_or_else(|| decrypted_path(&input));
+        let passphrase = passphrase(args)?;
+
+        let plaintext = container::open(&*self.backend, passphrase.as_ref(), &sealed)?;
+        ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
+        write_file(ctx, &target, &plaintext)?;
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!(
+                "{} {} → {} ({})",
+                if ctx.dry_run { "would decrypt" } else { "decrypted" },
+                input.display(),
+                target.display(),
+                header.algorithm.as_str()
+            ))
+            .with_data(json!({
+                "input": input.display().to_string(),
+                "output": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
+                "algorithm": header.algorithm,
+                "plaintext_bytes": plaintext.len(),
+                "dry_run": ctx.dry_run,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+/// Read a container header without the passphrase.
+pub struct Inspect {
+    manifest: ToolManifest,
+}
+
+impl Inspect {
+    pub fn new() -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.inspect",
+                "Inspect a container",
+                "Report the cipher, KDF parameters, and lengths of an encrypted container",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsRead])
+            .with_args([input_arg("Container to inspect")])
+            .with_tags(["container", "inspection", "metadata"]),
+        }
+    }
+}
+
+impl Default for Inspect {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Tool for Inspect {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::FsRead)?;
+        let started = Instant::now();
+        let input = args.require_path("input")?;
+        let bytes = read_file(&input)?;
+        let header = container::inspect(&bytes)?;
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!(
+                "{} · {} · Argon2id {} KiB/{} iterations",
+                input.display(),
+                header.algorithm.as_str(),
+                header.kdf.m_cost_kib,
+                header.kdf.t_cost
+            ))
+            .with_data(json!({
+                "path": input.display().to_string(),
+                "container_version": header.version,
+                "algorithm": header.algorithm,
+                "kdf": header.kdf,
+                "salt": header.salt_hex,
+                "container_bytes": bytes.len(),
+                "ciphertext_bytes": bytes.len() - container::HEADER_LEN,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+/// Generate an Ed25519 keypair.
+pub struct KeyGen {
+    manifest: ToolManifest,
+    backend: Arc<dyn CryptoBackend>,
+}
+
+impl KeyGen {
+    pub fn new(backend: Arc<dyn CryptoBackend>) -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.keygen",
+                "Generate a signing key",
+                "Create an Ed25519 keypair; the secret file is written owner-only",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsWrite, Capability::Secrets])
+            .with_args([
+                ArgSpec::new("label", ArgKind::String)
+                    .default_value(Value::from("default"))
+                    .help("Key name; files are <label>.key and <label>.pub"),
+                ArgSpec::new("dir", ArgKind::Path)
+                    .default_value(Value::from("."))
+                    .help("Directory to write the key files into"),
+                ArgSpec::new("overwrite", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help("Replace existing key files"),
+            ])
+            .with_tags(["keys", "ed25519", "signature"]),
+            backend,
+        }
+    }
+}
+
+impl Tool for KeyGen {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::Secrets)?;
+        let started = Instant::now();
+
+        let label = args.str_or("label", "default")?;
+        if label.contains('/') || label.contains('\\') || label == "." || label == ".." {
+            return Err(MellivoraError::InvalidArgs(
+                "label must be a plain file name".into(),
+            ));
+        }
+        let dir = args.opt_path("dir")?.unwrap_or_else(|| PathBuf::from("."));
+        let overwrite = args.bool_or("overwrite", false)?;
+
+        let secret_path = dir.join(format!("{label}.{}", keys::SECRET_EXTENSION));
+        let public_path = dir.join(format!("{label}.{}", keys::PUBLIC_EXTENSION));
+        if !overwrite && (secret_path.exists() || public_path.exists()) {
+            return Err(MellivoraError::Config(format!(
+                "{} already exists (use overwrite=true to replace it)",
+                secret_path.display()
+            )));
+        }
+
+        if !ctx.dry_run {
+            ctx.require(Capability::FsWrite)?;
+        }
+        let pair: Ed25519KeyPair = self.backend.ed25519_keygen();
+        if !ctx.dry_run {
+            keys::write_secret(&secret_path, &pair)?;
+            keys::write_public(&public_path, &pair)?;
+        }
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!(
+                "{} ed25519 key '{}' in {}",
+                if ctx.dry_run { "would generate" } else { "generated" },
+                label,
+                dir.display()
+            ))
+            .with_data(json!({
+                "algorithm": keys::ALGORITHM,
+                "label": label,
+                "secret_path": if ctx.dry_run { Value::Null } else { Value::String(secret_path.display().to_string()) },
+                "public_path": if ctx.dry_run { Value::Null } else { Value::String(public_path.display().to_string()) },
+                "public_key": keys::public_hex(&pair),
+                "dry_run": ctx.dry_run,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+/// Sign a file with an Ed25519 secret key.
+pub struct Sign {
+    manifest: ToolManifest,
+    backend: Arc<dyn CryptoBackend>,
+}
+
+impl Sign {
+    pub fn new(backend: Arc<dyn CryptoBackend>) -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.sign",
+                "Sign a file",
+                "Produce a detached Ed25519 signature for a file",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsRead, Capability::FsWrite, Capability::Secrets])
+            .with_args([
+                input_arg("File to sign"),
+                ArgSpec::new("key", ArgKind::Path)
+                    .required()
+                    .help("Secret key file (<label>.key)"),
+                ArgSpec::new("output", ArgKind::Path).help("Signature path (default: <input>.sig)"),
+            ])
+            .with_tags(["signature", "ed25519", "integrity"]),
+            backend,
+        }
+    }
+}
+
+impl Tool for Sign {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::FsRead)?;
+        ctx.require(Capability::Secrets)?;
+        let started = Instant::now();
+
+        let input = args.require_path("input")?;
+        let key_path = args.require_path("key")?;
+        let bytes = read_file(&input)?;
+        let secret = keys::decode_secret(
+            &fs::read_to_string(&key_path)
+                .map_err(|_| MellivoraError::NotFound(key_path.display().to_string()))?,
+        )?;
+
+        let target = args.opt_path("output")?.unwrap_or_else(|| {
+            let name = input.file_name().unwrap_or_default().to_string_lossy();
+            input.with_file_name(format!("{name}.sig"))
+        });
+
+        let signature = self.backend.ed25519_sign(&secret, &bytes)?;
+        write_file(ctx, &target, &signature)?;
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!(
+                "{} {} → {}",
+                if ctx.dry_run { "would sign" } else { "signed" },
+                input.display(),
+                target.display()
+            ))
+            .with_data(json!({
+                "input": input.display().to_string(),
+                "signature": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
+                "algorithm": keys::ALGORITHM,
+                "signature_hex": keys::hex_encode(&signature),
+                "dry_run": ctx.dry_run,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+/// Verify a detached signature.
+pub struct Verify {
+    manifest: ToolManifest,
+    backend: Arc<dyn CryptoBackend>,
+}
+
+impl Verify {
+    pub fn new(backend: Arc<dyn CryptoBackend>) -> Self {
+        Self {
+            manifest: ToolManifest::new(
+                "crypto.verify",
+                "Verify a signature",
+                "Check a detached Ed25519 signature against a public key",
+                Category::Crypto,
+            )
+            .with_capabilities([Capability::FsRead])
+            .with_args([
+                input_arg("File that was signed"),
+                ArgSpec::new("signature", ArgKind::Path)
+                    .required()
+                    .help("Detached signature file"),
+                ArgSpec::new("key", ArgKind::Path)
+                    .required()
+                    .help("Public key file (<label>.pub)"),
+            ])
+            .with_tags(["signature", "ed25519", "verification"]),
+            backend,
+        }
+    }
+}
+
+impl Tool for Verify {
+    fn manifest(&self) -> &ToolManifest {
+        &self.manifest
+    }
+
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
+        ctx.require(Capability::FsRead)?;
+        let started = Instant::now();
+
+        let input = args.require_path("input")?;
+        let signature_path = args.require_path("signature")?;
+        let key_path = args.require_path("key")?;
+
+        let bytes = read_file(&input)?;
+        let signature_bytes = read_file(&signature_path)?;
+        let signature: [u8; 64] = signature_bytes.as_slice().try_into().map_err(|_| {
+            MellivoraError::InvalidArgs(format!(
+                "{} is not a 64-byte signature",
+                signature_path.display()
+            ))
+        })?;
+        let public = keys::decode_public(
+            &fs::read_to_string(&key_path)
+                .map_err(|_| MellivoraError::NotFound(key_path.display().to_string()))?,
+        )?;
+
+        self.backend.ed25519_verify(&public, &bytes, &signature)?;
+
+        Ok(Report::new(&self.manifest.id)
+            .with_summary(format!("signature is valid for {}", input.display()))
+            .with_data(json!({
+                "input": input.display().to_string(),
+                "signature": signature_path.display().to_string(),
+                "key": key_path.display().to_string(),
+                "public_key": keys::hex_encode(&public),
+                "algorithm": keys::ALGORITHM,
+                "valid": true,
+            }))
+            .with_duration(started.elapsed())
+            .sealed())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mellivora_core::AppPaths;
+
+    /// Unique per call, so repeated runs and parallel tests cannot collide.
+    fn workspace() -> PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let index = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("mellivora-crypto-{}-{index}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("dir");
+        dir
+    }
+
+    fn context() -> ToolContext {
+        ToolContext::new(AppPaths::under(workspace()))
+    }
+
+    fn tool<T>(build: impl FnOnce(Arc<dyn CryptoBackend>) -> T) -> T {
+        build(Arc::new(crate::NativeBackend))
+    }
+
+    #[test]
+    fn encrypts_and_decrypts_a_file() {
+        let dir = workspace();
+        let input = dir.join("secret.txt");
+        fs::write(&input, b"the launch code is 0000").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase", "correct horse");
+        tool(Encrypt::new).run(&context(), &args).expect("encrypt");
+
+        let sealed = dir.join("secret.txt.melv");
+        assert!(sealed.exists());
+        assert!(!fs::read(&sealed)
+            .expect("read")
+            .windows(4)
+            .any(|w| w == b"laun"));
+
+        let mut decrypt_args = Args::new();
+        decrypt_args.insert("input", sealed.display().to_string());
+        decrypt_args.insert("passphrase", "correct horse");
+        decrypt_args.insert("overwrite", true);
+        let report = tool(Decrypt::new)
+            .run(&context(), &decrypt_args)
+            .expect("decrypt");
+
+        assert_eq!(report.data["algorithm"], Value::from("chacha20-poly1305"));
+        assert_eq!(
+            fs::read(dir.join("secret.txt")).expect("read"),
+            b"the launch code is 0000"
+        );
+    }
+
+    #[test]
+    fn refuses_to_overwrite_an_existing_output() {
+        let dir = workspace();
+        let input = dir.join("guard.txt");
+        fs::write(&input, b"original").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase", "pass");
+        tool(Encrypt::new).run(&context(), &args).expect("first");
+
+        let err = tool(Encrypt::new)
+            .run(&context(), &args)
+            .expect_err("second");
+        assert_eq!(err.code(), "config");
+
+        args.insert("overwrite", true);
+        tool(Encrypt::new)
+            .run(&context(), &args)
+            .expect("overwrite");
+    }
+
+    #[test]
+    fn wrong_passphrase_is_reported() {
+        let dir = workspace();
+        let input = dir.join("wrong-pass.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase", "right");
+        tool(Encrypt::new).run(&context(), &args).expect("encrypt");
+
+        let mut decrypt_args = Args::new();
+        decrypt_args.insert(
+            "input",
+            dir.join("wrong-pass.txt.melv").display().to_string(),
+        );
+        decrypt_args.insert("passphrase", "wrong");
+        let err = tool(Decrypt::new)
+            .run(&context(), &decrypt_args)
+            .expect_err("must fail");
+        assert_eq!(err.code(), "tool");
+    }
+
+    #[test]
+    fn passphrase_can_come_from_the_environment() {
+        let dir = workspace();
+        let input = dir.join("env-pass.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let variable = "MELLIVORA_TEST_PASSPHRASE";
+        std::env::set_var(variable, "from-the-environment");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase_env", variable);
+        tool(Encrypt::new).run(&context(), &args).expect("encrypt");
+
+        let mut decrypt_args = Args::new();
+        decrypt_args.insert("input", dir.join("env-pass.txt.melv").display().to_string());
+        decrypt_args.insert("passphrase_env", variable);
+        decrypt_args.insert("overwrite", true);
+        tool(Decrypt::new)
+            .run(&context(), &decrypt_args)
+            .expect("decrypt");
+
+        std::env::remove_var(variable);
+    }
+
+    #[test]
+    fn missing_passphrase_is_an_argument_error() {
+        let dir = workspace();
+        let input = dir.join("no-pass.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        let err = tool(Encrypt::new)
+            .run(&context(), &args)
+            .expect_err("must fail");
+        assert_eq!(err.code(), "invalid_args");
+    }
+
+    #[test]
+    fn dry_run_does_not_write_the_container() {
+        let dir = workspace();
+        let input = dir.join("dry.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase", "x");
+        let report = tool(Encrypt::new)
+            .run(&context().with_dry_run(true), &args)
+            .expect("dry run");
+
+        assert_eq!(report.data["dry_run"], Value::Bool(true));
+        assert!(!dir.join("dry.txt.melv").exists());
+    }
+
+    #[test]
+    fn inspect_reads_the_header_without_a_passphrase() {
+        let dir = workspace();
+        let input = dir.join("inspect.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("passphrase", "x");
+        args.insert("algorithm", "aes256-gcm");
+        tool(Encrypt::new).run(&context(), &args).expect("encrypt");
+
+        let mut inspect_args = Args::new();
+        inspect_args.insert("input", dir.join("inspect.txt.melv").display().to_string());
+        let report = tool(|_| Inspect::new())
+            .run(&context(), &inspect_args)
+            .expect("inspect");
+        assert_eq!(report.data["algorithm"], Value::from("aes256-gcm"));
+        assert!(report.data["ciphertext_bytes"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn keygen_sign_and_verify_round_trip() {
+        let dir = workspace();
+        let key_dir = dir.join("keys");
+
+        let mut keygen_args = Args::new();
+        keygen_args.insert("label", "signer");
+        keygen_args.insert("dir", key_dir.display().to_string());
+        let report = tool(KeyGen::new)
+            .run(&context(), &keygen_args)
+            .expect("keygen");
+        assert_eq!(report.data["algorithm"], Value::from("ed25519"));
+
+        let input = dir.join("contract.txt");
+        fs::write(&input, b"agreed").expect("write");
+
+        let mut sign_args = Args::new();
+        sign_args.insert("input", input.display().to_string());
+        sign_args.insert("key", key_dir.join("signer.key").display().to_string());
+        let signed = tool(Sign::new).run(&context(), &sign_args).expect("sign");
+        assert_eq!(signed.data["signature_hex"].as_str().unwrap().len(), 128);
+
+        let mut verify_args = Args::new();
+        verify_args.insert("input", input.display().to_string());
+        verify_args.insert(
+            "signature",
+            dir.join("contract.txt.sig").display().to_string(),
+        );
+        verify_args.insert("key", key_dir.join("signer.pub").display().to_string());
+        let verified = tool(Verify::new)
+            .run(&context(), &verify_args)
+            .expect("verify");
+        assert_eq!(verified.status, mellivora_core::Status::Ok);
+
+        // A changed file must fail verification.
+        fs::write(&input, b"agreed, but edited").expect("write");
+        let err = tool(Verify::new)
+            .run(&context(), &verify_args)
+            .expect_err("must fail");
+        assert_eq!(err.code(), "tool");
+    }
+
+    #[test]
+    fn keygen_refuses_to_overwrite_by_default() {
+        let dir = workspace();
+        let key_dir = dir.join("keys-existing");
+        let mut args = Args::new();
+        args.insert("label", "twice");
+        args.insert("dir", key_dir.display().to_string());
+        tool(KeyGen::new).run(&context(), &args).expect("first");
+        let err = tool(KeyGen::new)
+            .run(&context(), &args)
+            .expect_err("second");
+        assert_eq!(err.code(), "config");
+    }
+
+    #[test]
+    fn keygen_rejects_path_traversal_labels() {
+        let mut args = Args::new();
+        args.insert("label", "../escape");
+        let err = tool(KeyGen::new)
+            .run(&context(), &args)
+            .expect_err("must fail");
+        assert_eq!(err.code(), "invalid_args");
+    }
+
+    #[test]
+    fn verify_requires_a_64_byte_signature() {
+        let dir = workspace();
+        let input = dir.join("short-sig.txt");
+        fs::write(&input, b"data").expect("write");
+        let signature = dir.join("short.sig");
+        fs::write(&signature, b"too short").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("signature", signature.display().to_string());
+        args.insert("key", dir.join("missing.pub").display().to_string());
+        let err = tool(Verify::new)
+            .run(&context(), &args)
+            .expect_err("must fail");
+        assert_eq!(err.code(), "invalid_args");
+    }
+}

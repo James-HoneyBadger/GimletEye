@@ -1,31 +1,45 @@
 //! Cryptography module.
 //!
-//! Everything here talks to a [`CryptoBackend`]. The toolkit ships an
-//! operating-system backend (randomness, SHA-256, password generation); the
-//! authenticated-encryption engine, signatures, key management, and the
-//! streaming container slot in behind the same trait, so tools and surfaces
-//! never change as the engine grows.
+//! Everything here talks to a [`CryptoBackend`]. The toolkit's native backend
+//! covers authenticated encryption (AES-256-GCM, ChaCha20-Poly1305), Argon2id
+//! key derivation, Ed25519 signatures, SHA-256, and password generation. An
+//! alternative engine (a hardware token, a validated module) implements the same
+//! trait, and no tool or surface changes.
 
 mod backend;
+mod container;
 mod hash;
+mod keys;
+mod operations;
 mod passgen;
 
-pub use backend::{CryptoBackend, OsBackend};
+pub use backend::{AeadAlgorithm, CryptoBackend, KdfParams, NativeBackend};
+pub use container::{
+    ContainerHeader, EXTENSION as CONTAINER_EXTENSION, HEADER_LEN, MAGIC, VERSION,
+};
 pub use hash::Sha256;
+pub use keys::{Ed25519KeyPair, PUBLIC_EXTENSION, SECRET_EXTENSION};
+pub use operations::{Decrypt, Encrypt, Inspect, KeyGen, Sign, Verify};
 pub use passgen::PassGen;
 
 use std::sync::Arc;
 
 use mellivora_core::{Result, Tool};
 
-/// Build the tool set backed by the operating system's CSPRNG.
+/// Build the tool set backed by the native engine.
 pub fn tools() -> Result<Vec<Arc<dyn Tool>>> {
-    tools_with(Arc::new(OsBackend))
+    tools_with(Arc::new(NativeBackend))
 }
 
 pub fn tools_with(backend: Arc<dyn CryptoBackend>) -> Result<Vec<Arc<dyn Tool>>> {
     Ok(vec![
         Arc::new(PassGen::new(Arc::clone(&backend))),
         Arc::new(Sha256::new(Arc::clone(&backend))),
+        Arc::new(Encrypt::new(Arc::clone(&backend))),
+        Arc::new(Decrypt::new(Arc::clone(&backend))),
+        Arc::new(Inspect::new()),
+        Arc::new(KeyGen::new(Arc::clone(&backend))),
+        Arc::new(Sign::new(Arc::clone(&backend))),
+        Arc::new(Verify::new(backend)),
     ])
 }

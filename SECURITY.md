@@ -62,13 +62,29 @@ There is no telemetry, no auto-update check, and no remote logging.
 
 ## Cryptographic posture
 
+- **No primitives are written here.** AES-256-GCM, ChaCha20-Poly1305, Argon2id,
+  Ed25519, and SHA-256 come from the RustCrypto and dalek crates.
 - Password generation uses the OS CSPRNG with rejection sampling (no modulo
   bias) and guarantees at least one character from each enabled class.
-- Hashing uses RustCrypto's SHA-256.
-- The native crypto engine, once implemented, supplies audited primitives (AES-256-GCM,
-  ChaCha20-Poly1305, Ed25519, X25519, RSA, Argon2id, scrypt) with zeroized
-  secrets. The toolkit wraps those implementations; it does not write its own
-  primitives.
+- Keys, derived keys, passphrases, and decrypted plaintext are held in
+  zeroizing buffers; the secret half of a generated keypair is written with mode
+  `0600`.
+- The `.melv` container authenticates its own header, so altering the cipher,
+  the KDF parameters, or the salt fails decryption instead of weakening it.
+  KDF parameters are validated *before* key derivation, so a crafted file
+  cannot demand unbounded memory.
+- A plaintext file is only written after the authentication tag verifies; there
+  is no partial or best-effort decrypt.
+- A wrong passphrase and a corrupted file produce the same error, so the tool is
+  not a decryption oracle.
+- Existing files are never replaced unless the caller passes `overwrite=true`.
+- The passphrase is read from an environment variable by preference
+  (`passphrase_env`); inline arguments are documented as visible to other local
+  users and in shell history. It never appears in a report or audit record.
+
+The format is specified in [docs/CONTAINER.md](docs/CONTAINER.md), including its
+known limitations (no streaming, no public-key recipients, no embedded
+metadata).
 
 ## Supported versions
 

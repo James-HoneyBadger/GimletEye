@@ -6,7 +6,25 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ## [Unreleased]
 
-Removal policies, GPS redaction, and CI-friendly exit codes.
+Native cryptography: authenticated file encryption, Ed25519 signatures, and the
+`.melv` container. Plus removal policies, GPS redaction, and CI-friendly exit
+codes.
+
+### Added
+
+- **Native crypto engine.** `CryptoBackend` now has a real implementation:
+  AES-256-GCM, ChaCha20-Poly1305, Argon2id, Ed25519, SHA-256, and OS randomness,
+  with secrets in zeroizing buffers.
+- **`.melv` container v1.** Self-describing encrypted file: magic, version,
+  cipher id, KDF parameters, salt, and nonce in an authenticated header.
+  Header tampering fails decryption; parameter bounds are checked before key
+  derivation. Specified in `docs/CONTAINER.md`.
+- **Tools:** `crypto.encrypt`, `crypto.decrypt`, `crypto.inspect`,
+  `crypto.keygen`, `crypto.sign`, `crypto.verify`.
+- **`--overwrite` guard** on encrypt/decrypt: an existing output file is never
+  replaced silently.
+- Known-answer tests: NIST AES-256-GCM (case 13), RFC 8032 Ed25519, plus
+  round-trip, tamper, and wrong-passphrase coverage.
 
 ### Added
 

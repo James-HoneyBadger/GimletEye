@@ -37,17 +37,20 @@ criterion so "done" is not a matter of opinion.
 
 ## v0.3 — Crypto engine
 
-- [ ] A native engine implements `CryptoBackend`.
-  *Acceptance:* differential tests against the reference implementation for
-  hash, pass generation, AEAD, and key wrapping.
-- [ ] `crypto.encrypt` / `crypto.decrypt` over the HBZF container.
-  *Acceptance:* golden HBZF files from the old repo decrypt byte-identically;
-  multi-GB streaming test does not exceed bounded memory.
-- [ ] `crypto.sign` / `crypto.verify` (Ed25519; RSA via features).
-  *Acceptance:* cross-verification with OpenSSL and with `sequoia` for OpenPGP.
-- [ ] Keystore tools (`crypto.keygen`, `crypto.key-list`) with encrypted storage.
-  *Acceptance:* an existing keystore opens without migration; secrets are
-  zeroized on drop.
+- [x] A native engine implements `CryptoBackend`.
+  *Acceptance:* known-answer tests for AES-256-GCM, ChaCha20-Poly1305, Argon2id,
+  and Ed25519 (RFC 8032 vector).
+- [x] `crypto.encrypt` / `crypto.decrypt` over the `.melv` container.
+  *Acceptance:* round-trip both ciphers; header tampering and wrong passphrases
+  fail closed; header readable without the passphrase.
+- [x] `crypto.sign` / `crypto.verify` (Ed25519).
+  *Acceptance:* RFC 8032 known-answer test; a modified file fails verification.
+- [ ] Streaming container (v2) for multi-gigabyte files.
+  *Acceptance:* bounded memory on a 10 GB input; v1 files still open.
+- [ ] Keystore tools (`crypto.key-list`, encrypted storage) and key wrapping.
+  *Acceptance:* secrets are zeroized on drop; a keystore survives restart.
+- [ ] X25519/RSA and OpenPGP interop.
+  *Acceptance:* cross-verification with OpenSSL and `sequoia`.
 
 ## v0.4 — Consolidation
 

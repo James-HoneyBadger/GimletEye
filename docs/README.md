@@ -4,6 +4,7 @@
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand the layers, contracts, and dependency rules |
 | [PLUGIN_SDK.md](PLUGIN_SDK.md) | write a pack in Perl, Python, Node, Go, or Rust |
+| [CONTAINER.md](CONTAINER.md) | read or implement the `.melv` encrypted file format |
 | [COMPATIBILITY.md](COMPATIBILITY.md) | check what is public API, how deprecation works, how rollback works |
 | [PROVENANCE.md](PROVENANCE.md) | find out where a module began (maintainer note) |
 | [ROADMAP.md](ROADMAP.md) | see phases and their acceptance criteria |

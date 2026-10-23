@@ -99,7 +99,7 @@ mod tests {
     use mellivora_core::AppPaths;
 
     fn tool() -> Sha256 {
-        Sha256::new(Arc::new(crate::OsBackend))
+        Sha256::new(Arc::new(crate::NativeBackend))
     }
 
     fn context() -> ToolContext {

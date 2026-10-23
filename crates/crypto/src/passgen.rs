@@ -188,7 +188,7 @@ mod tests {
     }
 
     fn run(args: Args) -> Report {
-        PassGen::new(Arc::new(crate::OsBackend))
+        PassGen::new(Arc::new(crate::NativeBackend))
             .run(&context(), &args)
             .expect("run")
     }
@@ -235,7 +235,7 @@ mod tests {
     fn rejects_out_of_range_length() {
         let mut args = Args::new();
         args.insert("length", 4);
-        let err = PassGen::new(Arc::new(crate::OsBackend))
+        let err = PassGen::new(Arc::new(crate::NativeBackend))
             .run(&context(), &args)
             .expect_err("must reject");
         assert_eq!(err.code(), "invalid_args");

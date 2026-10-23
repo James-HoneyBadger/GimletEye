@@ -372,12 +372,14 @@ test before it ships. Thresholds live in the `modules.sysadmin` config namespace
 | Capability | Status |
 |---|---|
 | OS randomness, SHA-256, password generation | native |
-| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) | planned, behind `CryptoBackend` |
-| Signatures (Ed25519, X25519, RSA), OpenPGP interop | planned |
-| Streaming container, keystore, Shamir, shredding, QR | planned |
+| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) + Argon2id | native, `.melv` container v1 |
+| Signatures (Ed25519) | native |
+| Streaming encryption, keystore, X25519/RSA/OpenPGP, Shamir, shredding, QR | planned |
 
 `CryptoBackend` is the seam: adopting each capability is an implementation of
-one trait, not a change to any tool or surface.
+one trait, not a change to any tool or surface. The container format is
+specified in [CONTAINER.md](CONTAINER.md) and versioned like any other public
+API.
 
 ### Privacy — `mellivora-scrub`
 

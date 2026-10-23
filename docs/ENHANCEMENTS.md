@@ -15,7 +15,7 @@ These are ordered by value per unit of risk. Everything else can wait.
 
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
-| 1 | [Implement the native crypto engine](#1-implement-the-native-crypto-engine) | The crypto pillar is a seam with no engine. Everything else in crypto waits on it. | L | High |
+| 1 | [Complete the crypto pillar](#1-complete-the-crypto-pillar) | Encryption and signatures shipped; streaming, keystore, and key exchange remain. | L | High |
 | 2 | [hb-scrub pack for the other ten formats](#2-hb-scrub-pack-for-the-remaining-ten-formats) | Ten formats of parity for a manifest and a small adapter. | S–M | Low |
 | 3 | [Batch execution](#3-batch-execution) | Privacy work is per-file today; real use is per-directory. | M | Medium |
 | 4 | [Golden corpus and fuzzing](#4-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
@@ -25,20 +25,26 @@ These are ordered by value per unit of risk. Everything else can wait.
 
 ## Privacy and metadata
 
-### 1. Implement the native crypto engine
+### 1. Complete the crypto pillar
 
 **Problem.** `crates/crypto` defines `CryptoBackend`; only `OsBackend` implements
 it. AEAD, signatures, HBZF, and the keystore are unavailable.
 
-**Why.** This is the third pillar of the toolkit. A reference implementation
-and its golden files already exist, so the port can be verified rather than
-hoped for.
+**Done.** Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305), Argon2id
+key derivation, Ed25519 signing, and the `.melv` container are implemented and
+covered by known-answer tests.
 
-**Shape.** Add a `mellivora-crypto-native` crate implementing the trait, then
-`crypto.encrypt`, `crypto.decrypt`, `crypto.sign`, `crypto.verify`,
-`crypto.keygen`. Differential tests against the old CLI gate the port.
+**Remaining.**
+1. **Streaming container v2** — chunked framing with a per-chunk counter, so a
+   10 GB file does not need 10 GB of RAM. v1 files must keep opening.
+2. **Keystore** — encrypted key storage, listing, rotation, and expiry checks.
+   Today keys are plain files with mode 0600.
+3. **Key exchange** — X25519 recipients and RSA, then OpenPGP interop so the
+   tool can talk to existing GPG users.
+4. **Shamir split/combine and secure shred**, with `--dry-run` by default.
 
-**Effort** L · **Risk** High — a format regression here is unrecoverable data loss.
+**Effort** L · **Risk** High — a container or key-format regression here is
+unrecoverable data loss. Every change needs a golden-file test and an ADR.
 
 ### 2. hb-scrub pack for the remaining ten formats
 
