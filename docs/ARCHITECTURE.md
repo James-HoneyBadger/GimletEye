@@ -1,8 +1,9 @@
 # Architecture
 
-The goal is one toolkit that is easy to extend and cheap to maintain, built from
-three codebases in three languages. This document explains the structure, the
-rules that keep it from decaying, and the reasoning behind each choice.
+The goal is a toolkit that is easy to extend and cheap to maintain across three
+domains and more than one implementation language. This document explains the
+structure, the rules that keep it from decaying, and the reasoning behind each
+choice.
 
 - [1. Design goals](#1-design-goals)
 - [2. Domain pillars](#2-domain-pillars)
