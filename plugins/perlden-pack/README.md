@@ -1,9 +1,12 @@
-# Perl Den pack
+# Perl Den compatibility pack
 
-Serves the 20 Perl Den sysadmin modules to Mellivora ToolKit over the plugin
-protocol, with **no rewrite**. The pack loads each module's existing
-`run(%args)` / `format_report(%result)` pair and translates the result into a
-toolkit `Report`.
+**Optional.** Mellivora ToolKit does not require this pack; the CLI, HTTP API,
+and UI work without it. Install it only if you want Perl Den's sysadmin module
+catalogue available alongside the native tools.
+
+The pack runs each Perl Den module over the Mellivora plugin protocol and
+translates its `run(%args)` / `format_report(%result)` pair into a toolkit
+`Report`. The modules are read from a checkout; nothing is vendored here.
 
 ## Requirements
 
@@ -13,7 +16,7 @@ toolkit `Report`.
 
 ## Finding the source
 
-The pack resolves a Perl Den root in this order:
+The pack resolves a root in this order:
 
 1. `MELLIVORA_PERLDEN_HOME`
 2. `../../external/Perl_Den` relative to this directory
@@ -33,10 +36,16 @@ mellivora run perlden.system-info
 mellivora run perlden.disk-usage --format json
 ```
 
-## Why this shape
+## Interaction with native tools
 
-Perl Den's value is its 20 tested sysadmin checks and its module contract.
-Rewriting them in Rust first would have delayed the unified toolkit and thrown
-away the tests. Instead the pack is an adapter: the modules are reused as-is,
-and each one can be ported to a native `mellivora-sysadmin` module later with
-no change to the CLI, API, or UI.
+A built-in tool always wins an ambiguous shorthand. Once `sysadmin.system-info`
+exists natively, `mellivora system-info` runs the native tool; the pack's
+version stays reachable as `perlden.system-info` until it is retired. See
+[COMPATIBILITY.md](../../docs/COMPATIBILITY.md).
+
+## Why a pack rather than a port
+
+The modules are tested and in use. Wrapping them costs an afternoon and keeps
+the checks available while native implementations land one at a time. When a
+module is ported, the pack tool simply stops being the default and is removed a
+release later — no user-facing change.

@@ -15,7 +15,7 @@ These are ordered by value per unit of risk. Everything else can wait.
 
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
-| 1 | [Link the DarkStar engine](#1-link-the-darkstar-engine-behind-cryptobackend) | The crypto pillar is a seam with no engine. Everything else in crypto waits on it. | L | High |
+| 1 | [Implement the native crypto engine](#1-implement-the-native-crypto-engine) | The crypto pillar is a seam with no engine. Everything else in crypto waits on it. | L | High |
 | 2 | [hb-scrub pack for the other ten formats](#2-hb-scrub-pack-for-the-remaining-ten-formats) | Ten formats of parity for a manifest and a small adapter. | S–M | Low |
 | 3 | [Batch execution](#3-batch-execution) | Privacy work is per-file today; real use is per-directory. | M | Medium |
 | 4 | [Golden corpus and fuzzing](#4-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
@@ -25,15 +25,16 @@ These are ordered by value per unit of risk. Everything else can wait.
 
 ## Privacy and metadata
 
-### 1. Link the DarkStar engine behind `CryptoBackend`
+### 1. Implement the native crypto engine
 
 **Problem.** `crates/crypto` defines `CryptoBackend`; only `OsBackend` implements
 it. AEAD, signatures, HBZF, and the keystore are unavailable.
 
-**Why.** This is the third pillar of the toolkit. DarkStar already has audited
-implementations and 1.1.1 golden files to test against.
+**Why.** This is the third pillar of the toolkit. A reference implementation
+and its golden files already exist, so the port can be verified rather than
+hoped for.
 
-**Shape.** Add `mellivora-crypto-darkstar` implementing the trait, then
+**Shape.** Add a `mellivora-crypto-native` crate implementing the trait, then
 `crypto.encrypt`, `crypto.decrypt`, `crypto.sign`, `crypto.verify`,
 `crypto.keygen`. Differential tests against the old CLI gate the port.
 
@@ -111,8 +112,8 @@ being an answer.
 
 | Item | Why | Effort |
 |---|---|---|
-| `privacy.stego-scan` | HB_Scrub ships `detectSteganography`; it was not ported. Cheap, distinctive, and fits the module. | S |
-| Metadata injection | HB_Scrub can write copyright/software/artist fields. Needs the TIFF writer; risky. | M |
+| `privacy.stego-scan` | Detects hidden payloads behind an image; cheap, distinctive, and fits the module. | S |
+| Metadata injection | Writing a clean copyright/software/artist field is the counterpart to stripping. Needs the TIFF writer; risky. | M |
 | Field-level decision report | Emit `decisions: [{segment, action, reason}]` so a compliance reviewer can see *why* each byte was kept or removed. | S |
 | Streaming strip | Multi-GB video and RAW currently load fully into memory. | M |
 | GPS redaction for RAW/HEIC/TIFF | Only JPEG/PNG/WebP today. | S–M each |
@@ -137,9 +138,9 @@ reasonable design but it is currently only documented in code.
 |---|---|---|
 | `crypto.pass-audit` | Password *generation* exists; auditing an existing one does not. Offline strength + pattern checks, no network calls. | S |
 | `crypto.key-audit` | Expired, weak, or duplicated keys in a keystore. Pairs naturally with `sysadmin` audits. | M |
-| Shamir split/combine | DarkStar has `shamir.rs`; exposing it is a small wrapper and a distinctive feature. | S |
-| Secure shred | `shred.rs` exists in DarkStar. Must be `--dry-run` first and require explicit confirmation. | S |
-| QR export/import | DarkStar has QR helpers for key exchange. Needs a terminal renderer plus UI support. | M |
+| Shamir split/combine | Secret sharing is a natural companion to key management, and a small wrapper. | S |
+| Secure shred | Deletion that survives forensic recovery. Must be `--dry-run` first and require explicit confirmation. | S |
+| QR export/import | Out-of-band key exchange without a network. Needs a terminal renderer plus UI support. | M |
 | OpenPGP interop tools | Sequoia integration exists; `crypto.gpg-*` tools make migration from existing GPG users practical. | M |
 | Post-quantum readiness | Track ML-KEM/ML-DSA support in the RustCrypto ecosystem; do not implement primitives. | S now, L later |
 
@@ -185,7 +186,7 @@ reasonable design but it is currently only documented in code.
 
 ## Explicitly not doing
 
-- **An IDE.** Perl Den's editor, terminal, and tutorials stay in Perl Den.
+- **An IDE.** Mellivora is a workbench, not an editor. Editors stay editors.
 - **A hosted service.** Everything is local; a cloud mode would undo the privacy
   guarantee that makes the toolkit worth using.
 - **Custom cryptographic primitives.** Wrap audited implementations; never

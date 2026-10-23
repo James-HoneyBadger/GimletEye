@@ -5,15 +5,15 @@
 
 ## Context
 
-The source projects each invent a result shape:
+The three domains produce results in different shapes:
 
-- Perl Den: `\%result` plus a separate `format_report(\%result)` string renderer.
-- HB_Scrub: `{ data, format, removedMetadata, originalSize, cleanedSize, warnings }`.
-- DarkStar: typed service results plus an audit record.
+- A system check wants to show structured data **and** a formatted table.
+- A privacy operation wants to report what it changed and what it could not.
+- A crypto service returns typed values and writes an audit record.
 
-Any surface that wants to show "what happened" must special-case each shape —
-which is exactly how the three projects ended up with three CLIs, three GUIs,
-and three output formats.
+If each tool defines its own result type, every surface must special-case every
+tool. That is how a CLI, an HTTP API, and a UI end up with three renderers and
+three definitions of "failed".
 
 ## Decision
 
@@ -37,8 +37,8 @@ Two non-obvious choices:
 1. **`status` is derived from findings** (`Report::sealed()`), never asserted by
    the tool. A tool cannot claim success while emitting a `high` finding.
 2. **`body` is separate from `data`.** `data` is the machine channel; `body` is
-   optional human text. This is what lets a Perl module return its formatted
-   report *and* structured data without either consumer parsing the other.
+   optional human text. This lets a tool return a formatted report *and*
+   structured data without either consumer parsing the other.
 
 ## Consequences
 
@@ -47,8 +47,9 @@ Two non-obvious choices:
 - One renderer serves text, JSON, Markdown, and CSV; one HTTP response; one UI
   component.
 - Findings give every tool a uniform severity vocabulary, which the UI, audit
-  log, and a future policy engine can all use.
-- A compat pack can return a legacy formatted report verbatim in `body`.
+  log, `--strict` exit codes, and a future policy engine all share.
+- A pack can return a formatted report verbatim in `body` while still exposing
+  structured fields.
 
 **Negative**
 

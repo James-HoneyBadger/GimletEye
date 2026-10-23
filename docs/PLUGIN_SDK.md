@@ -4,7 +4,7 @@ A pack is **any executable** that speaks JSON-RPC 2.0 over stdin/stdout. Perl,
 Python, Node, Go, a shell script — the host does not care.
 
 The reference implementation is [`plugins/perlden-pack/pack.pl`](../plugins/perlden-pack/pack.pl),
-which serves all 20 Perl Den modules.
+an optional compatibility pack that exposes external system-audit modules.
 
 ---
 

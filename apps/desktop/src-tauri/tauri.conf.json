@@ -27,9 +27,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.png"],
+    "icon": [
+      "icons/icon.png"
+    ],
     "category": "Utility",
     "shortDescription": "System, crypto, and privacy workbench",
-    "longDescription": "Mellivora ToolKit unifies the Perl Den sysadmin scripts, DarkStar cryptography, and HB_Scrub metadata tools behind one interface."
+    "longDescription": "Mellivora ToolKit is one workbench for system administration, cryptography, and metadata privacy: a single tool registry, report format, configuration, and audit trail behind a CLI, a local API, and this window."
   }
 }

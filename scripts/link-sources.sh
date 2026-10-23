@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Link the source projects into external/ for local development.
+# Fetch optional external sources used by compatibility packs.
 #
-# The toolkit references these repositories rather than vendoring them, so this
-# script only fetches what a given workflow needs.
+# Nothing here is required by the toolkit itself. This script only fetches what
+# a given pack needs, into external/ (gitignored), so the pack can read it.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,17 +20,17 @@ clone_if_missing() {
     git clone --depth 1 --quiet "$url" "$dest"
 }
 
-echo "linking sources into $external"
-# Perl Den is required by the perlden-pack adapter and is small.
+echo "linking pack sources into $external"
+# Required by the Perl Den compatibility pack; small.
 clone_if_missing Perl_Den https://github.com/James-HoneyBadger/Perl_Den.git
 
 if [ "${1:-}" = "--all" ]; then
-    # Reference only: these stay in their own repositories until their ports
-    # land. Expect a large download.
+    # Reference only: useful when writing a new adapter or comparing
+    # behaviour. Expect a large download.
     clone_if_missing Zayfer_Vault https://github.com/James-HoneyBadger/Zayfer_Vault.git
     clone_if_missing NakiByte https://github.com/James-HoneyBadger/NakiByte.git
 else
-    echo "  (pass --all for Zayfer_Vault and NakiByte; only needed for porting)"
+    echo "  (pass --all for the other reference checkouts; only needed for porting)"
 fi
 
 echo

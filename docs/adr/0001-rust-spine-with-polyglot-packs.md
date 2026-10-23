@@ -5,23 +5,19 @@
 
 ## Context
 
-Three projects must become one toolkit:
+The toolkit has to cover three domains — system administration, cryptography,
+and metadata privacy — behind one interface. Two of those domains are
+security-sensitive, one processes multi-gigabyte files, and all three are
+expected to keep growing with new checks and file formats.
 
-- **Perl_Den** — 20 tested sysadmin modules in Perl, plus a GTK3 IDE.
-- **Zayfer_Vault (DarkStar)** — a Rust crypto core with CLI, PyO3, WASM, a
-  PySide6 GUI, and a web UI.
-- **NakiByte (HB_Scrub)** — a zero-dependency TypeScript metadata library with
-  CLI, Tauri, Electron, and web surfaces.
-
-Every option has a cost:
+Every implementation strategy has a cost:
 
 | Option | Cost |
 |---|---|
-| Rewrite everything in Rust | 12–18 months before parity; throws away the Perl test suite and the TypeScript format handlers |
-| Python-first | Weak fit for crypto streaming and WASM; the Rust core would still be needed |
-| TypeScript-first | Node runtime required for sysadmin work; performance and memory for multi-GB files |
-| Keep three toolkits with a shared UI | Exactly the maintenance cost we are trying to remove |
-| Rust spine + out-of-process packs | Two protocols to maintain; pack calls cannot share memory |
+| One language for everything, rewritten in Rust | Highest safety and performance, but every new capability pays the full cost of a rewrite before it can ship |
+| One language for everything, dynamic (Python/TypeScript) | Fast to write, weak fit for streaming crypto and useless for WASM; native extensions arrive anyway |
+| Many small tools with a shared shell | No shared contract, no shared audit trail, and the interface drifts per tool |
+| Rust spine + out-of-process packs | Two contracts to keep compatible; per-call latency for pack tools |
 
 ## Decision
 
@@ -30,9 +26,10 @@ Build a Rust workspace as the single engine, and let other languages join as
 stdio.
 
 - The Rust crates own the contract (`mellivora-core`), the crypto and privacy
-  primitives, and all high-performance paths.
-- Existing Perl and TypeScript code is reused through adapters rather than
-  rewritten under deadline pressure.
+  primitives, and every performance-critical path.
+- A pack is how a capability ships before it is worth writing in Rust — whether
+  that is a contributor's existing library, an adapter around another runtime,
+  or a third-party extension.
 - Packs are sandboxed by process boundaries and timeouts, and constrained by
   declared capabilities.
 
@@ -40,19 +37,19 @@ stdio.
 
 **Positive**
 
-- Usable in weeks, not quarters: all 20 Perl Den modules work today.
-- Ports can proceed module by module, with the old implementation serving as an
-  oracle for tests.
+- New capabilities can ship in days rather than quarters.
 - A pack crash or hang cannot take down the engine.
-- Third parties can extend the toolkit in their own language.
+- Contributors can use the language that fits the job, which widens the pool.
+- Porting is incremental: a pack can be replaced by a native module when the
+  measurement justifies it, with no change to any surface.
 
 **Negative**
 
 - Two contract surfaces to keep compatible: `Tool`/`Report` and the protocol.
-- Per-call latency for pack tools (process spawn + JSON), unacceptable for hot
+- Per-call latency for pack tools (process spawn + JSON), unacceptable in hot
   loops.
 - Pack tooling (framing, encoding, flushing) is a source of subtle bugs; the
-  Perl pack already needed UTF-8 normalization because Perl Den's sources lack
+  first real pack needed UTF-8 normalization because its modules do not declare
   `use utf8`.
 
 **Mitigations**
@@ -64,7 +61,7 @@ stdio.
 
 ## Alternatives rejected
 
-- **Full Rust port first:** delays the unified product and discards working,
-  tested code.
-- **Embedded interpreters (perl FFI, Node N-API):** couples build matrices to
-  native toolchains, risking the "runs anywhere" property; is harder to sandbox.
+- **Everything in Rust first:** delays usable software and discards working
+  implementations that already exist.
+- **Embedded interpreters (perl FFI, Node N-API):** couples the build matrix to
+  native toolchains, risks the "runs anywhere" property, and is harder to sandbox.

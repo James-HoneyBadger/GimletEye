@@ -1,7 +1,7 @@
 name = "perlden"
 version = "0.1.0"
 protocol_version = 1
-description = "Perl Den sysadmin script catalogue, served without a rewrite"
+description = "Optional adapter for Perl Den's sysadmin module catalogue"
 command = ["perl", "pack.pl"]
 capabilities = ["fs:read", "process:exec", "system"]
 # Several Perl Den tools walk the filesystem (DiskUsage, DuplicateFinder).

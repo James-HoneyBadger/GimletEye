@@ -4,7 +4,8 @@
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand the layers, contracts, and dependency rules |
 | [PLUGIN_SDK.md](PLUGIN_SDK.md) | write a pack in Perl, Python, Node, Go, or Rust |
-| [MIGRATION.md](MIGRATION.md) | know what moves from which project, in what order |
+| [COMPATIBILITY.md](COMPATIBILITY.md) | check what is public API, how deprecation works, how rollback works |
+| [PROVENANCE.md](PROVENANCE.md) | find out where a module began (maintainer note) |
 | [ROADMAP.md](ROADMAP.md) | see phases and their acceptance criteria |
 | [ENHANCEMENTS.md](ENHANCEMENTS.md) | pick the next feature; effort and risk per item |
 | [adr/](adr/) | understand why a decision was made and what it cost |
@@ -18,7 +19,7 @@
    the `Report` contract).
 3. The smallest complete example: `crates/crypto/src/hash.rs` (a tool with
    arguments and a test).
-4. A pack: `plugins/perlden-pack/pack.pl`.
+4. A pack: `plugins/perlden-pack/pack.pl` (an optional compatibility adapter).
 5. `PLUGIN_SDK.md` before writing your own.
 
 ## Conventions

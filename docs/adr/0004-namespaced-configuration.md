@@ -5,12 +5,15 @@
 
 ## Context
 
-- Perl Den has a YAML/JSON config with a versioned schema and per-script keys.
-- DarkStar has its own config plus an encrypted keystore and contacts store.
-- HB_Scrub reads `.hbscrubrc` from the project or home directory.
+Three configuration shapes were in play:
 
-Three formats, three discovery rules, three answers to "where do I change the
-disk threshold".
+- a versioned YAML/JSON file with per-script keys,
+- a TOML config beside an encrypted keystore and contacts store,
+- a per-tool dotfile read from the project or home directory.
+
+Different formats, different discovery rules, and three answers to "where do I
+change the disk threshold". Adding a module would also mean teaching the core
+about that module's settings.
 
 ## Decision
 
@@ -44,18 +47,18 @@ Modules read their own namespace via `ctx.config.module("sysadmin")`.
 
 - Module settings are untyped at the core level: a typo in a module namespace is
   caught by the module, not by the loader.
-- No cross-module validation (e.g. "two modules both want port 8080").
+- No cross-module validation (for example, two modules claiming the same port).
 
 **Mitigations**
 
 - Each module validates its own namespace on first use and reports
   `invalid_args`/`config` errors through the normal error path.
-- Modules may publish a JSON Schema later; the config shape already accommodates
-  one under `modules.<name>.$schema`.
+- Modules may publish a JSON Schema later; the shape already accommodates one
+  under `modules.<name>.$schema`.
 
 ## Rejected alternatives
 
-- **Typed core fields per module:** couples core to every domain and requires a
+- **Typed core fields per module:** couples core to every domain and needs a
   core change for each new module.
 - **Per-module config files:** reintroduces the fragmentation this decision
   removes.

@@ -59,7 +59,7 @@ jobs:
       - name: Perl syntax check
         run: perl -c plugins/perlden-pack/pack.pl
 
-      - name: Fetch source projects
+      - name: Fetch sources for compatibility packs
         run: ./scripts/link-sources.sh
 
       - name: Smoke test

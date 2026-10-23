@@ -5,16 +5,17 @@
 
 ## Context
 
-The three projects ship four GUI stacks:
+The toolkit needs a graphical surface, and the obvious choices each carry a
+different cost:
 
-| Stack | Project | Runtime cost |
-|---|---|---|
-| GTK3 + GtkSourceView | Perl Den | system libs, Linux-focused |
-| PySide6 | DarkStar | Python + Qt (~200 MB), duplicated views |
-| Tauri 2 | HB_Scrub | Rust + system webview (small) |
-| Electron | HB_Scrub (legacy) | bundled Chromium (~150 MB) |
+| Stack | Runtime cost |
+|---|---|
+| GTK3 / GtkSourceView | system libraries, essentially Linux-only |
+| Qt (PySide6) | Python + Qt (~200 MB), every view written twice for the web |
+| Tauri 2 | Rust + the system webview (small) |
+| Electron | bundled Chromium (~150 MB) |
 
-All four render the same thing: lists of operations, a form, and a result.
+All four render the same thing: a list of operations, a form, and a result.
 
 ## Decision
 
@@ -31,29 +32,27 @@ manifest and reports from `Report`. It contains no tool-specific code.
 
 **Positive**
 
-- One UI codebase instead of four; a new tool appears in every surface with no
-  frontend change.
+- One UI codebase; a new tool appears in every surface with no frontend change.
 - Desktop binaries stay small (system webview, no bundled Chromium).
-- The same bundle can later be served to WASM-only tools.
+- The same bundle can later serve WASM-only tools, and can run over SSH via a
+  forwarded port.
 
 **Negative**
 
-- Abandons the GTK3 and Qt look users may have customised (themes, keybindings).
-- Requires a local API process for the desktop shell until the server is
-  embedded in the Tauri process.
-- Browser UI needs CORS and a loopback API; authentication would be required
+- Users lose native toolkit theming and platform-specific widgets.
+- The desktop shell needs a local API process until the server is embedded.
+- The browser UI needs CORS and a loopback API; authentication is required
   before any non-loopback bind.
 
 **Mitigations**
 
-- Theme parity is a CSS concern; DarkStar's dark palette is the default.
+- Theme parity is a CSS concern; the default palette is a dark amber-on-charcoal.
 - Embedding the server in the desktop process is a contained follow-up.
-- Keep the Python and Rust APIs published so power users are not blocked.
+- The Rust and Python APIs stay published so scripted workflows are unaffected.
 
 ## Rejected alternatives
 
-- **Keep three GUIs:** triples UI maintenance and keeps the projects separate in
-  users' minds.
-- **Electron:** large runtime for a small UI; Tauri covers the same need.
-- **Terminal-only (TUI):** cheaper, but the source projects have graphical
-  workflows (key management, drag-and-drop files) that a TUI cannot express.
+- **One GUI per domain:** multiplies UI maintenance and splits the product.
+- **Electron:** a large runtime for a small UI; Tauri covers the same need.
+- **Terminal-only:** cheaper, but key management and drag-and-drop file work do
+  not fit a TUI, and the desktop app is a requirement.

@@ -6,7 +6,7 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ## [Unreleased]
 
-Privacy parity with HB_Scrub's policy model, plus CI-friendly exit codes.
+Removal policies, GPS redaction, and CI-friendly exit codes.
 
 ### Added
 
@@ -42,8 +42,8 @@ Privacy parity with HB_Scrub's policy model, plus CI-friendly exit codes.
 
 ## [0.1.0] — 2026-10-23
 
-First scaffold that unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub
-(NakiByte) behind one contract.
+First release: one contract, one registry, and three domain modules
+(system, crypto, privacy) with a shared CLI, HTTP API, and UI.
 
 ### Added
 
@@ -63,8 +63,9 @@ First scaffold that unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub
 - **Surfaces**: `mellivora` CLI (`run`, `tools`, `plugins`, `config`, `audit`,
   `doctor`, `serve`, plus tool shorthand), HTTP API, shared TypeScript UI, and a
   Tauri 2 desktop shell.
-- **Packs**: `perlden-pack` serving all 20 Perl Den modules, including UTF-8
-  normalization for modules that do not declare `use utf8`.
+- **Packs**: the first compatibility pack, exposing external system-audit
+  modules over the plugin protocol, including UTF-8 normalization for sources
+  that do not declare `use utf8`.
 - **Tooling**: CI (fmt, clippy, tests, UI build, live Perl slice), Makefile,
   `deny.toml`, source-linking script, smoke test, architecture/plugin/migration
   documentation and ADRs.
@@ -82,7 +83,7 @@ First scaffold that unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub
 
 ### Known limitations
 
-- DarkStar's crypto engine is not yet linked (`CryptoBackend` seam only).
-- Ten of HB_Scrub's thirteen formats are not native yet; they return an explicit
+- The native crypto engine is not implemented yet (`CryptoBackend` seam only).
+- Ten of thirteen target metadata formats are not native yet; they return an explicit
   `unsupported` error naming the pack to install.
 - No scheduler, TUI, WASM target, or API authentication.

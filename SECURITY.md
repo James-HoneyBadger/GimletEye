@@ -65,7 +65,7 @@ There is no telemetry, no auto-update check, and no remote logging.
 - Password generation uses the OS CSPRNG with rejection sampling (no modulo
   bias) and guarantees at least one character from each enabled class.
 - Hashing uses RustCrypto's SHA-256.
-- The DarkStar engine, once linked, supplies audited primitives (AES-256-GCM,
+- The native crypto engine, once implemented, supplies audited primitives (AES-256-GCM,
   ChaCha20-Poly1305, Ed25519, X25519, RSA, Argon2id, scrypt) with zeroized
   secrets. The toolkit wraps those implementations; it does not write its own
   primitives.

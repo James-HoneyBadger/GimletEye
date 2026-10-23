@@ -149,7 +149,7 @@ if cli audit --limit 5 --format json | grep -q 'passwords'; then
     fail "audit trail leaked an argument value"
 fi
 
-step "perl den pack"
+step "compatibility pack"
 if [ -d external/Perl_Den/lib/PerlDen/Scripts ]; then
     pack_tools=$(cli tools list --format json | python3 -c '
 import json, sys

@@ -1,7 +1,7 @@
 # Roadmap
 
-Phase boundaries follow [MIGRATION.md](MIGRATION.md). Each item has an
-acceptance criterion so "done" is not a matter of opinion.
+Each milestone is a shippable increment. Every item has an acceptance
+criterion so "done" is not a matter of opinion.
 
 ## v0.1 — Foundations (current)
 
@@ -12,7 +12,7 @@ acceptance criterion so "done" is not a matter of opinion.
 | Config (versioned, namespaced) | ✅ | unknown module keys ignored; newer schema rejected |
 | Audit trail (JSONL, no values) | ✅ | test asserts values never serialized |
 | Plugin host (JSON-RPC, timeouts, capabilities) | ✅ | broken pack does not block startup |
-| `perlden` pack | ✅ | 20 modules listed and runnable |
+| First compatibility pack (system audits) | ✅ | external modules listed and runnable |
 | CLI / HTTP API / UI / Tauri shell | ✅ | UI lists tools and runs them |
 | `sysadmin.system-info`, `sysadmin.disk-usage` | ✅ | fixtures + live host |
 | `crypto.passgen`, `crypto.sha256` | ✅ | known-answer tests |
@@ -37,16 +37,17 @@ acceptance criterion so "done" is not a matter of opinion.
 
 ## v0.3 — Crypto engine
 
-- [ ] `CryptoBackend` implemented by the DarkStar engine.
-  *Acceptance:* differential tests against DarkStar 1.1.1 for hash, passgen,
-  AEAD, and key wrapping.
+- [ ] A native engine implements `CryptoBackend`.
+  *Acceptance:* differential tests against the reference implementation for
+  hash, pass generation, AEAD, and key wrapping.
 - [ ] `crypto.encrypt` / `crypto.decrypt` over the HBZF container.
   *Acceptance:* golden HBZF files from the old repo decrypt byte-identically;
   multi-GB streaming test does not exceed bounded memory.
 - [ ] `crypto.sign` / `crypto.verify` (Ed25519; RSA via features).
   *Acceptance:* cross-verification with OpenSSL and with `sequoia` for OpenPGP.
 - [ ] Keystore tools (`crypto.keygen`, `crypto.key-list`) with encrypted storage.
-  *Acceptance:* a keystore written by DarkStar opens; secrets are zeroized on drop.
+  *Acceptance:* an existing keystore opens without migration; secrets are
+  zeroized on drop.
 
 ## v0.4 — Consolidation
 
@@ -66,8 +67,8 @@ acceptance criterion so "done" is not a matter of opinion.
 - [ ] Distro packaging (Arch, Debian, Fedora) and `cargo install`.
 - [ ] Stable `Report` and plugin protocol v1 with a written compatibility policy.
 - [ ] Documentation set complete: user guide, admin guide, pack gallery.
-- [ ] Retire duplicate legacy surfaces (GTK3/PySide6/Electron) per
-  [MIGRATION.md](MIGRATION.md).
+- [ ] Retire legacy compatibility surfaces once their users have a replacement
+  (see [COMPATIBILITY.md](COMPATIBILITY.md)).
 
 ## Explicitly out of scope
 
