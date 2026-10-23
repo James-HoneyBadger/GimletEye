@@ -8,8 +8,9 @@ use mellivora_core::OutputFormat;
     name = "mellivora",
     version,
     about = "Mellivora ToolKit — one workbench for system, crypto, and privacy operations",
-    long_about = "Mellivora ToolKit unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub \
-                  (NakiByte) behind a single tool registry.\n\n\
+    long_about = "Mellivora ToolKit is one workbench for system administration, \
+                  cryptography, and metadata privacy — one registry, one report format, \
+                  one configuration, one audit trail.\n\n\
                   Any tool can be invoked directly: `mellivora system-info` is shorthand for \
                   `mellivora run system-info`.",
     disable_help_subcommand = true

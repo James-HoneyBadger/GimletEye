@@ -2,10 +2,11 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use sha2::{Digest, Sha256 as Sha2};
 
-/// The seam through which a real cryptographic engine is attached.
+/// The seam through which a cryptographic engine is attached.
 ///
-/// DarkStar's Rust core implements this trait directly; the scaffold provides
-/// [`OsBackend`] so hashing and password generation work today.
+/// A native engine implements this trait directly; [`OsBackend`] is the
+/// built-in implementation, covering randomness, hashing, and password
+/// generation without an external dependency.
 pub trait CryptoBackend: Send + Sync {
     /// Short backend identifier shown by `mellivora doctor`.
     fn name(&self) -> &'static str;

@@ -1,9 +1,8 @@
 //! Privacy module: byte-level metadata inspection, redaction, and removal.
 //!
-//! Ported from HB_Scrub (NakiByte). The scaffold covers JPEG, PNG, and WebP
-//! natively — the formats where a structure-aware strip is small and safe. The
-//! remaining ten formats stay in the TypeScript pack until they are ported,
-//! which is exactly what the plugin protocol exists for.
+//! Metadata is removed at the container level, so pixel data is never
+//! re-encoded. JPEG, PNG, and WebP are handled natively; other containers are
+//! served by packs, which is exactly what the plugin protocol exists for.
 
 mod exif;
 mod format;

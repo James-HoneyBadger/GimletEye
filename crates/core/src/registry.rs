@@ -269,18 +269,18 @@ mod tests {
         registry
             .register(Arc::new(PackStub {
                 manifest: ToolManifest::new(
-                    "perlden.system-info",
+                    "example.system-info",
                     "System information",
                     "pack copy",
                     Category::Sysadmin,
                 )
-                .with_origin("plugin:perlden"),
+                .with_origin("plugin:example"),
             }))
             .expect("pack");
 
         let resolved = registry.resolve("system-info").expect("resolves");
         assert_eq!(resolved.manifest().id, "sysadmin.system-info");
-        assert!(registry.resolve("perlden.system-info").is_some());
+        assert!(registry.resolve("example.system-info").is_some());
     }
 
     #[test]

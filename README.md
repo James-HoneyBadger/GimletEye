@@ -1,28 +1,32 @@
 # Mellivora ToolKit
 
-One workbench for **system administration**, **cryptography**, and **metadata
-privacy** — built from three existing projects behind a single contract.
+**One workbench for system administration, cryptography, and metadata privacy.**
 
-| Source project | What it contributes | In the toolkit |
-|---|---|---|
-| [Perl_Den](https://github.com/James-HoneyBadger/Perl_Den) | 20 sysadmin modules, Perl IDE | `mellivora-sysadmin` + `perlden` pack (live today) |
-| [Zayfer_Vault / DarkStar](https://github.com/James-HoneyBadger/Zayfer_Vault) | AES-GCM, ChaCha20, Ed25519, X25519, RSA, Argon2id, OpenPGP, HBZF container, keystore, audit | `mellivora-crypto` (seam) → native engine |
-| [NakiByte / HB_Scrub](https://github.com/James-HoneyBadger/NakiByte) | Byte-level metadata removal across 13 formats | `mellivora-scrub` (JPEG/PNG/WebP native) |
+A single tool registry, one report format, one configuration file, one audit
+trail, and one interface — instead of a CLI, a GUI, and a configuration file per
+task.
 
-Instead of three CLIs, three GUIs, and three config files, there is one registry
-of tools, one report format, one config, one audit trail, and one UI.
+```bash
+mellivora system-info                       # what is this host doing?
+mellivora disk-usage --format json          # what is filling the disk?
+mellivora passgen length=32                 # generate a secret
+mellivora metadata-strip input=photo.jpg profile=sharing
+mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
+mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or desktop window
+```
 
-## Why this shape
+## What it does
 
-The three projects already agree on more than they disagree on:
+| Pillar | Capability |
+|---|---|
+| **System** | Host inventory, filesystem utilisation with thresholds, and — through packs — log, auth, permission, package, and service audits |
+| **Crypto** | OS-backed randomness, SHA-256, password generation with an entropy budget; authenticated encryption, signatures, and key management land behind one engine trait |
+| **Privacy** | Metadata scan, strip, and verify for JPEG, PNG, and WebP; removal profiles; field-level keep/remove; GPS redaction that preserves the rest of EXIF |
 
-- Perl Den scripts return `\%result` and render with `format_report`.
-- HB_Scrub operations return `{ data, format, removedMetadata, warnings }`.
-- DarkStar services return typed results with an audit record.
+Everything runs locally. There is no telemetry, no auto-update, and no network
+access unless a tool declares the `network` capability and you grant it.
 
-That shared shape — *structured result plus findings* — is the contract this
-repository formalizes as [`Report`](crates/core/src/report.rs). Everything else
-follows from it:
+## Design
 
 ```
                     ┌────────────── surfaces ──────────────┐
@@ -37,80 +41,75 @@ follows from it:
               ┌───────────────────┼───────────────────┐
         mellivora-sysadmin  mellivora-crypto   mellivora-scrub
               │                   │                   │
-        ┌─────┴─────┐        (DarkStar)         (HB_Scrub ports)
-        │ perlden   │
-        │ pack      │  JSON-RPC over stdio — any language
-        └───────────┘
+              └──────── packs (any language, JSON-RPC over stdio) ────────┘
 ```
 
+Four rules keep it maintainable:
+
+1. **One contract, many surfaces.** A capability is implemented once and exposed
+   to the CLI, the HTTP API, the desktop shell, and the WASM target.
+2. **Modules are additive.** Adding a domain is one line in the composition root
+   — never a change to a handler or a view.
+3. **Surfaces hold no logic.** They resolve a tool, run it, and render a
+   `Report`.
+4. **Anything can be a pack.** Existing code in another language participates
+   through a documented protocol instead of waiting for a rewrite.
+
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and the
-rationale behind each decision.
+trade-offs behind each decision.
 
 ## Quick start
 
 ```bash
-# 1. build
 cargo test --workspace
 cargo build --release
 
-# 2. wire up the Perl Den compatibility pack (one shallow clone)
-./scripts/link-sources.sh
-
-# 3. use it
 ./target/release/mellivora tools list
 ./target/release/mellivora system-info
-./target/release/mellivora passgen length=32
-./target/release/mellivora metadata-scan input=photo.jpg
-./target/release/mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
-./target/release/mellivora run perlden.failed-login-detector
+./target/release/mellivora run privacy.metadata-scan input=photo.jpg
 ```
 
-Every tool also works over HTTP and in the shared UI:
+Optional compatibility packs add capabilities from other implementations:
 
 ```bash
-./target/release/mellivora serve --ui-dir packages/ui/dist
-# → http://127.0.0.1:7878
+./scripts/link-sources.sh          # fetches sources the packs wrap
+./target/release/mellivora plugins doctor
 ```
 
-Desktop shell:
-
-```bash
-cargo run -p mellivora-cli -- serve      # terminal 1
-cd apps/desktop && npm install && npm run dev   # terminal 2
-```
-
-## What works right now
+## Status
 
 | Area | Status |
 |---|---|
-| `Report` contract, registry, config, audit trail | ✅ complete |
-| Plugin protocol + host (JSON-RPC, timeouts, capabilities) | ✅ complete |
-| CLI: `run`, `tools`, `plugins`, `config`, `audit`, `doctor`, `serve` | ✅ complete |
-| HTTP API + shared UI + Tauri shell | ✅ complete (thin surfaces) |
-| `sysadmin.system-info`, `sysadmin.disk-usage` native | ✅ ported from Perl Den |
-| All 20 Perl Den modules via `perlden` pack | ✅ live, including its `run`/`format_report` contract |
-| `crypto.passgen`, `crypto.sha256` | ✅ native, CSPRNG + SHA-256 |
-| Metadata scan/strip/verify for JPEG, PNG, WebP | ✅ native, byte-preserving |
-| Privacy profiles, field-level keep/remove, GPS redaction | ✅ native |
-| DarkStar crypto engine (AEAD, signatures, HBZF, keystore) | ⏳ `CryptoBackend` seam defined |
-| Remaining 10 metadata formats, metadata injection | ⏳ `hb-scrub` pack, then native ports |
+| `Report` contract, registry, config, audit trail | ✅ |
+| Plugin protocol + host (JSON-RPC, timeouts, capabilities) | ✅ |
+| CLI: `run`, `tools`, `plugins`, `config`, `audit`, `doctor`, `serve` | ✅ |
+| HTTP API, shared UI, Tauri desktop shell | ✅ |
+| `sysadmin.system-info`, `sysadmin.disk-usage` | ✅ native |
+| `crypto.passgen`, `crypto.sha256` | ✅ native |
+| `privacy.metadata-{scan,strip,verify}` for JPEG/PNG/WebP | ✅ native |
+| Removal profiles, field-level control, GPS redaction | ✅ native |
+| Native crypto engine (AEAD, signatures, container, keystore) | ⏳ `CryptoBackend` seam defined |
+| HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ packs, then native |
 | WASM target, TUI, scheduler | ⏳ roadmap |
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for acceptance criteria and
+[docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the prioritized backlog.
 
 ## Layout
 
 ```
 crates/
   core/       contracts, registry, config, audit, plugin host   (no domain logic)
-  sysadmin/   native sysadmin tools
-  crypto/     crypto tools + CryptoBackend seam
-  scrub/      metadata inspection/removal
+  sysadmin/   system and capacity tools
+  crypto/     cryptographic tools + CryptoBackend engine seam
+  scrub/      metadata inspection, redaction, removal
   server/     HTTP API
   cli/        `mellivora` binary (composition root)
-packages/ui/  one TypeScript UI for browser + desktop
-apps/desktop/ Tauri 2 shell
-plugins/      language packs (perlden-pack today)
-docs/         architecture, plugin SDK, migration plan, ADRs
-scripts/      developer tooling (source linking)
+packages/ui/  one TypeScript UI for browser and desktop
+apps/desktop/ Tauri 2 desktop shell
+plugins/      compatibility packs (optional)
+docs/         architecture, plugin SDK, compatibility, roadmap, ADRs
+scripts/      developer tooling
 ```
 
 ## Commands
@@ -131,25 +130,35 @@ Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
 `--strict` turns warnings into exit code `1`, so CI can gate on findings rather
 than only on failures.
 
+Desktop shell:
+
+```bash
+cargo run -p mellivora-cli -- serve           # terminal 1
+cd apps/desktop && npm install && npm run dev # terminal 2
+```
+
 ## Development
 
 ```bash
 make check      # fmt, clippy, tests — everything CI runs
 make test       # cargo test --workspace
 make ui         # type-check + build the shared UI
-make doctor     # cargo run -p mellivora-cli -- doctor
+make smoke      # end-to-end: CLI, API, packs
+make doctor
 ```
 
-Requirements: Rust 1.82+, Node 20+ (UI only), Perl 5.28+ (Perl Den pack only).
+Requirements: Rust 1.82+, Node 20+ (UI only), and Perl 5.28+ only if you install
+the Perl compatibility pack.
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — layers, contracts, dependency rules
 - [Plugin SDK](docs/PLUGIN_SDK.md) — write a pack in any language
-- [Migration plan](docs/MIGRATION.md) — what moves, in what order, and why
+- [Compatibility](docs/COMPATIBILITY.md) — versioning, deprecation, rollback
 - [Roadmap](docs/ROADMAP.md) — phases and acceptance criteria
-- [Enhancements](docs/ENHANCEMENTS.md) — proposed features, prioritized with effort and risk
+- [Enhancements](docs/ENHANCEMENTS.md) — proposed features with effort and risk
 - [ADRs](docs/adr/) — decisions and their trade-offs
+- [Provenance](docs/PROVENANCE.md) — maintainer notes on where modules began
 - [Security](SECURITY.md) — threat model and data-handling guarantees
 
 ## License

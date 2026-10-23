@@ -1,10 +1,10 @@
 //! Cryptography module.
 //!
-//! The scaffold ships the seal that DarkStar (Zayfer Vault) plugs into: a
-//! [`CryptoBackend`] trait plus the operations that do not need the full engine
-//! (OS randomness, hashing, password generation). AEAD, signatures, key
-//! management, and the HBZF container land in the `darkstar` integration phase
-//! behind the same trait, so tools and surfaces never change.
+//! Everything here talks to a [`CryptoBackend`]. The toolkit ships an
+//! operating-system backend (randomness, SHA-256, password generation); the
+//! authenticated-encryption engine, signatures, key management, and the
+//! streaming container slot in behind the same trait, so tools and surfaces
+//! never change as the engine grows.
 
 mod backend;
 mod hash;

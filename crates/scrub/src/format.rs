@@ -308,7 +308,7 @@ pub fn handler_for(bytes: &[u8]) -> Result<Box<dyn FormatHandler>> {
     Format::detect(bytes).map(Format::handler).ok_or_else(|| {
         MellivoraError::Unsupported(
             "unrecognised container; native support covers JPEG, PNG, and WebP \
-             (install the hb-scrub pack for HEIC, AVIF, TIFF, PDF, MP4, RAW, and others)"
+             (install a metadata pack for HEIC, AVIF, TIFF, PDF, MP4, RAW, and others)"
                 .to_string(),
         )
     })

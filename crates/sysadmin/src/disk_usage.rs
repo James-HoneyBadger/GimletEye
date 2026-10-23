@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 
 use crate::parse::{parse_df, DiskRow};
 
-/// Filesystem utilisation check, replacing Perl Den's `DiskUsage.pm`.
+/// Filesystem utilisation with configurable warning and critical thresholds.
 pub struct DiskUsage {
     manifest: ToolManifest,
 }
@@ -32,7 +32,7 @@ impl DiskUsage {
                     .help("Include pseudo filesystems such as tmpfs")
                     .default_value(Value::Bool(false)),
             ])
-            .with_tags(["perlden", "inspection", "capacity"]),
+            .with_tags(["inspection", "capacity", "filesystem"]),
         }
     }
 

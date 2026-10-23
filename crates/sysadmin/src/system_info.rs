@@ -8,7 +8,7 @@ use serde_json::{json, Map, Value};
 
 use crate::parse::{self, human_uptime};
 
-/// Host snapshot derived from `/proc`, replacing Perl Den's `SystemInfo.pm`.
+/// Host snapshot: identity, kernel, uptime, load, CPU, and memory.
 pub struct SystemInfo {
     manifest: ToolManifest,
 }
@@ -23,7 +23,7 @@ impl SystemInfo {
                 Category::Sysadmin,
             )
             .with_capabilities([Capability::System])
-            .with_tags(["perlden", "inspection", "snapshot"]),
+            .with_tags(["inspection", "snapshot", "host"]),
         }
     }
 }

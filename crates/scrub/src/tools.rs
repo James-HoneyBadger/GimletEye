@@ -74,7 +74,7 @@ impl MetadataScan {
                 remove_arg(),
                 keep_arg(),
             ])
-            .with_tags(["hb-scrub", "exif", "inspection"]),
+            .with_tags(["metadata", "exif", "inspection"]),
         }
     }
 }
@@ -159,7 +159,7 @@ impl MetadataVerify {
                 remove_arg(),
                 keep_arg(),
             ])
-            .with_tags(["hb-scrub", "verification", "ci"]),
+            .with_tags(["metadata", "verification", "ci"]),
         }
     }
 }
@@ -248,7 +248,7 @@ impl MetadataStrip {
                 .default_value(Value::from("off"))
                 .help("Reduce GPS precision in place instead of deleting EXIF (off, country, region, city)"),
             ])
-            .with_tags(["hb-scrub", "exif", "gps", "privacy", "batch"]),
+            .with_tags(["metadata", "exif", "gps", "privacy", "batch"]),
         }
     }
 }
@@ -684,7 +684,7 @@ mod tests {
             .run(&context(), &args_for(&path))
             .expect_err("must fail");
         assert_eq!(err.code(), "unsupported");
-        assert!(err.to_string().contains("hb-scrub"));
+        assert!(err.to_string().contains("metadata pack"));
     }
 
     #[test]

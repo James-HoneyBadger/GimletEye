@@ -10,8 +10,8 @@ use serde_json::json;
 
 use crate::backend::CryptoBackend;
 
-/// SHA-256 digest of text or a file. The first half of a future
-/// `crypto.sign`/`crypto.verify` pair that DarkStar will supply.
+/// SHA-256 digest of text or a file. The integrity half of the signing pair
+/// that [`CryptoBackend`] will provide once the native engine lands.
 pub struct Sha256 {
     manifest: ToolManifest,
     backend: Arc<dyn CryptoBackend>,
@@ -31,7 +31,7 @@ impl Sha256 {
                 ArgSpec::new("path", ArgKind::Path).help("File to hash"),
                 ArgSpec::new("text", ArgKind::String).help("Literal text to hash"),
             ])
-            .with_tags(["darkstar", "hash", "integrity"]),
+            .with_tags(["hash", "integrity", "fingerprint"]),
             backend,
         }
     }

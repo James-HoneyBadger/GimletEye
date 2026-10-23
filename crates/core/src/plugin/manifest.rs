@@ -149,7 +149,7 @@ mod tests {
         fs::write(
             &path,
             r#"
-name = "perlden"
+name = "example"
 version = "0.1.0"
 description = "Perl Den sysadmin catalogue"
 command = ["perl", "pack.pl"]
@@ -159,7 +159,7 @@ capabilities = ["process:exec", "fs:read"]
         .expect("write");
 
         let manifest = PackManifest::load(&path).expect("load");
-        assert_eq!(manifest.name, "perlden");
+        assert_eq!(manifest.name, "example");
         assert_eq!(manifest.protocol_version, PROTOCOL_VERSION);
         assert!(manifest.enabled);
         assert_eq!(manifest.capabilities.len(), 2);

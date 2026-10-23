@@ -15,7 +15,8 @@ const DIGITS: &str = "0123456789";
 const SYMBOLS: &str = "!@#$%^&*()-_=+[]{};:,.?/";
 const AMBIGUOUS: &str = "Il1O0o";
 
-/// Password generation, replacing the `passgen` utility in DarkStar.
+/// Password generation with an entropy budget and guaranteed character
+/// classes.
 pub struct PassGen {
     manifest: ToolManifest,
     backend: Arc<dyn CryptoBackend>,
@@ -43,7 +44,7 @@ impl PassGen {
                     .default_value(Value::Bool(false))
                     .help("Exclude characters that look alike (Il1O0o)"),
             ])
-            .with_tags(["darkstar", "zayfer", "secrets"]),
+            .with_tags(["secrets", "entropy", "generator"]),
             backend,
         }
     }

@@ -1,7 +1,7 @@
 //! Mellivora ToolKit — core contracts.
 //!
-//! Every capability in the toolkit, whether it lives in a Rust crate, a Perl
-//! pack, or a TypeScript pack, is expressed as a [`Tool`] that returns a
+//! Every capability in the toolkit, whether it lives in a Rust module or in a
+//! pack written in any language, is expressed as a [`Tool`] that returns a
 //! [`Report`]. The CLI, the HTTP API, the WASM target, and the desktop shell
 //! all consume that same contract, which is what keeps the surfaces thin.
 

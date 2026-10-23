@@ -5,7 +5,7 @@ three codebases in three languages. This document explains the structure, the
 rules that keep it from decaying, and the reasoning behind each choice.
 
 - [1. Design goals](#1-design-goals)
-- [2. The three source projects](#2-the-three-source-projects)
+- [2. Domain pillars](#2-domain-pillars)
 - [3. Layers and dependency rules](#3-layers-and-dependency-rules)
 - [4. The tool contract](#4-the-tool-contract)
 - [5. Surfaces](#5-surfaces)
@@ -14,7 +14,7 @@ rules that keep it from decaying, and the reasoning behind each choice.
 - [8. Extending: modules vs packs](#8-extending-modules-vs-packs)
 - [9. Testing strategy](#9-testing-strategy)
 - [10. Build, CI, and release](#10-build-ci-and-release)
-- [11. What each source project becomes](#11-what-each-source-project-becomes)
+- [11. Module status](#11-module-status)
 - [12. Known limitations](#12-known-limitations)
 
 ---
@@ -35,36 +35,41 @@ rules that keep it from decaying, and the reasoning behind each choice.
    enforced, audit records never contain secrets, and metadata removal is
    verified before it is written.
 
-## 2. The three source projects
+## 2. Domain pillars
 
-A quick inventory, because the design is a response to it:
+The toolkit covers three domains that share the same shape — inspect or change
+something on this machine, then explain what happened:
 
-| | Perl_Den | Zayfer_Vault (DarkStar) | NakiByte (HB_Scrub) |
-|---|---|---|---|
-| Language | Perl 5.28+ | Rust workspace + PyO3 + WASM | TypeScript |
-| Core unit | 20 `Scripts/*.pm` modules with `run()` / `format_report()` | `crates/core` primitives + services | format handlers + operations |
-| Surfaces | GTK3 GUI, CLI, TUI | Rust CLI, PySide6 GUI, web UI, WASM | CLI, Tauri, Electron, web GUI |
-| Config | YAML/JSON, schema v4 | TOML/JSON config + keystore | `.hbscrubrc`, profiles |
-| State | config dir + crontab integration | keystore, contacts, audit log | none |
-| Tests | 38 files (prove) | Rust + Python suites | vitest + fuzz + bench |
-| Domain | sysadmin | crypto | privacy/metadata |
+| Pillar | Questions it answers | Module |
+|---|---|---|
+| **System** | What is this host doing? What is filling the disk? Which service is failing? | `mellivora-sysadmin` |
+| **Crypto** | Is this secret protected? Who signed this? Where are my keys? | `mellivora-crypto` |
+| **Privacy** | What does this file reveal about me? How do I remove it without breaking the file? | `mellivora-scrub` |
+| **Automation** *(planned)* | Run those checks on a schedule and report drift. | `mellivora-automation` |
 
-Three overlapping surfaces (CLI, desktop GUI, web UI), three config formats, and
-three audit/history stories. That overlap is the maintenance cost this
-architecture removes.
+Three properties cut across all of them, and they are what the architecture
+optimises for:
 
-**What is worth keeping from each**
+1. **A result must be explainable.** Every run produces findings with a
+   severity, so "did it pass?" is never a matter of reading prose.
+2. **A change must be reversible or provably safe.** Mutating tools honour
+   `--dry-run`, verify their own output, and never re-encode image data.
+3. **Nothing leaves the machine.** No telemetry, no network calls unless a tool
+   declares `network` and the user grants it.
 
-- Perl Den: the 20 tested sysadmin checks and the uniform module contract.
-- DarkStar: the Rust crypto core, its HBZF container, and the audit/keystore model.
-- HB_Scrub: byte-level, no-re-encode stripping, format modules, profiles, verify mode.
+The design pressures that follow are concrete:
 
-**What is deliberately retired**
+- An operation needs to be reachable from a terminal, a script, a browser, and a
+  desktop window without being written four times.
+- Security-sensitive code should not depend on a runtime chosen for convenience.
+- The set of supported file formats and host checks will keep growing, so adding
+  one must not mean editing a handler or a view.
+- Some capabilities are better served by an existing implementation in another
+  language, and waiting for a rewrite would strand them.
 
-- GTK3 GUI, PySide6 GUI, Electron shell → one Tauri + web UI.
-- Three config formats → one versioned TOML config with module namespaces.
-- Ad-hoc history/audit → one JSONL audit log in `mellivora-core`.
-- Node-only batch/stream APIs → generic batch in the CLI/API (roadmap).
+The rest of this document is the answer to those pressures: one contract, thin
+surfaces, modules that add themselves, and a process boundary for anything that
+cannot be written in Rust today.
 
 ## 3. Layers and dependency rules
 
@@ -140,7 +145,7 @@ title       = "Disk usage"
 category    = "sysadmin"
 capabilities = ["system", "process:exec"]
 args        = [{ name = "path", type = "path" }, { name = "all", type = "boolean", default = false }]
-origin      = "builtin"          # or "plugin:perlden"
+origin      = "builtin"          # or "plugin:<pack-name>"
 ```
 
 `Report` is the single result shape:
@@ -260,7 +265,7 @@ misinterpreted.
 
 **Audit** is append-only JSON Lines. It records tool, status, duration, and
 argument *names* — never values, because values contain passwords and paths that
-may be sensitive. This mirrors DarkStar's audit rule and is enforced by a test.
+may be sensitive. The rule is enforced by a test, so it cannot regress.
 
 ## 7. Security model
 
@@ -344,52 +349,57 @@ Rules that keep this cheap:
 - **Dependency policy**: `deny.toml` allows MIT/Apache-2.0/BSD; new crypto
   dependencies need an ADR.
 
-## 11. What each source project becomes
+## 11. Module status
 
-### Perl_Den → `sysadmin` module + `perlden` pack
+Where each pillar stands, in the toolkit's own terms. The roadmap carries the
+acceptance criteria; this is the honest inventory.
 
-| Perl Den piece | Destination |
+### System — `mellivora-sysadmin`
+
+| Capability | Status |
 |---|---|
-| 20 `Scripts/*.pm` | live now via `perlden` pack; ported to `crates/sysadmin` in priority order |
-| `Runner` / `BatchRunner` | generic batch execution in the CLI/API (roadmap) |
-| `Scheduler` (crontab) | `automation` module (roadmap) — needs a dry-run-first design |
-| `ScriptRegistry` (discovery, fuzzy match, plugins) | `mellivora-core` registry |
-| `Config` (schema v4) | one config with a `modules.sysadmin` namespace |
-| GTK3 IDE, terminal, tutorials | out of scope for the toolkit; Perl Den remains usable as an IDE. Tutorial content can later ship as a docs pack. |
+| Host inventory (kernel, uptime, load, CPU, memory) | native |
+| Filesystem utilisation with configurable thresholds | native |
+| Log, auth, permission, package, and service audits | available through a compatibility pack; native ports planned |
+| Scheduled runs and drift detection | planned |
 
-The pack is not a stopgap to be embarrassed about: it runs the same tested
-modules and normalizes a real defect (Perl Den's UTF-8 sources lack `use utf8`,
-which mangles box-drawing characters). That normalization lives at the adapter
-boundary, where it belongs.
+Read-only checks land first; anything that mutates state needs `--dry-run` and a
+test before it ships. Thresholds live in the `modules.sysadmin` config namespace.
 
-### Zayfer_Vault / DarkStar → `crypto` module
+### Crypto — `mellivora-crypto`
 
-| DarkStar piece | Destination |
+| Capability | Status |
 |---|---|
-| `crates/core` primitives, HBZF, keystore, Shamir, shred, QR, stego, OpenPGP | linked behind `CryptoBackend` — same trait the current OS backend implements |
-| Rust CLI commands | `crypto.*` tools |
-| Audit log | `mellivora-core` audit |
-| PyO3 bindings | kept for Python users; not a toolkit dependency |
-| WASM crate | becomes `crates/wasm` |
-| Web UI | replaced by the shared UI |
-| PySide6 GUI (26 view modules) | workflows migrated into the shared UI; the shell disappears |
+| OS randomness, SHA-256, password generation | native |
+| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) | planned, behind `CryptoBackend` |
+| Signatures (Ed25519, X25519, RSA), OpenPGP interop | planned |
+| Streaming container, keystore, Shamir, shredding, QR | planned |
 
-The seam is deliberate. `CryptoBackend` is the only thing `mellivora-crypto`
-needs to know, so the DarkStar engine can be adopted incrementally (hash →
-password → AEAD → keystore/HBZF) without changing a single tool or surface.
+`CryptoBackend` is the seam: adopting each capability is an implementation of
+one trait, not a change to any tool or surface.
 
-### NakiByte / HB_Scrub → `privacy` module
+### Privacy — `mellivora-scrub`
 
-| HB_Scrub piece | Destination |
+| Capability | Status |
 |---|---|
-| `formats/{jpeg,png,webp}` | ported natively (done) |
-| `formats/{heic,avif,tiff,pdf,mp4,raw,gif,svg}` | `hb-scrub` Node pack first, then native |
-| `operations/{read,remove,verify}` | `privacy.metadata-scan/strip/verify` |
-| GPS redaction | ✅ ported: coordinates truncated in place, EXIF preserved |
-| Profiles + field-level control | ✅ ported as `RemovalPolicy` (`privacy`, `sharing`, `archive`, `keep`/`remove` overrides) |
-| Metadata injection | roadmap: needs the TIFF writer |
-| Batch + stream APIs | generic batch (CLI/API) and streaming handlers |
-| Tauri/Electron/web GUI | replaced by the shared UI |
+| Metadata scan, strip, verify | native for JPEG, PNG, WebP |
+| Removal profiles and field-level `keep`/`remove` | native |
+| GPS redaction (coordinate truncation, EXIF preserved) | native |
+| HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | planned; packs can serve them meanwhile |
+| Metadata injection, streaming strip | planned |
+
+Removal is byte-level: pixel data is never re-encoded, and a strip is re-scanned
+before it is written.
+
+### Compatibility packs
+
+A pack is an optional adapter for a capability that another implementation
+already covers. Packs are discovered, capability-gated, and indistinguishable
+from native tools at the registry — a built-in always wins an ambiguous
+shorthand, so installing a pack can never silently replace trusted behaviour.
+The provenance of any adapter is recorded in
+[PROVENANCE.md](PROVENANCE.md), and the protocol is specified in
+[PLUGIN_SDK.md](PLUGIN_SDK.md).
 
 ## 12. Known limitations
 
