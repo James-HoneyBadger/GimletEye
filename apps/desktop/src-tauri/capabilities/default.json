@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimal permissions: the shell only renders the UI and talks to the local API over HTTP.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -1,0 +1,28 @@
+# Rust
+/target/
+**/target/
+*.rs.bk
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Local checkout of the source projects (see scripts/link-sources.sh)
+/external/
+
+# Runtime state
+/.mellivora/
+*.hbzf
+*.hbzf.tmp
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Tauri generated schemas
+apps/desktop/src-tauri/gen/

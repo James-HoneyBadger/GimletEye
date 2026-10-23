@@ -1,0 +1,52 @@
+# Changelog
+
+All notable changes to Mellivora ToolKit. Format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
+[Semantic Versioning](https://semver.org/).
+
+## [0.1.0] — 2026-10-23
+
+First scaffold that unifies Perl Den, DarkStar (Zayfer Vault), and HB_Scrub
+(NakiByte) behind one contract.
+
+### Added
+
+- **Core** (`mellivora-core`): `Tool` / `ToolManifest` / `Report` contracts,
+  registry with built-in precedence and fuzzy suggestions, versioned TOML config
+  with module namespaces, JSONL audit trail that records argument names only,
+  capability model, JSON-RPC plugin host with timeouts and per-pack failure
+  isolation.
+- **Sysadmin** (`mellivora-sysadmin`): native `system-info` and `disk-usage`
+  ports of the Perl Den modules, with pure `/proc` and `df` parsers and
+  configurable thresholds.
+- **Crypto** (`mellivora-crypto`): `CryptoBackend` seam, OS CSPRNG backend,
+  `passgen` (unbiased sampling, guaranteed character classes, entropy estimate)
+  and `sha256`.
+- **Privacy** (`mellivora-scrub`): metadata scan, strip, and verify for JPEG,
+  PNG, and WebP — byte-preserving, verified before write, `--dry-run` aware.
+- **Surfaces**: `mellivora` CLI (`run`, `tools`, `plugins`, `config`, `audit`,
+  `doctor`, `serve`, plus tool shorthand), HTTP API, shared TypeScript UI, and a
+  Tauri 2 desktop shell.
+- **Packs**: `perlden-pack` serving all 20 Perl Den modules, including UTF-8
+  normalization for modules that do not declare `use utf8`.
+- **Tooling**: CI (fmt, clippy, tests, UI build, live Perl slice), Makefile,
+  `deny.toml`, source-linking script, smoke test, architecture/plugin/migration
+  documentation and ADRs.
+
+### Fixed
+
+- `df` rows with wrapped device names are rejoined instead of dropped.
+- Custom `Display` implementations now honour format width, fixing CLI column
+  alignment.
+- Plugin directories are canonicalised before launch, so packs that walk up from
+  their own directory resolve correctly.
+- Packs can declare a `timeout_ms` override for tools that legitimately run long
+  (filesystem walks); the host default rose from 10 s to 30 s after the Perl Den
+  disk-usage module exceeded the old limit on a cold cache.
+
+### Known limitations
+
+- DarkStar's crypto engine is not yet linked (`CryptoBackend` seam only).
+- Ten of HB_Scrub's thirteen formats are not native yet; they return an explicit
+  `unsupported` error naming the pack to install.
+- No scheduler, TUI, WASM target, or API authentication.

@@ -1,0 +1,406 @@
+# Architecture
+
+The goal is one toolkit that is easy to extend and cheap to maintain, built from
+three codebases in three languages. This document explains the structure, the
+rules that keep it from decaying, and the reasoning behind each choice.
+
+- [1. Design goals](#1-design-goals)
+- [2. The three source projects](#2-the-three-source-projects)
+- [3. Layers and dependency rules](#3-layers-and-dependency-rules)
+- [4. The tool contract](#4-the-tool-contract)
+- [5. Surfaces](#5-surfaces)
+- [6. Configuration and state](#6-configuration-and-state)
+- [7. Security model](#7-security-model)
+- [8. Extending: modules vs packs](#8-extending-modules-vs-packs)
+- [9. Testing strategy](#9-testing-strategy)
+- [10. Build, CI, and release](#10-build-ci-and-release)
+- [11. What each source project becomes](#11-what-each-source-project-becomes)
+- [12. Known limitations](#12-known-limitations)
+
+---
+
+## 1. Design goals
+
+1. **One contract, many surfaces.** A capability is implemented once and exposed
+   to the CLI, HTTP API, desktop shell, and future WASM target without
+   duplication.
+2. **Modules are additive.** Adding a domain never edits another module, a
+   handler, or a view. One line in the composition root.
+3. **Nothing is stranded by a language choice.** Existing Perl and TypeScript
+   code can participate through a documented protocol while its native port is
+   pending — or indefinitely, if porting is not worth it.
+4. **Boring, verifiable infrastructure.** Standard cargo workspace, standard CI,
+   no bespoke build system, no code generation in the critical path.
+5. **Privacy and security are structural.** Capabilities are declared and
+   enforced, audit records never contain secrets, and metadata removal is
+   verified before it is written.
+
+## 2. The three source projects
+
+A quick inventory, because the design is a response to it:
+
+| | Perl_Den | Zayfer_Vault (DarkStar) | NakiByte (HB_Scrub) |
+|---|---|---|---|
+| Language | Perl 5.28+ | Rust workspace + PyO3 + WASM | TypeScript |
+| Core unit | 20 `Scripts/*.pm` modules with `run()` / `format_report()` | `crates/core` primitives + services | format handlers + operations |
+| Surfaces | GTK3 GUI, CLI, TUI | Rust CLI, PySide6 GUI, web UI, WASM | CLI, Tauri, Electron, web GUI |
+| Config | YAML/JSON, schema v4 | TOML/JSON config + keystore | `.hbscrubrc`, profiles |
+| State | config dir + crontab integration | keystore, contacts, audit log | none |
+| Tests | 38 files (prove) | Rust + Python suites | vitest + fuzz + bench |
+| Domain | sysadmin | crypto | privacy/metadata |
+
+Three overlapping surfaces (CLI, desktop GUI, web UI), three config formats, and
+three audit/history stories. That overlap is the maintenance cost this
+architecture removes.
+
+**What is worth keeping from each**
+
+- Perl Den: the 20 tested sysadmin checks and the uniform module contract.
+- DarkStar: the Rust crypto core, its HBZF container, and the audit/keystore model.
+- HB_Scrub: byte-level, no-re-encode stripping, format modules, profiles, verify mode.
+
+**What is deliberately retired**
+
+- GTK3 GUI, PySide6 GUI, Electron shell → one Tauri + web UI.
+- Three config formats → one versioned TOML config with module namespaces.
+- Ad-hoc history/audit → one JSONL audit log in `mellivora-core`.
+- Node-only batch/stream APIs → generic batch in the CLI/API (roadmap).
+
+## 3. Layers and dependency rules
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ surfaces        crates/cli, crates/server, apps/desktop,     │
+│                 packages/ui, crates/wasm (planned)           │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ may depend on: core + modules
+┌───────────────────────────┴──────────────────────────────────┐
+│ modules         crates/sysadmin, crates/crypto, crates/scrub │
+│                 (+ packs: plugins/*)                         │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ may depend on: core only
+┌───────────────────────────┴──────────────────────────────────┐
+│ core            crates/core                                  │
+│                 Tool · Report · Registry · Config · Audit    │
+│                 Capabilities · Plugin host · Paths           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Rules, enforced by review and by `cargo` itself:
+
+1. **`mellivora-core` depends on no domain crate.** It knows what a `Tool` is,
+   not what a password is. This is why config uses namespaced `modules` keys
+   instead of typed fields per domain.
+2. **Modules never depend on each other.** If two modules need the same thing,
+   it belongs in core.
+3. **Surfaces contain no logic.** A surface resolves a tool, runs it, and
+   renders a `Report`. `crates/server` is ~250 lines for that reason.
+4. **Packs are processes, not libraries.** They cannot see the host's memory,
+   so a pack bug cannot corrupt the engine. The protocol is the whole interface.
+5. **`crates/cli` is the composition root.** It is the only place that knows
+   the list of modules:
+
+```rust
+registry.register_all(mellivora_sysadmin::tools()?)?;
+registry.register_all(mellivora_crypto::tools()?)?;
+registry.register_all(mellivora_scrub::tools()?)?;
+```
+
+Adding a module is one line. Adding a surface never touches a module.
+
+### Why a workspace rather than one crate
+
+- Compile isolation: changing `scrub` does not rebuild `crypto`.
+- Boundary enforcement: a dependency that should not exist fails to compile.
+- Test scoping: `cargo test -p mellivora-scrub` runs in seconds.
+
+### Why not a single binary crate with feature flags
+
+Feature flags create combinatorial test matrices and let surfaces compile
+against dormant code. Separate crates make the dependency direction explicit and
+keep `--no-default-features` surprises out of CI.
+
+## 4. The tool contract
+
+Everything is a `Tool`:
+
+```rust
+pub trait Tool: Send + Sync {
+    fn manifest(&self) -> &ToolManifest;
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report>;
+}
+```
+
+`ToolManifest` is the machine-readable description used by the CLI, the UI form
+renderer, and the plugin listing:
+
+```toml
+id          = "sysadmin.disk-usage"
+title       = "Disk usage"
+category    = "sysadmin"
+capabilities = ["system", "process:exec"]
+args        = [{ name = "path", type = "path" }, { name = "all", type = "boolean", default = false }]
+origin      = "builtin"          # or "plugin:perlden"
+```
+
+`Report` is the single result shape:
+
+```rust
+Report {
+    tool: String,
+    status: Status,              // ok | warning | error
+    summary: String,             // one line, always present
+    findings: Vec<Finding>,      // severity + code + message + target
+    data: serde_json::Value,     // structured, for machines
+    body: Option<String>,        // human text from compat packs
+    warnings: Vec<String>,       // non-fatal problems
+    duration_ms: u64,
+}
+```
+
+Two details matter:
+
+- **`status` is derived, not asserted.** `Report::sealed()` computes it from
+  findings, so a tool cannot report `ok` while emitting a `high` finding.
+- **`data` is the machine channel, `body` is the human channel.** This is what
+  lets a Perl module return its formatted box-drawing report *and* structured
+  data from the same call, without either surface having to parse the other.
+
+`ToolContext` carries everything ambient, so tools are pure functions of
+`(ctx, args)` and trivially testable:
+
+```rust
+ToolContext { paths, config, dry_run, granted: CapabilitySet }
+```
+
+### Arguments
+
+`Args` is a typed wrapper over a JSON object. The CLI passes `key=value` pairs,
+the API passes JSON, and packs receive the same object. Coercion of
+`true`/`false`/integers keeps the CLI ergonomic without a second parser.
+
+### Resolution
+
+`Registry::resolve` accepts an exact id, a `category.tool` id, or a unique
+suffix, with trigram-similarity suggestions on failure (carried over from Perl
+Den's fuzzy `find_closest`). When a shorthand is ambiguous, **a built-in always
+wins over a pack** — a pack must not be able to silently take over
+`system-info`.
+
+## 5. Surfaces
+
+| Surface | Crate | Responsibility |
+|---|---|---|
+| `mellivora` CLI | `crates/cli` | parse, resolve, run, render, audit |
+| HTTP API | `crates/server` | resolve, run, serialize |
+| Desktop | `apps/desktop` | window + bundle only |
+| Web UI | `packages/ui` | render manifests, forms, reports |
+| WASM (planned) | `crates/wasm` | run pure tools in-browser |
+
+The HTTP API is intentionally boring:
+
+```
+GET  /api/v1/health          → status, version, tool/pack counts
+GET  /api/v1/tools           → [ToolManifest]
+GET  /api/v1/tools/{id}      → ToolManifest
+POST /api/v1/run             → { tool, args, dry_run } → Report
+GET  /api/v1/packs           → [PackSummary]
+GET  /api/v1/config          → effective config (no secrets)
+```
+
+Blocking work runs on `spawn_blocking`; the API binds to loopback by default
+and allows any origin because the desktop shell and the Vite dev server are
+different origins. If it is ever exposed beyond loopback, add authentication
+*before* changing the bind address — see [Security](#7-security-model).
+
+The UI renders forms from `ToolManifest.args`, so a new tool appears in the UI
+with no frontend change. That is the payoff of the manifest contract.
+
+## 6. Configuration and state
+
+One TOML file, one state root:
+
+```
+$MELLIVORA_HOME (default: ~/.config/mellivora)
+├── config.toml
+├── audit.jsonl
+├── data/
+├── cache/
+└── plugins/          # drop-in packs
+```
+
+```toml
+schema_version = 1
+
+[defaults]
+output = "text"
+dry_run = false
+
+[plugins]
+dirs = []
+disabled = ["experimental"]
+timeout_ms = 30000        # host default; packs may override
+allow = []                    # empty = grant what packs declare
+
+[audit]
+enabled = true
+max_entries = 1000
+
+[modules.sysadmin]            # owned by the sysadmin crate
+disk_warn_percent = 80
+disk_critical_percent = 92
+memory_warn_percent = 90
+load_warn_per_core = 2.0
+```
+
+`modules` is untyped on purpose: a module reads its own namespace
+(`ctx.config.module("sysadmin")`), so adding a domain never edits core. Schema
+version is checked on load and a newer schema is rejected rather than
+misinterpreted.
+
+**Audit** is append-only JSON Lines. It records tool, status, duration, and
+argument *names* — never values, because values contain passwords and paths that
+may be sensitive. This mirrors DarkStar's audit rule and is enforced by a test.
+
+## 7. Security model
+
+The toolkit runs everything locally and holds secrets. Four structural choices:
+
+1. **Capabilities are declared and checked.** Tools declare `fs:read`,
+   `fs:write`, `process:exec`, `network`, `secrets`, `system`. Built-ins check
+   their own required capability at entry; the plugin host refuses to dispatch a
+   pack tool whose declared capabilities were not granted.
+2. **Packs are separate processes.** No shared address space, no link-time
+   access to the crypto code. A pack can be killed on timeout.
+3. **Audit never stores values** (see above).
+4. **Removal is verified before write.** `privacy.metadata-strip` re-scans its
+   own output and errors if metadata remains; it does not write a partial strip.
+   The re-scan happens even in `--dry-run` so the failure is found early.
+
+Additional invariants worth preserving:
+
+- `--dry-run` is honoured by every mutating tool and is visible in the report.
+- Plugin commands are `argv` arrays in the manifest, never shell strings, so a
+  manifest cannot inject shell syntax.
+- Static UI serving rejects `..` traversal.
+- Crypto tooling relies on the OS CSPRNG; password generation uses rejection
+  sampling to avoid modulo bias.
+
+See [SECURITY.md](../SECURITY.md) for the threat model and reporting process.
+
+## 8. Extending: modules vs packs
+
+Choose a **module** (Rust) when the code is performance- or security-critical,
+needs to be in-process (crypto, streaming), or must ship to WASM.
+
+Choose a **pack** when the implementation already exists in another language,
+needs that runtime (Node for HEIC/PDF/MP4 parsing, Perl for the sysadmin
+catalogue), or is third-party.
+
+Porting path: start as a pack, measure, port the hot or security-critical parts,
+keep the pack until the port reaches parity, then remove it. Both expose the
+same `ToolManifest`, so nothing downstream notices the switch.
+
+The full protocol is in [PLUGIN_SDK.md](PLUGIN_SDK.md).
+
+## 9. Testing strategy
+
+| Layer | What is tested | How |
+|---|---|---|
+| Parsers | `/proc`, `df`, JPEG/PNG/WebP structures | pure functions over fixtures — no I/O |
+| Tools | behaviour, findings, status, dry-run | `ToolContext` with a temp `AppPaths` |
+| Contracts | report round-trip, status derivation, registry resolution, capability denial | unit tests in `core` |
+| Protocol | manifest validation, discovery, broken packs, encoding | unit tests + live pack run |
+| Surfaces | CLI arg rewriting, HTTP handlers | unit tests; `curl` in the smoke script |
+| End-to-end | Perl Den module through the pack | `scripts/smoke.sh` |
+
+Rules that keep this cheap:
+
+- **Parsers are separate from I/O.** The `parse.rs` in `mellivora-sysadmin` has
+  no filesystem access, so every branch is testable with a string.
+- **Tools take `ToolContext`.** No globals, no `std::env::set_var` in tests.
+- **Tests never depend on host state** where avoidable; where they must (real
+  `df`), they assert shape rather than exact values.
+- **Golden behaviour lives in the contract.** If a tool wants to say "error", it
+  must emit a `high` finding — the test asserts that, not a string.
+
+## 10. Build, CI, and release
+
+- **Toolchain pinned** in `rust-toolchain.toml`; MSRV 1.82 in
+  `[workspace.package]`.
+- **Workspace lints** deny `unsafe_code` and warn on `dbg!`/`todo!`, so those
+  cannot pass review silently.
+- **CI** (`.github/workflows/ci.yml`) runs: `fmt --check`, `clippy -D warnings`,
+  `test --workspace`, UI type-check + build, the Perl pack syntax check, and a
+  live end-to-end slice with a shallow Perl Den clone.
+- **Versioning**: workspace version in one place; modules are versioned
+  together until they have independent consumers. `Report` and the plugin
+  protocol carry explicit versions because they are the public API.
+- **Release**: build the CLI + server binaries per target, the UI bundle, and
+  the Tauri installers. Pack manifests are released separately so packs can
+  update without a toolkit release.
+- **Dependency policy**: `deny.toml` allows MIT/Apache-2.0/BSD; new crypto
+  dependencies need an ADR.
+
+## 11. What each source project becomes
+
+### Perl_Den → `sysadmin` module + `perlden` pack
+
+| Perl Den piece | Destination |
+|---|---|
+| 20 `Scripts/*.pm` | live now via `perlden` pack; ported to `crates/sysadmin` in priority order |
+| `Runner` / `BatchRunner` | generic batch execution in the CLI/API (roadmap) |
+| `Scheduler` (crontab) | `automation` module (roadmap) — needs a dry-run-first design |
+| `ScriptRegistry` (discovery, fuzzy match, plugins) | `mellivora-core` registry |
+| `Config` (schema v4) | one config with a `modules.sysadmin` namespace |
+| GTK3 IDE, terminal, tutorials | out of scope for the toolkit; Perl Den remains usable as an IDE. Tutorial content can later ship as a docs pack. |
+
+The pack is not a stopgap to be embarrassed about: it runs the same tested
+modules and normalizes a real defect (Perl Den's UTF-8 sources lack `use utf8`,
+which mangles box-drawing characters). That normalization lives at the adapter
+boundary, where it belongs.
+
+### Zayfer_Vault / DarkStar → `crypto` module
+
+| DarkStar piece | Destination |
+|---|---|
+| `crates/core` primitives, HBZF, keystore, Shamir, shred, QR, stego, OpenPGP | linked behind `CryptoBackend` — same trait the current OS backend implements |
+| Rust CLI commands | `crypto.*` tools |
+| Audit log | `mellivora-core` audit |
+| PyO3 bindings | kept for Python users; not a toolkit dependency |
+| WASM crate | becomes `crates/wasm` |
+| Web UI | replaced by the shared UI |
+| PySide6 GUI (26 view modules) | workflows migrated into the shared UI; the shell disappears |
+
+The seam is deliberate. `CryptoBackend` is the only thing `mellivora-crypto`
+needs to know, so the DarkStar engine can be adopted incrementally (hash →
+password → AEAD → keystore/HBZF) without changing a single tool or surface.
+
+### NakiByte / HB_Scrub → `privacy` module
+
+| HB_Scrub piece | Destination |
+|---|---|
+| `formats/{jpeg,png,webp}` | ported natively (done) |
+| `formats/{heic,avif,tiff,pdf,mp4,raw,gif,svg}` | `hb-scrub` Node pack first, then native |
+| `operations/{read,remove,verify}` | `privacy.metadata-scan/strip/verify` |
+| GPS redaction, field control, injection, profiles | roadmap; profiles map naturally onto `modules.privacy` |
+| Batch + stream APIs | generic batch (CLI/API) and streaming handlers |
+| Tauri/Electron/web GUI | replaced by the shared UI |
+
+## 12. Known limitations
+
+Stated plainly, because a design document that hides them is not useful:
+
+1. **The crypto engine is not linked yet.** `crypto.passgen` and
+   `crypto.sha256` are real; AEAD, signatures, HBZF, and keystore are a defined
+   seam with no implementation behind it.
+2. **Three of thirteen metadata formats are native.** The rest return a clear
+   `unsupported` error that names the pack to install — not a silent success.
+3. **The Perl pack is synchronous.** One request at a time per pack; fine for
+   interactive use, a limitation for bulk runs.
+4. **No scheduler or TUI yet.** Perl Den's crontab integration is not ported;
+   cron remains the supported way to schedule.
+5. **The desktop shell requires the API process.** It renders UI only. Embedding
+   the server in the Tauri process is a small, deliberate later step.
+6. **`crates/server` has no authentication.** It must stay on loopback until it
+   does.

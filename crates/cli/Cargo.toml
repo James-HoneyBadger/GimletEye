@@ -1,0 +1,28 @@
+[package]
+name = "mellivora-cli"
+description = "Unified command line interface for Mellivora ToolKit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mellivora"
+path = "src/main.rs"
+
+[dependencies]
+mellivora-core = { workspace = true }
+mellivora-crypto = { workspace = true }
+mellivora-scrub = { workspace = true }
+mellivora-server = { workspace = true }
+mellivora-sysadmin = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

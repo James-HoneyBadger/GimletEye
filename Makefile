@@ -1,0 +1,50 @@
+.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-dev pack-check doctor smoke clean
+
+CARGO ?= cargo
+UI_DIR := packages/ui
+CLI := $(CARGO) run -q -p mellivora-cli --
+
+help: ## Show available targets
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+build: ## Build the workspace in release mode
+	$(CARGO) build --release --workspace
+
+test: ## Run the Rust test suite
+	$(CARGO) test --workspace
+
+fmt: ## Format Rust sources
+	$(CARGO) fmt --all
+
+fmt-check: ## Verify formatting (what CI runs)
+	$(CARGO) fmt --all -- --check
+
+clippy: ## Lint with clippy, warnings as errors
+	$(CARGO) clippy --workspace --all-targets -- -D warnings
+
+check: fmt-check clippy test ## Everything CI runs for Rust
+
+ui-install: ## Install UI dependencies
+	cd $(UI_DIR) && npm install
+
+ui: ## Type-check and build the shared UI
+	cd $(UI_DIR) && npm run build
+
+ui-dev: ## Run the UI dev server (needs `make serve` in another terminal)
+	cd $(UI_DIR) && npm run dev
+
+pack-check: ## Syntax-check the Perl pack
+	perl -c plugins/perlden-pack/pack.pl
+
+doctor: ## Report installation state, including packs
+	$(CLI) doctor
+
+serve: ## Serve the API and the built UI on loopback
+	$(CLI) serve --ui-dir $(UI_DIR)/dist
+
+smoke: ## End-to-end check of CLI, API, and the Perl pack
+	./scripts/smoke.sh
+
+clean: ## Remove build artifacts
+	$(CARGO) clean
+	rm -rf $(UI_DIR)/dist $(UI_DIR)/node_modules

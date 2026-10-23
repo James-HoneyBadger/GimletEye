@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mellivora ToolKit",
+  "version": "0.1.0",
+  "identifier": "org.honeybadger.mellivora",
+  "build": {
+    "beforeDevCommand": "npm --prefix ../../packages/ui run dev",
+    "beforeBuildCommand": "npm --prefix ../../packages/ui run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../../../packages/ui/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Mellivora ToolKit",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:7878 http://localhost:7878"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "category": "Utility",
+    "shortDescription": "System, crypto, and privacy workbench",
+    "longDescription": "Mellivora ToolKit unifies the Perl Den sysadmin scripts, DarkStar cryptography, and HB_Scrub metadata tools behind one interface."
+  }
+}
