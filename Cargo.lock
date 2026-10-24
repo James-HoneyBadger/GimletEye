@@ -654,7 +654,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mellivora-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "mellivora-core",
@@ -666,7 +666,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "dirs",
  "serde",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-crypto"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-scrub"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mellivora-core",
  "serde",
@@ -703,7 +703,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-server"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "mellivora-core",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-sysadmin"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mellivora-core",
  "serde",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-toolkit"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mellivora-core",
  "mellivora-crypto",

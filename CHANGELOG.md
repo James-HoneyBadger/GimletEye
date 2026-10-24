@@ -4,7 +4,11 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] — 2026-10-24
+
+The release pipeline that 0.2.0 promised, and the icon set it needed to build on
+Windows. Binaries and installers for 0.2.0 were never published; use this
+release instead.
 
 ### Added
 
