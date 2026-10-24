@@ -17,6 +17,8 @@ export interface ToolManifest {
   tags?: string[];
   origin: string;
   version?: string;
+  /** The tool can write to this machine. */
+  mutates?: boolean;
 }
 
 export interface PackSummary {
@@ -51,6 +53,20 @@ export interface Health {
   version: string;
   tools: number;
   packs: number;
+}
+
+export interface AuditEntry {
+  ts: string;
+  tool: string;
+  status: 'ok' | 'warning' | 'error';
+  duration_ms: number;
+  arg_keys?: string[];
+}
+
+export interface AuditTrail {
+  enabled: boolean;
+  path: string | null;
+  entries: AuditEntry[];
 }
 
 declare global {
@@ -89,6 +105,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const fetchHealth = () => request<Health>('/api/v1/health');
 export const fetchTools = () => request<ToolManifest[]>('/api/v1/tools');
 export const fetchPacks = () => request<PackSummary[]>('/api/v1/packs');
+export const fetchAudit = (limit = 50) => request<AuditTrail>(`/api/v1/audit?limit=${limit}`);
 
 export const runTool = (tool: string, args: Record<string, unknown>, dryRun: boolean) =>
   request<Report>('/api/v1/run', {

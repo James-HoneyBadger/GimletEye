@@ -8,9 +8,44 @@ All notable changes to Mellivora ToolKit. Format follows
 
 Native cryptography: authenticated file encryption, Ed25519 signatures, and the
 `.melv` container. Plus removal policies, GPS redaction, a workbench interface,
-a self-contained desktop app, and CI-friendly exit codes.
+a self-contained desktop app, and CI-friendly exit codes. Batch execution, a
+manifest that says whether a tool writes, and a workbench that reports what it
+did.
 
 ### Added
+
+- **`mellivora batch`.** Run one tool over many files:
+  `mellivora batch privacy.metadata-strip ~/Pictures --ext jpg`. Expands
+  directories, binds each path to `--input-arg` (default `input`), runs with
+  `--concurrency` (default 4, capped at 32), and prints one aggregate report
+  with a per-file entry. `--fail-fast` stops after the first failure and reports
+  what was skipped; `--ext` and `--no-recursive` narrow the file set. A failing
+  file never aborts the batch silently, and the aggregate status is derived from
+  the per-file findings like every other report.
+- **`mutates` on `ToolManifest`.** `crypto.encrypt`, `crypto.decrypt`,
+  `crypto.keygen`, `crypto.sign`, and `privacy.metadata-strip` declare that they
+  write; everything else is read-only by default, including packs written before
+  the field existed. `mellivora tools list` gained a `WRITES` column.
+- **`GET /api/v1/audit?limit=N`.** Recent runs from the local audit trail as
+  JSON (`enabled`, `path`, `entries`); argument names only, never values.
+- **Workbench: packs and history.** The packs button lists every loaded pack
+  with its version, tool count, capabilities, and directory; the clock button
+  shows recent runs, and clicking one opens its tool.
+- **Workbench: reproducible runs.** Every report shows the equivalent
+  `mellivora run …` command, copyable in one click, and can be downloaded as
+  JSON.
+- **Desktop: the window now loads the embedded bundle.** `apps/desktop` declares
+  the `custom-protocol` feature, so a release build serves the UI compiled into
+  the binary instead of pointing the webview at the dev server. Before this, a
+  plain `cargo build --release` opened a window reading *"Could not connect to
+  localhost"*.
+- **Desktop: window lifecycle is visible.** The shell reports close and destroy
+  events on stderr, so a clean exit is explainable instead of mysterious.
+- **UI test suite.** `vitest` covers search, argument validation and coercion,
+  CLI command rendering, data rendering, and — against a jsdom shell with a
+  mocked API — boot, a full run, validation blocking, drafts surviving a tool
+  switch, the read-only/dry-run split, and both sheets. Wired into CI and
+  `make ui-test`.
 
 - **Self-contained desktop app.** The Tauri window now hosts the engine: it
   binds an ephemeral loopback port, runs the same `Runtime` the CLI uses on a
@@ -40,9 +75,6 @@ a self-contained desktop app, and CI-friendly exit codes.
   replaced silently.
 - Known-answer tests: NIST AES-256-GCM (case 13), RFC 8032 Ed25519, plus
   round-trip, tamper, and wrong-passphrase coverage.
-
-### Added
-
 - **Removal policies.** `privacy.metadata-{scan,strip,verify}` accept
   `profile=privacy|sharing|archive` plus comma-separated `remove=` and `keep=`
   overrides. `keep` always wins, so a broad profile cannot remove something by
@@ -58,6 +90,28 @@ a self-contained desktop app, and CI-friendly exit codes.
 
 ### Changed
 
+- **Workbench UX.** Search now covers capabilities and argument names, as its
+  placeholder always claimed. Arrow keys move through the tool list and every
+  option is reachable by keyboard; required fields are validated before a
+  request is sent, with the offending field focused and announced; form values
+  survive a tool switch; the last report per tool is kept; a dry run is offered
+  only for tools that write, and read-only tools say so; reports from a dry run
+  carry a "nothing was written" banner; section headings in structured data are
+  capitalised like every other label.
+- **CLI internals.** `commands.rs` no longer duplicates pack-failure rendering,
+  and argument parsing is shared between `run` and `batch`.
+
+### Removed
+
+- `packages/ui/src/api.ts`, a duplicate of `lib/api.ts` that had already drifted
+  (no `fetchPacks`, no offline message), plus the unused `sliders` and `plug`
+  icons.
+- `packages/ui/src/style.css`, a stylesheet nothing imported; `styles/` is the
+  single source of styling.
+- Dead store helpers left over from the previous interface.
+
+### Fixed
+
 - `Segment.removable` was replaced by `Segment.category`; `metadata_bytes` now
   means "removable under the default policy", and reports add
   `removable_bytes` for the policy actually in use.
@@ -65,8 +119,12 @@ a self-contained desktop app, and CI-friendly exit codes.
   applicable, the post-redaction coordinates (never the originals).
 - The smoke test now covers profiles, GPS redaction, and `--strict`.
 
-### Fixed
-
+- A pack listed twice when `MELLIVORA_PLUGIN_PATH` named a directory that was
+  also discovered relative to the working directory: `plugins` and
+  `/abs/path/plugins` are the same directory with two spellings. Plugins are now
+  deduplicated by canonical path, so each pack process starts once.
+- `mellivora … | head` panicked with a broken-pipe backtrace when the reader
+  closed early; the CLI now ends quietly, as a shell pipeline expects.
 - `ArgSpec` serialized as `{"name": ..., "kind": {"type": ...}}` while the
   documented contract promised a flat `type`. It is now flattened, so consumers
   can build forms from the wire shape (the UI previously rendered booleans and

@@ -133,10 +133,14 @@ impl Config {
     /// Configured pack directories first, then the defaults, de-duplicated.
     pub fn effective_plugin_dirs(&self, paths: &AppPaths) -> Vec<PathBuf> {
         let mut dirs: Vec<PathBuf> = Vec::new();
+        let mut seen: Vec<PathBuf> = Vec::new();
         for dir in self.plugins.dirs.iter().chain(paths.plugin_dirs.iter()) {
-            if !dirs.contains(dir) {
-                dirs.push(dir.clone());
+            let identity = dir.canonicalize().unwrap_or_else(|_| dir.clone());
+            if seen.contains(&identity) {
+                continue;
             }
+            seen.push(identity);
+            dirs.push(dir.clone());
         }
         dirs
     }

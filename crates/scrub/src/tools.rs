@@ -248,7 +248,8 @@ impl MetadataStrip {
                 .default_value(Value::from("off"))
                 .help("Reduce GPS precision in place instead of deleting EXIF (off, country, region, city)"),
             ])
-            .with_tags(["metadata", "exif", "gps", "privacy", "batch"]),
+            .with_tags(["metadata", "exif", "gps", "privacy", "batch"])
+            .mutating(),
         }
     }
 }

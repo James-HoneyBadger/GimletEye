@@ -137,7 +137,8 @@ impl Encrypt {
                     .default_value(Value::Bool(false))
                     .help("Replace the output file if it exists"),
             ])
-            .with_tags(["encryption", "container", "aead"]),
+            .with_tags(["encryption", "container", "aead"])
+            .mutating(),
             backend,
         }
     }
@@ -224,7 +225,8 @@ impl Decrypt {
                     .default_value(Value::Bool(false))
                     .help("Replace the output file if it exists"),
             ])
-            .with_tags(["decryption", "container", "aead"]),
+            .with_tags(["decryption", "container", "aead"])
+            .mutating(),
             backend,
         }
     }
@@ -360,7 +362,8 @@ impl KeyGen {
                     .default_value(Value::Bool(false))
                     .help("Replace existing key files"),
             ])
-            .with_tags(["keys", "ed25519", "signature"]),
+            .with_tags(["keys", "ed25519", "signature"])
+            .mutating(),
             backend,
         }
     }
@@ -445,7 +448,8 @@ impl Sign {
                     .help("Secret key file (<label>.key)"),
                 ArgSpec::new("output", ArgKind::Path).help("Signature path (default: <input>.sig)"),
             ])
-            .with_tags(["signature", "ed25519", "integrity"]),
+            .with_tags(["signature", "ed25519", "integrity"])
+            .mutating(),
             backend,
         }
     }

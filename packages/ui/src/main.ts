@@ -1,14 +1,15 @@
 import './styles/tokens.css';
 import './styles/app.css';
 
-import { fetchHealth, fetchPacks, fetchTools, runTool } from './lib/api';
+import { createActions, type Renderer } from './lib/actions';
+import { modLabel } from './lib/format';
 import { persist, state } from './lib/store';
 import { renderSidebar } from './components/sidebar';
 import { renderTopbar } from './components/topbar';
 import { renderWorkbench } from './components/workbench';
 import { renderResult } from './components/result';
+import { renderSheets } from './components/sheets';
 import { icons } from './components/icons';
-import { modLabel } from './lib/format';
 
 const mount = document.querySelector<HTMLDivElement>('#app');
 if (!mount) {
@@ -37,8 +38,10 @@ function renderAll(): void {
         ${renderWorkbench(state)}
       </div>
       <div class="toast-stack" id="toasts" aria-live="polite"></div>
+      <div id="sheet-root"></div>
     </div>`;
   restoreSidebarScroll(offset, true);
+  renderSheetHost();
 }
 
 function sidebarScroll(): number {
@@ -64,6 +67,7 @@ function restoreSidebarScroll(offset: number, revealActive: boolean): void {
   scroller.scrollTop = offset;
 }
 
+/** Sidebar only — used while typing in search so focus is never stolen. */
 function renderSidebarOnly(): void {
   const current = root.querySelector('.sidebar');
   if (!current) {
@@ -75,6 +79,7 @@ function renderSidebarOnly(): void {
   restoreSidebarScroll(offset, false);
 }
 
+/** Result only — used for tab switches and run completion. */
 function renderResultOnly(): void {
   const region = root.querySelector('#result-region');
   if (!region) {
@@ -84,118 +89,54 @@ function renderResultOnly(): void {
   region.innerHTML = renderResult(state);
 }
 
-function toast(message: string, tone: 'ok' | 'error' = 'ok'): void {
-  const stack = root.querySelector('#toasts');
-  if (!stack) return;
-  const element = document.createElement('div');
-  element.className = `toast toast--${tone}`;
-  element.textContent = message;
-  stack.append(element);
-  window.setTimeout(() => element.classList.add('toast--out'), 2200);
-  window.setTimeout(() => element.remove(), 2600);
-}
-
-function selectTool(id: string): void {
-  if (state.selectedId === id) return;
-  state.selectedId = id;
-  state.report = null;
-  state.error = null;
-  state.tab = 'details';
-  persist();
-  renderAll();
-}
-
-function toggleTheme(): void {
-  state.theme = state.theme === 'dark' ? 'light' : 'dark';
-  persist();
-  renderAll();
-}
-
-function focusSearch(): void {
-  const search = root.querySelector<HTMLInputElement>('#search');
-  search?.focus();
-  search?.select();
-}
-
-function setRunning(running: boolean): void {
-  const button = root.querySelector<HTMLButtonElement>('#run');
-  if (!button) return;
-  button.disabled = running;
-  button.innerHTML = running
-    ? '<span class="spinner" aria-hidden="true"></span>Running…'
-    : `${icons.play}Run`;
-}
-
-function collectArgs(): Record<string, unknown> {
-  const args: Record<string, unknown> = {};
-  for (const input of root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-type]')) {
-    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-      args[input.name] = input.checked;
-      continue;
-    }
-    if (!input.value) continue;
-    args[input.name] = input.dataset.type === 'integer' ? Number(input.value) : input.value;
+/** Workbench only — used when validation messages change. */
+function renderWorkbenchOnly(): void {
+  const main = root.querySelector('.main');
+  if (!main) {
+    renderAll();
+    return;
   }
-  return args;
+  const scroll = main.scrollTop;
+  main.outerHTML = renderWorkbench(state);
+  const replaced = root.querySelector<HTMLElement>('.main');
+  if (replaced) replaced.scrollTop = scroll;
 }
 
-async function run(): Promise<void> {
-  const tool = state.tools.find((candidate) => candidate.id === state.selectedId);
-  if (!tool || state.running) return;
-
-  const args = collectArgs();
-  const dryRun = state.dryRun;
-
-  state.running = true;
-  state.error = null;
-  state.report = null;
-  state.tab = 'details';
-  setRunning(true);
-  renderResultOnly();
-
-  try {
-    state.report = await runTool(tool.id, args, dryRun);
-  } catch (error) {
-    state.error = error instanceof Error ? error.message : String(error);
-  } finally {
-    state.running = false;
-    setRunning(false);
-    renderResultOnly();
+/** Topbar affordances that change without a full re-render. */
+function renderChrome(): void {
+  applyTheme();
+  const toggle = root.querySelector<HTMLElement>('#toggle-theme');
+  if (toggle) {
+    toggle.innerHTML = state.theme === 'dark' ? icons.sun : icons.moon;
+    toggle.setAttribute('title', `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`);
   }
+  const badge = root.querySelector<HTMLElement>('#show-history span');
+  if (badge) badge.textContent = state.history.length > 0 ? String(state.history.length) : '';
 }
 
-async function copyText(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast('Copied to clipboard');
-  } catch {
-    toast('Could not copy to clipboard', 'error');
-  }
+function renderSheetHost(): void {
+  const host = root.querySelector('#sheet-root');
+  if (host) host.innerHTML = renderSheets(state);
 }
 
-async function boot(): Promise<void> {
-  renderAll();
-  try {
-    const [health, tools, packs] = await Promise.all([fetchHealth(), fetchTools(), fetchPacks()]);
-    state.health = health;
-    state.tools = tools;
-    state.packs = packs;
-    if (!state.selectedId || !tools.some((tool) => tool.id === state.selectedId)) {
-      state.selectedId = tools[0]?.id ?? null;
-    }
-    state.error = null;
-  } catch (error) {
-    state.error = error instanceof Error ? error.message : String(error);
-  }
-  renderAll();
-}
+const render: Renderer = {
+  all: renderAll,
+  sidebar: renderSidebarOnly,
+  workbench: renderWorkbenchOnly,
+  result: renderResultOnly,
+  sheets: renderSheetHost,
+  chrome: renderChrome,
+};
+
+const actions = createActions(root, render);
 
 root.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
 
+  // A tool link inside a sheet must win over the sheet's close handler.
   const toolButton = target.closest<HTMLElement>('[data-tool]');
   if (toolButton?.dataset.tool) {
-    selectTool(toolButton.dataset.tool);
+    actions.selectTool(toolButton.dataset.tool);
     return;
   }
 
@@ -216,22 +157,44 @@ root.addEventListener('click', (event) => {
 
   const copy = target.closest<HTMLElement>('[data-copy]');
   if (copy) {
-    void copyText(copy.dataset.copy ?? '');
+    void actions.copy(copy.dataset.copy ?? '');
+    return;
+  }
+
+  const download = target.closest<HTMLElement>('[data-download]');
+  if (download?.dataset.download) {
+    actions.download(download.dataset.download);
+    return;
+  }
+
+  const sheetTrigger = target.closest<HTMLElement>('[data-sheet]');
+  if (sheetTrigger?.dataset.sheet === 'packs' || sheetTrigger?.dataset.sheet === 'history') {
+    actions.openSheet(sheetTrigger.dataset.sheet);
+    return;
+  }
+
+  if (target.closest('[data-clear-search]')) {
+    actions.clearSearch();
     return;
   }
 
   if (target.closest('#toggle-theme')) {
-    toggleTheme();
+    actions.toggleTheme();
     return;
   }
 
   if (target.closest('#run')) {
-    void run();
+    void actions.run();
     return;
   }
 
-  if (target.closest('#retry')) {
-    void boot();
+  if (target.closest('[data-sheet-close]')) {
+    actions.closeSheet();
+    return;
+  }
+
+  if (target.hasAttribute('data-sheet-backdrop')) {
+    actions.closeSheet();
   }
 });
 
@@ -240,6 +203,13 @@ root.addEventListener('input', (event) => {
   if (target.id === 'search' && target instanceof HTMLInputElement) {
     state.query = target.value;
     renderSidebarOnly();
+    return;
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) {
+    if (target.dataset.type) {
+      actions.rememberDraft();
+      actions.clearFieldError(target.name);
+    }
   }
 });
 
@@ -262,36 +232,49 @@ root.addEventListener('change', (event) => {
 root.addEventListener('keydown', (event) => {
   const mod = event.metaKey || event.ctrlKey;
   const target = event.target as HTMLElement;
+  const inSidebar = target.closest('.sidebar') !== null;
 
   if (mod && event.key.toLowerCase() === 'k') {
     event.preventDefault();
-    focusSearch();
+    actions.focusSearch();
     return;
   }
 
   if (mod && event.key === 'Enter') {
     event.preventDefault();
-    void run();
+    void actions.run();
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    if (state.sheet) {
+      event.preventDefault();
+      actions.closeSheet();
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.id === 'search') {
+      if (state.query) {
+        actions.clearSearch();
+      } else {
+        target.blur();
+      }
+    }
+    return;
+  }
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (inSidebar || target.id === 'search') {
+      event.preventDefault();
+      actions.moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+    }
     return;
   }
 
   if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'search') {
-    const first = root.querySelector<HTMLElement>('[data-tool]');
-    if (first?.dataset.tool) {
-      selectTool(first.dataset.tool);
-    }
-    return;
-  }
-
-  if (event.key === 'Escape' && target instanceof HTMLInputElement && target.id === 'search') {
-    if (state.query) {
-      target.value = '';
-      state.query = '';
-      renderSidebarOnly();
-    } else {
-      target.blur();
-    }
+    event.preventDefault();
+    const first = root.querySelector<HTMLElement>('.tool');
+    if (first?.dataset.tool) actions.selectTool(first.dataset.tool);
   }
 });
 
-void boot();
+void actions.boot();

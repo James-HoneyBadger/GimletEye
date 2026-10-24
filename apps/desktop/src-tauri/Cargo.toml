@@ -7,6 +7,12 @@ rust-version = "1.82"
 license = "MIT"
 publish = false
 
+[features]
+# Enabled for production builds: the window loads the bundle embedded at compile
+# time instead of the dev server. Without it a plain `cargo build --release`
+# still points the webview at `devUrl`.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

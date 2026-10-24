@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -29,6 +29,9 @@ ui-install: ## Install UI dependencies
 
 ui: ## Type-check and build the shared UI
 	cd $(UI_DIR) && npm run build
+
+ui-test: ## Run the UI unit tests
+	cd $(UI_DIR) && npm test
 
 ui-dev: ## Run the UI dev server (needs `make serve` in another terminal)
 	cd $(UI_DIR) && npm run dev

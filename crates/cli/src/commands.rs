@@ -6,6 +6,7 @@ use mellivora_core::{
     Args, AuditEntry, Category, MellivoraError, OutputFormat, Report, Result, Status, Tool,
 };
 
+use crate::batch;
 use crate::cli::{Cli, Command, ConfigCommand, PluginsCommand, ToolsCommand};
 use mellivora_toolkit::Runtime;
 
@@ -32,6 +33,28 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
 
     match cli.command {
         Command::Run { tool, args } => run(&globals, &tool, &args),
+        Command::Batch {
+            tool,
+            paths,
+            args,
+            input_arg,
+            concurrency,
+            fail_fast,
+            extensions,
+            no_recursive,
+        } => run_batch(
+            &globals,
+            batch::BatchOptions {
+                tool,
+                paths,
+                args: parse_pairs(&args)?,
+                input_arg,
+                concurrency: usize::from(concurrency),
+                fail_fast,
+                extensions,
+                recursive: !no_recursive,
+            },
+        ),
         Command::Tools { command } => match command {
             ToolsCommand::List { category } => list_tools(&globals, category.as_deref()),
             ToolsCommand::Show { id } => show_tool(&globals, &id),
@@ -45,7 +68,7 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
             ConfigCommand::Init { force } => init_config(&globals, force),
             ConfigCommand::Path => {
                 let runtime = Runtime::load(globals.home.clone(), false)?;
-                println!("{}", runtime.paths.config_file.display());
+                crate::outln!("{}", runtime.paths.config_file.display());
                 Ok(ExitCode::SUCCESS)
             }
         },
@@ -59,6 +82,19 @@ fn run(globals: &Globals, tool_name: &str, raw_args: &[String]) -> Result<ExitCo
     let runtime = Runtime::load(globals.home.clone(), globals.with_plugins)?;
     let tool = resolve(&runtime, tool_name)?;
 
+    let args = parse_pairs(raw_args)?;
+    let arg_keys: Vec<String> = args.as_map().keys().cloned().collect();
+
+    let context = runtime.context(globals.dry_run);
+    let report = tool.run(&context, &args)?;
+    crate::out!("{}", report.render(globals.format));
+    record_audit(&runtime, &report, arg_keys);
+
+    Ok(exit_code(report.status, globals.strict))
+}
+
+/// Parse `key=value` arguments from the CLI into a typed bag.
+fn parse_pairs(raw_args: &[String]) -> Result<Args> {
     let mut pairs: Vec<(String, String)> = Vec::with_capacity(raw_args.len());
     for raw in raw_args {
         match raw.split_once('=') {
@@ -70,15 +106,28 @@ fn run(globals: &Globals, tool_name: &str, raw_args: &[String]) -> Result<ExitCo
             }
         }
     }
-    let args = Args::from_pairs(pairs)?;
-    let arg_keys: Vec<String> = args.as_map().keys().cloned().collect();
+    Args::from_pairs(pairs)
+}
+
+fn run_batch(globals: &Globals, options: batch::BatchOptions) -> Result<ExitCode> {
+    let runtime = Runtime::load(globals.home.clone(), globals.with_plugins)?;
+    let tool = resolve(&runtime, &options.tool)?;
+
+    let mut arg_keys: Vec<String> = options.args.as_map().keys().cloned().collect();
+    arg_keys.push(options.input_arg.clone());
 
     let context = runtime.context(globals.dry_run);
-    let report = tool.run(&context, &args)?;
-    print!("{}", report.render(globals.format));
-    record_audit(&runtime, &report, arg_keys);
+    let summary = batch::execute(tool, &context, &options, globals.format)?;
 
-    Ok(exit_code(report.status, globals.strict))
+    if let Some(log) = runtime.audit_log() {
+        let entry = AuditEntry::new(options.tool.clone(), summary.status, summary.duration_ms)
+            .with_arg_keys(arg_keys);
+        if let Err(err) = log.record(&entry) {
+            tracing::warn!(%err, "failed to write audit record");
+        }
+    }
+
+    Ok(exit_code(summary.status, globals.strict))
 }
 
 /// `--strict` turns a warning verdict into a failure so CI gates on findings,
@@ -129,25 +178,35 @@ fn list_tools(globals: &Globals, category: Option<&str>) -> Result<ExitCode> {
     }
 
     if globals.format == OutputFormat::Json {
-        println!("{}", serde_json::to_string_pretty(&manifests)?);
+        crate::outln!("{}", serde_json::to_string_pretty(&manifests)?);
         return Ok(ExitCode::SUCCESS);
     }
 
-    println!("{:<30} {:<11} {:<22} SUMMARY", "ID", "CATEGORY", "ORIGIN");
+    crate::outln!(
+        "{:<30} {:<11} {:<22} {:<7} SUMMARY",
+        "ID",
+        "CATEGORY",
+        "ORIGIN",
+        "WRITES"
+    );
     for manifest in &manifests {
-        println!(
-            "{:<30} {:<11} {:<22} {}",
-            manifest.id, manifest.category, manifest.origin, manifest.summary
+        crate::outln!(
+            "{:<30} {:<11} {:<22} {:<7} {}",
+            manifest.id,
+            manifest.category,
+            manifest.origin,
+            if manifest.mutates { "yes" } else { "-" },
+            manifest.summary
         );
     }
-    println!("\n{} tool(s)", manifests.len());
+    crate::outln!("\n{} tool(s)", manifests.len());
     Ok(ExitCode::SUCCESS)
 }
 
 fn show_tool(globals: &Globals, id: &str) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), globals.with_plugins)?;
     let tool = resolve(&runtime, id)?;
-    println!("{}", serde_json::to_string_pretty(tool.manifest())?);
+    crate::outln!("{}", serde_json::to_string_pretty(tool.manifest())?);
     Ok(ExitCode::SUCCESS)
 }
 
@@ -157,17 +216,17 @@ fn list_plugins(globals: &Globals) -> Result<ExitCode> {
     let failures = runtime.pack_failures();
 
     if summaries.is_empty() && failures.is_empty() {
-        println!("no plugin packs discovered");
-        println!("searched:");
+        crate::outln!("no plugin packs discovered");
+        crate::outln!("searched:");
         for dir in runtime.config.effective_plugin_dirs(&runtime.paths) {
-            println!("  {}", dir.display());
+            crate::outln!("  {}", dir.display());
         }
         return Ok(ExitCode::SUCCESS);
     }
 
-    println!("{:<16} {:<10} {:<7} DIR", "PACK", "VERSION", "TOOLS");
+    crate::outln!("{:<16} {:<10} {:<7} DIR", "PACK", "VERSION", "TOOLS");
     for pack in &summaries {
-        println!(
+        crate::outln!(
             "{:<16} {:<10} {:<7} {}",
             pack.name,
             pack.version,
@@ -176,13 +235,7 @@ fn list_plugins(globals: &Globals) -> Result<ExitCode> {
         );
     }
 
-    for failure in &failures {
-        eprintln!(
-            "failed: {} — {}",
-            failure.manifest_path.display(),
-            failure.error
-        );
-    }
+    report_pack_failures(&failures);
     Ok(ExitCode::SUCCESS)
 }
 
@@ -192,10 +245,10 @@ fn doctor_plugins(globals: &Globals) -> Result<ExitCode> {
     let failures = runtime.pack_failures();
 
     for pack in &summaries {
-        println!("{} {} ({})", pack.name, pack.version, pack.dir.display());
+        crate::outln!("{} {} ({})", pack.name, pack.version, pack.dir.display());
         let capabilities: Vec<String> = pack.capabilities.iter().map(ToString::to_string).collect();
         if !capabilities.is_empty() {
-            println!("  capabilities: {}", capabilities.join(", "));
+            crate::outln!("  capabilities: {}", capabilities.join(", "));
         }
         for manifest in runtime
             .registry
@@ -203,20 +256,14 @@ fn doctor_plugins(globals: &Globals) -> Result<ExitCode> {
             .into_iter()
             .filter(|manifest| manifest.origin == format!("plugin:{}", pack.name))
         {
-            println!("  tool: {}", manifest.id);
+            crate::outln!("  tool: {}", manifest.id);
         }
     }
 
-    for failure in &failures {
-        eprintln!(
-            "failed: {} — {}",
-            failure.manifest_path.display(),
-            failure.error
-        );
-    }
+    report_pack_failures(&failures);
 
     if summaries.is_empty() && failures.is_empty() {
-        println!("no plugin packs found");
+        crate::outln!("no plugin packs found");
     }
 
     Ok(if failures.is_empty() {
@@ -226,10 +273,22 @@ fn doctor_plugins(globals: &Globals) -> Result<ExitCode> {
     })
 }
 
+/// A pack that failed to load is reported the same way everywhere: once, on
+/// stderr, with the manifest that could not be read.
+fn report_pack_failures(failures: &[mellivora_core::PackFailure]) {
+    for failure in failures {
+        eprintln!(
+            "failed: {} — {}",
+            failure.manifest_path.display(),
+            failure.error
+        );
+    }
+}
+
 fn show_config(globals: &Globals) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), false)?;
-    println!("# {}", runtime.paths.config_file.display());
-    print!("{}", runtime.config.to_toml()?);
+    crate::outln!("# {}", runtime.paths.config_file.display());
+    crate::out!("{}", runtime.config.to_toml()?);
     Ok(ExitCode::SUCCESS)
 }
 
@@ -244,30 +303,30 @@ fn init_config(globals: &Globals, force: bool) -> Result<ExitCode> {
     }
     runtime.paths.ensure()?;
     runtime.config.save(path)?;
-    println!("wrote {}", path.display());
+    crate::outln!("wrote {}", path.display());
     Ok(ExitCode::SUCCESS)
 }
 
 fn show_audit(globals: &Globals, limit: usize) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), false)?;
     let Some(log) = runtime.audit_log() else {
-        println!("audit trail is disabled in the configuration");
+        crate::outln!("audit trail is disabled in the configuration");
         return Ok(ExitCode::SUCCESS);
     };
 
     let entries = log.tail(limit)?;
     if entries.is_empty() {
-        println!("no audit records at {}", log.path().display());
+        crate::outln!("no audit records at {}", log.path().display());
         return Ok(ExitCode::SUCCESS);
     }
 
     if globals.format == OutputFormat::Json {
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        crate::outln!("{}", serde_json::to_string_pretty(&entries)?);
         return Ok(ExitCode::SUCCESS);
     }
 
     for entry in entries {
-        println!(
+        crate::outln!(
             "{}  {:<8} {:<30} {:>6} ms  {}",
             entry.ts,
             entry.status,
@@ -283,9 +342,9 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), true)?;
     let mut problems = 0usize;
 
-    println!("mellivora {}", mellivora_core::VERSION);
-    println!("home        {}", runtime.paths.root.display());
-    println!(
+    crate::outln!("mellivora {}", mellivora_core::VERSION);
+    crate::outln!("home        {}", runtime.paths.root.display());
+    crate::outln!(
         "config      {}{}",
         runtime.paths.config_file.display(),
         if runtime.paths.config_file.exists() {
@@ -296,10 +355,10 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
     );
 
     match runtime.paths.ensure() {
-        Ok(()) => println!("state dirs  ok"),
+        Ok(()) => crate::outln!("state dirs  ok"),
         Err(err) => {
             problems += 1;
-            println!("state dirs  FAILED: {err}");
+            crate::outln!("state dirs  FAILED: {err}");
         }
     }
 
@@ -309,21 +368,21 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
             .entry(manifest.category.to_string())
             .or_default() += 1;
     }
-    println!("tools       {} total", runtime.registry.len());
+    crate::outln!("tools       {} total", runtime.registry.len());
     for (category, count) in by_category {
-        println!("  {category:<12} {count}");
+        crate::outln!("  {category:<12} {count}");
     }
 
     let packs = runtime.pack_summaries();
-    println!("packs       {} loaded", packs.len());
+    crate::outln!("packs       {} loaded", packs.len());
     for pack in &packs {
-        println!("  {:<16} {} tool(s)", pack.name, pack.tool_count);
+        crate::outln!("  {:<16} {} tool(s)", pack.name, pack.tool_count);
     }
 
     let failures = runtime.pack_failures();
     for failure in &failures {
         problems += 1;
-        println!(
+        crate::outln!(
             "pack failed {} — {}",
             failure.manifest_path.display(),
             failure.error
@@ -331,12 +390,14 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
     }
 
     if globals.with_plugins && packs.is_empty() && failures.is_empty() {
-        println!("hint        no packs found; run scripts/link-sources.sh to wire up Perl Den");
+        crate::outln!(
+            "hint        no packs found; run scripts/link-sources.sh to wire up Perl Den"
+        );
     }
 
     match runtime.audit_log() {
-        Some(log) => println!("audit       {}", log.path().display()),
-        None => println!("audit       disabled"),
+        Some(log) => crate::outln!("audit       {}", log.path().display()),
+        None => crate::outln!("audit       disabled"),
     }
 
     Ok(if problems == 0 {
@@ -364,13 +425,13 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
         }
     }
 
-    println!(
+    crate::outln!(
         "Mellivora ToolKit {} → http://{address}",
         mellivora_core::VERSION
     );
-    println!("  API   http://{address}/api/v1/health");
+    crate::outln!("  API   http://{address}/api/v1/health");
     if ui_dir.is_some() {
-        println!("  UI    http://{address}/");
+        crate::outln!("  UI    http://{address}/");
     }
 
     mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run)?;
@@ -380,8 +441,8 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
 /// `mellivora system-info` is rewritten to `mellivora run system-info` before
 /// clap sees it, preserving Perl Den's shorthand ergonomics.
 pub fn normalize_args(mut argv: Vec<String>) -> Vec<String> {
-    const KNOWN: [&str; 8] = [
-        "run", "tools", "plugins", "config", "audit", "doctor", "serve", "help",
+    const KNOWN: [&str; 9] = [
+        "run", "batch", "tools", "plugins", "config", "audit", "doctor", "serve", "help",
     ];
 
     let mut index = 1;
@@ -412,6 +473,18 @@ mod tests {
     fn rewrites_shorthand_to_run() {
         let argv = normalize_args(vec!["mellivora".into(), "system-info".into()]);
         assert_eq!(argv, vec!["mellivora", "run", "system-info"]);
+    }
+
+    #[test]
+    fn leaves_batch_alone() {
+        let argv = normalize_args(vec![
+            "mellivora".into(),
+            "batch".into(),
+            "crypto.sha256".into(),
+            "/tmp".into(),
+        ]);
+        assert_eq!(argv[1], "batch");
+        assert_eq!(argv.len(), 4);
     }
 
     #[test]

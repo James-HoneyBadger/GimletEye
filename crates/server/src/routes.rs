@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderValue, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -70,6 +70,11 @@ struct RunRequest {
     dry_run: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+struct AuditQuery {
+    limit: Option<usize>,
+}
+
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/health", get(health))
@@ -77,6 +82,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/tools/{id}", get(show_tool))
         .route("/api/v1/run", post(run_tool))
         .route("/api/v1/packs", get(list_packs))
+        .route("/api/v1/audit", get(list_audit))
         .route("/api/v1/config", get(show_config))
         .fallback(get(static_file))
         .layer(middleware::from_fn(cors))
@@ -129,6 +135,26 @@ async fn show_tool(
 
 async fn list_packs(State(state): State<AppState>) -> Json<Vec<PackSummary>> {
     Json(state.packs.as_ref().clone())
+}
+
+/// Recent runs, straight from the JSONL audit trail. Argument *values* are
+/// never recorded, so this is safe to render without redaction.
+async fn list_audit(
+    State(state): State<AppState>,
+    Query(query): Query<AuditQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let Some(log) = state.audit.as_ref() else {
+        return Ok(Json(
+            json!({ "enabled": false, "path": Value::Null, "entries": [] }),
+        ));
+    };
+    let limit = query.limit.unwrap_or(50).clamp(1, 500);
+    let entries = log.tail(limit)?;
+    Ok(Json(json!({
+        "enabled": true,
+        "path": log.path().display().to_string(),
+        "entries": entries,
+    })))
 }
 
 async fn show_config(State(state): State<AppState>) -> Json<Value> {

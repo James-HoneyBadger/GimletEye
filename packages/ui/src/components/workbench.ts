@@ -1,19 +1,27 @@
-import type { ArgSpec } from '../lib/api';
+import type { ArgSpec, ToolManifest } from '../lib/api';
 import { escapeHtml, isNative, modLabel, originLabel, titleCase } from '../lib/format';
-import type { AppState } from '../lib/store';
+import { draftFor, selectedTool, type AppState, type RawValues } from '../lib/store';
 import { icons } from './icons';
 import { renderResult } from './result';
 
-function field(spec: ArgSpec): string {
+function field(spec: ArgSpec, draft: RawValues, error: string | undefined): string {
   const id = `arg-${spec.name}`;
+  const invalid = error ? ' input--invalid' : '';
   const label = `<label for="${id}">${escapeHtml(titleCase(spec.name))}${spec.required ? '<span class="required" title="Required">*</span>' : ''}</label>`;
   const help = spec.help ? `<p class="field-help">${escapeHtml(spec.help)}</p>` : '';
+  const message = error
+    ? `<p class="field-error" id="${id}-error">${escapeHtml(error)}</p>`
+    : '';
+  const describedBy = error ? ` aria-describedby="${id}-error" aria-invalid="true"` : '';
   const type = spec.type;
-  const raw = spec.default === undefined || spec.default === null ? '' : String(spec.default);
+  const fallback = spec.default === undefined || spec.default === null ? '' : String(spec.default);
+  const draftValue = draft[spec.name];
+  const raw = draftValue === undefined ? fallback : String(draftValue);
 
   let control: string;
   if (type === 'boolean') {
-    const checked = spec.default === true ? 'checked' : '';
+    const on = draftValue === undefined ? spec.default === true : draftValue === true;
+    const checked = on ? 'checked' : '';
     control = `
       <label class="switch" for="${id}">
         <input type="checkbox" id="${id}" name="${escapeHtml(spec.name)}" data-type="boolean" ${checked} />
@@ -21,7 +29,7 @@ function field(spec: ArgSpec): string {
         <span class="switch-text">${checked ? 'Enabled' : 'Disabled'}</span>
       </label>`;
   } else if (type === 'enum' && spec.values?.length) {
-    control = `<select id="${id}" name="${escapeHtml(spec.name)}" data-type="string">
+    control = `<select id="${id}" name="${escapeHtml(spec.name)}" data-type="string"${describedBy}>
       ${spec.values
         .map(
           (value) =>
@@ -33,11 +41,12 @@ function field(spec: ArgSpec): string {
     const inputType = type === 'integer' ? 'number' : 'text';
     const placeholder = type === 'path' ? '/path/to/file' : '';
     const mono = type === 'path' ? ' input--mono' : '';
-    control = `<input class="input${mono}" type="${inputType}" id="${id}" name="${escapeHtml(spec.name)}"
-      data-type="${type}" placeholder="${placeholder}" value="${escapeHtml(raw)}" spellcheck="false" autocomplete="off" />`;
+    control = `<input class="input${mono}${invalid}" type="${inputType}" id="${id}" name="${escapeHtml(spec.name)}"
+      data-type="${type}" placeholder="${placeholder}" value="${escapeHtml(raw)}" spellcheck="false"
+      autocomplete="off"${describedBy} />`;
   }
 
-  return `<div class="field field--${type}">${label}${control}${help}</div>`;
+  return `<div class="field field--${type}">${label}${control}${help}${message}</div>`;
 }
 
 function emptyState(): string {
@@ -55,8 +64,23 @@ function emptyState(): string {
     </section>`;
 }
 
+function dryRunControls(tool: ToolManifest, state: AppState): string {
+  if (!tool.mutates) {
+    return `
+      <span class="readonly" title="This tool only reads from this machine">
+        ${icons.shield}Read-only
+      </span>`;
+  }
+  return `
+    <label class="switch" for="dry-run">
+      <input type="checkbox" id="dry-run" ${state.dryRun ? 'checked' : ''} />
+      <span class="switch-track"><span class="switch-thumb"></span></span>
+      <span class="switch-text">Dry run</span>
+    </label>`;
+}
+
 export function renderWorkbench(state: AppState): string {
-  const tool = state.tools.find((candidate) => candidate.id === state.selectedId);
+  const tool = selectedTool();
   if (!tool) {
     return `<main class="main">${emptyState()}</main>`;
   }
@@ -64,6 +88,8 @@ export function renderWorkbench(state: AppState): string {
   const args = tool.args ?? [];
   const capabilities = (tool.capabilities ?? []).map((capability) => `<span class="chip">${escapeHtml(capability)}</span>`).join('');
   const tags = (tool.tags ?? []).slice(0, 4).map((tag) => `<span class="chip chip--quiet">${escapeHtml(tag)}</span>`).join('');
+  const errors = state.errors;
+  const draft = draftFor(tool.id);
 
   return `
     <main class="main">
@@ -73,7 +99,10 @@ export function renderWorkbench(state: AppState): string {
             <h1 class="tool-name">${escapeHtml(tool.title)}</h1>
             <p class="tool-summary">${escapeHtml(tool.summary)}</p>
           </div>
-          <span class="badge ${isNative(tool.origin) ? 'badge--native' : 'badge--pack'}">${escapeHtml(originLabel(tool.origin))}</span>
+          <div class="tool-badges">
+            ${tool.mutates ? `<span class="badge badge--writes" title="This tool can write to this machine">${icons.warning}writes</span>` : ''}
+            <span class="badge ${isNative(tool.origin) ? 'badge--native' : 'badge--pack'}">${escapeHtml(originLabel(tool.origin))}</span>
+          </div>
         </div>
 
         <div class="tool-meta">
@@ -93,15 +122,13 @@ export function renderWorkbench(state: AppState): string {
         </div>
         ${args.length === 0
           ? '<p class="muted panel-body">This tool takes no parameters.</p>'
-          : `<form class="args-grid panel-body" id="args" autocomplete="off">${args.map(field).join('')}</form>`}
+          : `<form class="args-grid panel-body" id="args" autocomplete="off" novalidate>${args
+              .map((spec) => field(spec, draft, errors[spec.name]))
+              .join('')}</form>`}
       </section>
 
       <section class="actionbar">
-        <label class="switch" for="dry-run">
-          <input type="checkbox" id="dry-run" ${state.dryRun ? 'checked' : ''} />
-          <span class="switch-track"><span class="switch-thumb"></span></span>
-          <span class="switch-text">Dry run</span>
-        </label>
+        ${dryRunControls(tool, state)}
         <span class="actionbar-spacer"></span>
         <span class="kbd-hint"><kbd>${modLabel}</kbd><kbd>↵</kbd></span>
         <button class="button button--primary" id="run" ${state.running ? 'disabled' : ''}>

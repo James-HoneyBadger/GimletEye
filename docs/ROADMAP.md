@@ -19,6 +19,9 @@ criterion so "done" is not a matter of opinion.
 | `privacy.metadata-{scan,strip,verify}` (JPEG/PNG/WebP) | ✅ | strip is byte-preserving and re-verified |
 | CI: fmt, clippy, tests, UI build, live Perl slice | ✅ | green on push |
 | `--strict` exit codes for CI | ✅ | warning verdicts fail the build |
+| `mutates` on every manifest | ✅ | `tools list` shows it; the workbench offers dry run only for tools that write |
+| `GET /api/v1/audit` + recent-runs view | ✅ | the workbench lists past runs without reading the file by hand |
+| UI test suite (vitest) | ✅ | search, validation, CLI preview, sheets, and a run flow are covered |
 
 ## v0.2 — Privacy parity
 
@@ -28,9 +31,11 @@ criterion so "done" is not a matter of opinion.
   unsupported constructs produce warnings, not silent success.
 - [x] Privacy profiles (`privacy`, `sharing`, `archive`) and field-level `keep`/`remove`.
   *Acceptance:* `--profile` changes the removable set; a unit test pins each set.
-- [ ] Batch execution across files with a concurrency limit.
+- [x] Batch execution across files with a concurrency limit.
   *Acceptance:* 100 files processed with a per-file report and one aggregate
   summary; failures do not abort the run.
+  *Landed as* `mellivora batch` with `--concurrency`, `--fail-fast`, `--ext`,
+  and `--input-arg`; covered by unit tests and the smoke suite.
 - [x] GPS redaction (truncate to region) for JPEG/PNG/WebP.
   *Acceptance:* coordinates reduced to the requested precision; verify mode
   reports remaining precision.

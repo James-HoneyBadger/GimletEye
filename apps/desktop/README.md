@@ -22,14 +22,23 @@ ephemeral loopback port, starts `mellivora-toolkit`'s `Runtime` on a background
 thread, and injects the port into the window as `window.__MELLIVORA_API__`
 before the first script runs.
 
-To run the shell straight from Cargo, build it self-contained — a plain debug
-build follows `devUrl` and expects Vite on port 5173:
+`npm run build -- --no-bundle` skips the installers and leaves just the binary
+at `src-tauri/target/release/mellivora-desktop`. That file is the whole
+application: the UI is embedded at compile time and the engine runs in-process,
+so it can be copied anywhere and launched on its own.
+
+To build straight from Cargo, enable the `custom-protocol` feature — without it
+the window follows `devUrl` and expects Vite on port 5173:
 
 ```bash
 cd apps/desktop/src-tauri
-cargo build --features tauri/custom-protocol
-./target/debug/mellivora-desktop
+cargo build --release --features custom-protocol
+./target/release/mellivora-desktop
 ```
+
+The window closes when you close it, and that is the only thing that ends the
+process; close and destroy events are logged on stderr so a clean exit is never
+a mystery.
 
 The engine prints its address on startup (`mellivora: embedded engine on
 http://127.0.0.1:<port>`) and reads packs from `plugins/` next to the binary or

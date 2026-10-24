@@ -10,6 +10,9 @@ export function renderTopbar(state: AppState): string {
       ? `<span class="dot dot--error"></span><span>Offline</span>`
       : `<span class="dot dot--pending"></span><span>Connecting…</span>`;
 
+  const packCount = state.packs.length;
+  const runCount = state.history.length;
+
   return `
     <header class="topbar">
       <div class="brand">
@@ -20,7 +23,7 @@ export function renderTopbar(state: AppState): string {
       <div class="search" role="search">
         ${icons.search}
         <input id="search" type="search" spellcheck="false" autocomplete="off"
-               placeholder="Search tools, tags, capabilities"
+               placeholder="Search tools, tags, capabilities, arguments"
                aria-label="Search tools"
                value="${escapeHtml(state.query)}" />
         <kbd>${modLabel} K</kbd>
@@ -28,6 +31,14 @@ export function renderTopbar(state: AppState): string {
 
       <div class="topbar-actions">
         <span class="conn" title="${connected ? 'API reachable' : 'API unreachable'}">${status}</span>
+        <button class="icon-button icon-button--labelled" id="show-packs" type="button"
+                data-sheet="packs" title="Loaded packs" aria-label="Show loaded packs">
+          ${icons.layers}<span>${packCount}</span>
+        </button>
+        <button class="icon-button icon-button--labelled" id="show-history" type="button"
+                data-sheet="history" title="Recent runs" aria-label="Show recent runs">
+          ${icons.clock}<span>${runCount || ''}</span>
+        </button>
         <button class="icon-button" id="toggle-theme" type="button"
                 title="Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme"
                 aria-label="Toggle theme">

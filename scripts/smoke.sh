@@ -180,6 +180,28 @@ if cli --strict metadata-scan input="$work/gps.jpg" >/dev/null 2>&1; then
     fail "--strict should fail on a warning"
 fi
 
+step "batch execution"
+batchdir="$work/batch"
+mkdir -p "$batchdir/nested"
+printf 'one' > "$batchdir/one.txt"
+printf 'two' > "$batchdir/two.txt"
+printf 'three' > "$batchdir/nested/three.txt"
+
+cli batch crypto.sha256 "$batchdir" --input-arg path --concurrency 2 --format json | python3 -c '
+import json, sys
+report = json.load(sys.stdin)
+assert report["status"] == "ok", report["summary"]
+data = report["data"]
+assert data["total"] == 3, data
+assert data["ok"] == 3, data
+assert len(data["files"]) == 3, data
+print("batch:", report["summary"])
+'
+# A missing file must fail the batch, not be skipped silently.
+if cli batch crypto.sha256 "$batchdir" --input-arg path --ext missing >/dev/null 2>&1; then
+    fail "batch should fail when nothing matches"
+fi
+
 step "audit trail records no values"
 cli passgen length=12 count=1 --format json >/dev/null
 cli audit --limit 5 --format json | grep -q '"arg_keys"' || fail "audit trail missing entries"
@@ -218,6 +240,8 @@ curl -sf -X POST "http://127.0.0.1:$port/api/v1/run" \
     -H 'content-type: application/json' \
     -d '{"tool":"disk-usage","args":{}}' \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["tool"]=="sysadmin.disk-usage", d'
+curl -sf "http://127.0.0.1:$port/api/v1/audit?limit=5" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["enabled"] and d["entries"], d'
 echo "API ok"
 
 printf '\n\033[32msmoke test passed\033[0m\n'

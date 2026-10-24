@@ -43,6 +43,17 @@ fn main() {
 
             Ok(())
         })
+        // The event loop ends when the last window goes away, so a clean exit
+        // is a window closing — say so rather than leaving it a mystery.
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { .. } => {
+                eprintln!("mellivora: window '{}' asked to close", window.label());
+            }
+            tauri::WindowEvent::Destroyed => {
+                eprintln!("mellivora: window '{}' destroyed", window.label());
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("failed to start the Mellivora desktop shell");
 }

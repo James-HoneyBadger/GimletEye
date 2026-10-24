@@ -17,9 +17,13 @@ These are ordered by value per unit of risk. Everything else can wait.
 |---|---|---|---|---|
 | 1 | [Complete the crypto pillar](#1-complete-the-crypto-pillar) | Encryption and signatures shipped; streaming, keystore, and key exchange remain. | L | High |
 | 2 | [hb-scrub pack for the other ten formats](#2-hb-scrub-pack-for-the-remaining-ten-formats) | Ten formats of parity for a manifest and a small adapter. | S–M | Low |
-| 3 | [Batch execution](#3-batch-execution) | Privacy work is per-file today; real use is per-directory. | M | Medium |
-| 4 | [Golden corpus and fuzzing](#4-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
-| 5 | [Pack trust and conformance](#5-pack-trust-and-conformance) | Packs are the extension story; they need a safety story. | M | Medium |
+| 3 | [Golden corpus and fuzzing](#3-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
+| 4 | [Pack trust and conformance](#4-pack-trust-and-conformance) | Packs are the extension story; they need a safety story. | M | Medium |
+| 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
+
+Shipped since this list was written: **batch execution** (`mellivora batch`,
+below), **manifest `mutates`**, **`GET /api/v1/audit`** with a recent-runs view,
+and a **UI test suite**.
 
 ---
 
@@ -62,22 +66,7 @@ format ported natively later simply shadows the pack.
 **Effort** S–M · **Risk** Low — the implementation is unchanged; only the
 transport is new.
 
-### 3. Batch execution
-
-**Problem.** `privacy.metadata-strip` takes one `input`. Cleaning a directory
-means a shell loop, which loses the aggregate result and the audit trail.
-
-**Why.** The first thing anyone does with a metadata tool is point it at
-`~/Pictures`.
-
-**Shape.** A generic `mellivora batch` that expands paths/directories, runs a
-tool per file with `input=` bound, honours a concurrency limit and `--fail-fast`,
-and emits one aggregate report plus per-file reports. Belongs in the CLI, not the
-privacy module, because every tool benefits.
-
-**Effort** M · **Risk** Medium — a failed item must not abort the batch silently.
-
-### 4. Golden corpus and fuzzing
+### 3. Golden corpus and fuzzing
 
 **Problem.** Parser tests use hand-built fixtures. Hand-built fixtures encode the
 author's assumptions — including wrong ones (a test in this repo initially
@@ -96,7 +85,7 @@ The corpus and fuzzers are the only real safety net.
 
 **Effort** M · **Risk** Low.
 
-### 5. Pack trust and conformance
+### 4. Pack trust and conformance
 
 **Problem.** A pack is an arbitrary executable. Today trust means "you put it in
 the directory". Packs can also declare capabilities they do not use.
@@ -114,6 +103,34 @@ being an answer.
 
 **Effort** M · **Risk** Medium — a false "untrusted" blocks legitimate packs.
 
+### 5. Scheduled runs
+
+**Problem.** `mellivora batch` answers "clean this directory once". The next
+request is always "do it every night", and today that means cron plus a shell
+script that loses the audit trail.
+
+**Why.** An audit trail only helps if the runs that matter are in it.
+
+**Shape.** An `automation` module with `automation.schedule` tools: a job
+definition (tool, args, cadence), a dry-run default, and a systemd-timer or
+cron backend chosen per platform. The scheduler renders to the host's native
+format rather than running its own daemon; the toolkit never stays resident.
+
+**Effort** M · **Risk** Medium — a mis-scheduled mutating job is a data-loss bug,
+so dry-run must be the default and the first run must be reported.
+
+### Shipped: batch execution
+
+`mellivora batch <tool> <path>...` expands files and directories, runs the tool
+once per file with the path bound to `--input-arg`, and folds the results into
+one aggregate report: counts, per-file status and summary, and a finding per
+failing file. `--concurrency` bounds parallelism, `--fail-fast` stops after the
+first failure (reporting what was skipped), and `--ext` narrows the file set.
+
+It lives in the CLI rather than the privacy module because every tool benefits,
+and it emits the same `Report` shape as everything else, so the JSON consumer
+needs no special case.
+
 ### Other privacy items
 
 | Item | Why | Effort |
@@ -126,7 +143,7 @@ being an answer.
 | Profile file | `--policy policies/redact.toml` for a shared, reviewable policy instead of ad-hoc flags. | S |
 | Archives | A zip/tar of photos carries metadata inside; currently out of scope and easy to miss. | M |
 
-### 6. ADR for profile semantics
+### ADR for profile semantics
 
 **Problem.** `privacy`, `sharing`, and `archive` were defined here: privacy
 removes identity/text/time, sharing keeps time, archive keeps all. That is a
@@ -169,7 +186,6 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | WASM target | Metadata scan/strip, hashing, and password generation all work on `&[u8]` and would run in a browser with no upload. High privacy value. | M |
-| Embed the server in the Tauri process | The desktop app currently needs a second process; embed it and ship one binary. | S |
 | API authentication | Loopback-only today. A bearer token plus a bind guard is the minimum before any remote use. | S |
 | TUI | A terminal browser makes the toolkit usable over SSH, which is where sysadmin work happens. | M |
 | Shell completions + man pages | `clap_complete` and `clap_mangen`; near-zero cost, real ergonomics. | S |
@@ -183,6 +199,7 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | MSRV CI job | `rust-version` is declared but never enforced. | S |
+| End-to-end UI tests against a live engine | The vitest suite mocks the API; a Playwright pass would catch wire-format drift. | M |
 | Conformance tests in CI for packs | The Perl pack is exercised; a general harness keeps the SDK honest. | M |
 | Benchmarks for large files | Catches accidental quadratic behaviour in scan/strip. | S |
 | Docs site | Markdown is fine now; linked HTML with search pays off past ~10 documents. | M |

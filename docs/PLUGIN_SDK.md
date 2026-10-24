@@ -82,7 +82,8 @@ If `protocol_version` differs, the host refuses the pack and reports it in
   {"id":"mypack.greet","title":"Greet","summary":"Say hello",
    "category":"developer","capabilities":["fs:read"],
    "args":[{"name":"name","type":"string","required":true}],
-   "tags":["demo"],"origin":"plugin:my-pack","version":"0.1.0"}
+   "tags":["demo"],"origin":"plugin:my-pack","version":"0.1.0",
+   "mutates":false}
 ]}}
 ```
 
@@ -90,6 +91,12 @@ The `tools` array items are exactly the `ToolManifest` shape used everywhere
 else. `category` is one of `sysadmin | crypto | privacy | forensics |
 automation | developer`. `args[].type` is `string | integer | boolean | path |
 enum` (for `enum`, add `"values": ["a","b"]`).
+
+`mutates` (optional, default `false`) tells the surfaces whether the tool can
+write to the host. Set it for anything that creates, rewrites, or deletes files:
+the workbench then offers a dry run for that tool and marks it in the catalogue,
+and `mellivora tools list` shows it in the `WRITES` column. Declaring it
+truthfully is what lets a user point a pack at a directory without guessing.
 
 ### Execution
 

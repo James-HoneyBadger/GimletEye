@@ -387,6 +387,10 @@ pub struct ToolManifest {
     pub origin: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    /// Whether the tool may write to the host. Surfaces use this to offer a
+    /// dry run only where it changes the outcome, and to warn before a run.
+    #[serde(default)]
+    pub mutates: bool,
 }
 
 fn default_origin() -> String {
@@ -410,6 +414,7 @@ impl ToolManifest {
             tags: Vec::new(),
             origin: default_origin(),
             version: None,
+            mutates: false,
         }
     }
 
@@ -430,6 +435,12 @@ impl ToolManifest {
 
     pub fn with_origin(mut self, origin: impl Into<String>) -> Self {
         self.origin = origin.into();
+        self
+    }
+
+    /// Declare that this tool can write to the host.
+    pub fn mutating(mut self) -> Self {
+        self.mutates = true;
         self
     }
 }
@@ -502,6 +513,23 @@ mod tests {
 
         let decoded: ArgSpec = serde_json::from_value(value).expect("deserialize");
         assert_eq!(decoded, spec);
+    }
+
+    #[test]
+    fn manifests_default_to_read_only() {
+        let plain = ToolManifest::new("demo", "Demo", "reads only", Category::Sysadmin);
+        assert!(!plain.mutates);
+        assert!(
+            ToolManifest::new("demo", "Demo", "writes", Category::Crypto)
+                .mutating()
+                .mutates
+        );
+
+        // Packs that predate the field stay loadable and read-only.
+        let legacy: ToolManifest =
+            serde_json::from_value(serde_json::json!({ "id": "pack.tool", "title": "T", "summary": "S", "category": "sysadmin" }))
+                .expect("legacy manifest deserializes");
+        assert!(!legacy.mutates);
     }
 
     #[test]

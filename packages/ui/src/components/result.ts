@@ -1,5 +1,5 @@
 import { escapeHtml, humanDuration } from '../lib/format';
-import type { AppState } from '../lib/store';
+import { reportFor, type AppState } from '../lib/store';
 import { renderData } from '../lib/data';
 import { icons } from './icons';
 
@@ -8,7 +8,7 @@ function statusBadge(status: string): string {
   return `<span class="status status--${escapeHtml(status)}">${icon}${escapeHtml(status)}</span>`;
 }
 
-function findings(report: NonNullable<AppState['report']>): string {
+function findings(report: NonNullable<ReturnType<typeof reportFor>>): string {
   const items = report.findings ?? [];
   if (items.length === 0) return '';
   return `
@@ -32,7 +32,7 @@ function findings(report: NonNullable<AppState['report']>): string {
     </section>`;
 }
 
-function warnings(report: NonNullable<AppState['report']>): string {
+function warnings(report: NonNullable<ReturnType<typeof reportFor>>): string {
   const items = report.warnings ?? [];
   if (items.length === 0) return '';
   return `
@@ -40,6 +40,11 @@ function warnings(report: NonNullable<AppState['report']>): string {
       <strong>${icons.warning}Warnings</strong>
       <ul>${items.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul>
     </section>`;
+}
+
+function wasDryRun(report: NonNullable<ReturnType<typeof reportFor>>): boolean {
+  const data = report.data;
+  return typeof data === 'object' && data !== null && (data as Record<string, unknown>).dry_run === true;
 }
 
 export function renderResult(state: AppState): string {
@@ -53,7 +58,7 @@ export function renderResult(state: AppState): string {
       </section>`;
   }
 
-  if (state.running && !state.report) {
+  if (state.running) {
     return `
       <section class="panel result" aria-busy="true">
         <div class="skeleton-row"></div>
@@ -62,7 +67,7 @@ export function renderResult(state: AppState): string {
       </section>`;
   }
 
-  const report = state.report;
+  const report = reportFor(state.selectedId);
   if (!report) {
     return `
       <section class="panel result result--idle">
@@ -71,6 +76,7 @@ export function renderResult(state: AppState): string {
   }
 
   const json = JSON.stringify(report, null, 2);
+  const command = state.runs.get(report.tool) ?? `mellivora run ${report.tool}`;
 
   const details = `
     ${findings(report)}
@@ -98,11 +104,26 @@ export function renderResult(state: AppState): string {
             <button role="tab" data-tab="details" class="${state.tab === 'details' ? 'is-active' : ''}" aria-selected="${state.tab === 'details'}">Details</button>
             <button role="tab" data-tab="json" class="${state.tab === 'json' ? 'is-active' : ''}" aria-selected="${state.tab === 'json'}">JSON</button>
           </div>
-          <button class="icon-button icon-button--tiny" data-copy="${escapeHtml(json)}" title="Copy report as JSON" aria-label="Copy report as JSON">
+          <button class="icon-button icon-button--tiny" data-copy="${escapeHtml(command)}"
+                  title="Copy the equivalent CLI command: ${escapeHtml(command)}" aria-label="Copy CLI command">
+            ${icons.terminal}
+          </button>
+          <button class="icon-button icon-button--tiny" data-copy="${escapeHtml(json)}"
+                  title="Copy report as JSON" aria-label="Copy report as JSON">
             ${icons.copy}
+          </button>
+          <button class="icon-button icon-button--tiny" data-download="${escapeHtml(report.tool)}"
+                  title="Download report as JSON" aria-label="Download report as JSON">
+            ${icons.download}
           </button>
         </div>
       </header>
+      ${
+        wasDryRun(report)
+          ? `<div class="callout callout--info"><strong>${icons.shield}Dry run</strong>
+               <p>Nothing was written. Run again with dry run off to apply these changes.</p></div>`
+          : ''
+      }
       ${
         state.tab === 'json'
           ? `<pre class="code-block code-block--report">${escapeHtml(json)}</pre>`

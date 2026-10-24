@@ -156,6 +156,7 @@ category    = "sysadmin"
 capabilities = ["system", "process:exec"]
 args        = [{ name = "path", type = "path" }, { name = "all", type = "boolean", default = false }]
 origin      = "builtin"          # or "plugin:<pack-name>"
+mutates     = false              # true when the tool can write to the host
 ```
 
 `Report` is the single result shape:
@@ -227,6 +228,7 @@ GET  /api/v1/tools           → [ToolManifest]
 GET  /api/v1/tools/{id}      → ToolManifest
 POST /api/v1/run             → { tool, args, dry_run } → Report
 GET  /api/v1/packs           → [PackSummary]
+GET  /api/v1/audit?limit=N   → { enabled, path, entries } from the audit trail
 GET  /api/v1/config          → effective config (no secrets)
 ```
 
@@ -245,11 +247,18 @@ The UI is organised as a small design system plus components:
 
 ```
 packages/ui/src/
-├── lib/          api client, state, formatting, data rendering
-├── components/   topbar, sidebar, workbench, result, icons
+├── lib/          api client, state, arguments, actions, formatting, data rendering
+├── components/   topbar, sidebar, workbench, result, sheets, icons
 ├── styles/       design tokens + layout
 └── main.ts       boot and event wiring
 ```
+
+`lib/actions.ts` owns every state transition (select, run, copy, download,
+sheets, history); `main.ts` only maps DOM events onto it and knows which regions
+to re-render. A run re-renders the result region alone, a keystroke in search
+re-renders the sidebar alone, and the form is never rebuilt underneath the user
+— which is why an in-progress form and its validation messages survive a theme
+switch or a tool switch.
 
 Results are rendered from `Report`, not from tool names: findings become a
 severity-ordered list, `body` becomes a monospace report, and `data` is shaped

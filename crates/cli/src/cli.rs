@@ -58,6 +58,32 @@ pub enum Command {
         #[arg(value_name = "KEY=VALUE")]
         args: Vec<String>,
     },
+    /// Run a tool over many files, one report per file plus an aggregate
+    Batch {
+        /// Tool id, or a unique suffix such as `metadata-strip`
+        tool: String,
+        /// Files or directories to process
+        #[arg(value_name = "PATH", required = true)]
+        paths: Vec<PathBuf>,
+        /// Tool argument as key=value (repeatable)
+        #[arg(long = "arg", value_name = "KEY=VALUE")]
+        args: Vec<String>,
+        /// Argument that receives each file path
+        #[arg(long, default_value = "input", value_name = "NAME")]
+        input_arg: String,
+        /// Files processed at once
+        #[arg(short, long, default_value_t = 4, value_parser = clap::value_parser!(u8).range(1..=32))]
+        concurrency: u8,
+        /// Stop after the first failing file
+        #[arg(long)]
+        fail_fast: bool,
+        /// Only process this extension (repeatable)
+        #[arg(long = "ext", value_name = "EXT")]
+        extensions: Vec<String>,
+        /// Do not descend into subdirectories
+        #[arg(long)]
+        no_recursive: bool,
+    },
     /// Browse the tool catalogue
     Tools {
         #[command(subcommand)]

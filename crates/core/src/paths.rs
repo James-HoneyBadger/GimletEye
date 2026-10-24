@@ -19,6 +19,22 @@ pub struct AppPaths {
     pub plugin_dirs: Vec<PathBuf>,
 }
 
+/// Append a directory unless the same directory is already listed.
+///
+/// The comparison is on the canonical path, because `plugins` and
+/// `/home/you/project/plugins` are the same directory with two spellings —
+/// which used to load every pack twice and start each pack process twice.
+fn push_unique(dirs: &mut Vec<PathBuf>, seen: &mut Vec<PathBuf>, candidate: PathBuf) {
+    let identity = candidate
+        .canonicalize()
+        .unwrap_or_else(|_| candidate.clone());
+    if seen.contains(&identity) {
+        return;
+    }
+    seen.push(identity);
+    dirs.push(candidate);
+}
+
 impl AppPaths {
     /// Resolve from the environment, falling back to the XDG config directory.
     pub fn discover() -> Self {
@@ -32,20 +48,22 @@ impl AppPaths {
     /// Build the layout under an explicit root.
     pub fn under(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
-        let mut plugin_dirs = vec![root.join("plugins")];
+        let mut plugin_dirs = Vec::new();
+        let mut seen = Vec::new();
+        push_unique(&mut plugin_dirs, &mut seen, root.join("plugins"));
 
         if let Some(extra) = env::var_os("MELLIVORA_PLUGIN_PATH") {
             for entry in env::split_paths(&extra) {
-                if !entry.as_os_str().is_empty() && !plugin_dirs.contains(&entry) {
-                    plugin_dirs.push(entry);
+                if !entry.as_os_str().is_empty() {
+                    push_unique(&mut plugin_dirs, &mut seen, entry);
                 }
             }
         }
 
         // Packs checked out next to the sources are picked up during development.
         let repo_local = PathBuf::from("plugins");
-        if repo_local.is_dir() && !plugin_dirs.contains(&repo_local) {
-            plugin_dirs.push(repo_local);
+        if repo_local.is_dir() {
+            push_unique(&mut plugin_dirs, &mut seen, repo_local);
         }
 
         Self {
@@ -71,6 +89,24 @@ impl AppPaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_same_directory_in_two_spellings_is_listed_once() {
+        let dir = std::env::temp_dir().join(format!("mellivora-paths-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let canonical = dir.canonicalize().expect("canonical");
+
+        let mut dirs = Vec::new();
+        let mut seen = Vec::new();
+        push_unique(&mut dirs, &mut seen, dir.clone());
+        push_unique(&mut dirs, &mut seen, canonical.clone());
+        push_unique(&mut dirs, &mut seen, dir.join("./"));
+
+        assert_eq!(dirs.len(), 1);
+        assert_eq!(dirs[0], dir);
+
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
 
     #[test]
     fn layout_is_derived_from_root() {

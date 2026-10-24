@@ -1,5 +1,7 @@
+mod batch;
 mod cli;
 mod commands;
+mod output;
 
 use std::process::ExitCode;
 

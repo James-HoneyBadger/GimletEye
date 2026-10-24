@@ -22,7 +22,9 @@ function inline(value: unknown): string {
   if (isScalar(value)) {
     const text = scalarText(value);
     if (text === '') return '<span class="muted">—</span>';
-    return `<span class="${typeof value === 'number' ? 'num' : ''}">${escapeHtml(text)}</span>`;
+    return typeof value === 'number'
+      ? `<span class="num">${escapeHtml(text)}</span>`
+      : escapeHtml(text);
   }
   if (Array.isArray(value)) {
     return `<span class="chip chip--quiet">${value.length} item${value.length === 1 ? '' : 's'}</span>`;
@@ -102,7 +104,7 @@ function render(value: unknown, depth: number): string {
     if (composites.length > 0) {
       const sections = composites
         .map(([key, item]) => {
-          const label = escapeHtml(key.replace(/_/g, ' '));
+          const label = escapeHtml(fieldLabel(key));
           if (isPlainObject(item) && Object.entries(item).every(([, inner]) => isScalar(inner))) {
             return `<section class="data-section"><h4>${label}</h4>${definitionList(Object.entries(item))}</section>`;
           }

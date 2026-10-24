@@ -63,14 +63,22 @@ trade-offs behind each decision.
 
 `mellivora serve` opens a local workbench — no cloud, no account, no uploads:
 
-- **Browse** by category or search across names, summaries, and tags (`Ctrl/⌘ K`).
+- **Browse** by category, or search across names, summaries, tags, capabilities,
+  and argument names (`Ctrl/⌘ K`); arrow keys move through the list.
 - **Fill in** generated forms: every field comes from the tool's manifest, so a
-  new tool appears with its own inputs and no frontend change.
+  new tool appears with its own inputs and no frontend change. Required fields
+  are checked before anything is sent, and a half-filled form survives a tool
+  switch.
 - **Read** results as findings with severity, warnings, formatted report bodies,
-  and structured data rendered as tables or key/value lists — with a JSON view
-  and one-click copy when you want the raw report.
-- **Run** with `Ctrl/⌘ ↵`; enable **dry run** to see what a mutating tool would
-  change without writing.
+  and structured data rendered as tables or key/value lists — with a JSON view,
+  one-click copy, and a JSON download.
+- **Run** with `Ctrl/⌘ ↵`; tools that write are marked `writes`, and only they
+  offer **dry run**. Read-only tools say so instead.
+- **Repeat** the run anywhere: every report carries the equivalent
+  `mellivora run …` command, ready to copy.
+- **Audit** what happened: the packs button lists every loaded pack with its
+  tools and capabilities, and the clock button lists recent runs from the local
+  audit trail (argument names only, never values).
 - Dark and light themes follow the OS by default and are remembered, along with
   your last tool and filter.
 
@@ -101,8 +109,8 @@ Optional compatibility packs add capabilities from other implementations:
 |---|---|
 | `Report` contract, registry, config, audit trail | ✅ |
 | Plugin protocol + host (JSON-RPC, timeouts, capabilities) | ✅ |
-| CLI: `run`, `tools`, `plugins`, `config`, `audit`, `doctor`, `serve` | ✅ |
-| HTTP API, shared UI, Tauri desktop shell | ✅ |
+| CLI: `run`, `batch`, `tools`, `plugins`, `config`, `audit`, `doctor`, `serve` | ✅ |
+| HTTP API (tools, run, packs, audit, config), shared UI, Tauri desktop shell | ✅ |
 | `sysadmin.system-info`, `sysadmin.disk-usage` | ✅ native |
 | `crypto.passgen`, `crypto.sha256` | ✅ native |
 | `privacy.metadata-{scan,strip,verify}` for JPEG/PNG/WebP | ✅ native |
@@ -140,6 +148,8 @@ mellivora tools list [--category sysadmin] [--format json]
 mellivora tools show disk-usage
 mellivora run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run] [--strict]
 mellivora <tool> [key=value ...]        # shorthand for `run`
+mellivora batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
+                [--concurrency 4] [--fail-fast] [--no-recursive]
 mellivora plugins list|doctor
 mellivora config show|init|path
 mellivora audit [--limit N]
@@ -151,12 +161,29 @@ Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
 `--strict` turns warnings into exit code `1`, so CI can gate on findings rather
 than only on failures.
 
+`batch` expands directories (recursively unless `--no-recursive`), runs the tool
+once per file with the path bound to `--input-arg` (default `input`), and prints
+one aggregate report with a per-file entry:
+
+```bash
+mellivora batch privacy.metadata-strip ~/Pictures --ext jpg --ext png --dry-run
+mellivora batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
+```
+
+A failing file names itself in the report and sets exit code `1`, but the rest of
+the batch still runs unless `--fail-fast` is given.
+
 Desktop app — one command, engine included:
 
 ```bash
 cd apps/desktop && npm install && npm run build   # bundles for this platform
+npm run build -- --no-bundle                      # or just the standalone binary
 npm run dev                                       # or run it hot-reloading
 ```
+
+The release binary (`src-tauri/target/release/mellivora-desktop`) is
+self-contained: UI embedded, engine in-process, no server and no port to
+configure.
 
 ## Development
 
@@ -164,6 +191,7 @@ npm run dev                                       # or run it hot-reloading
 make check      # fmt, clippy, tests — everything CI runs
 make test       # cargo test --workspace
 make ui         # type-check + build the shared UI
+make ui-test    # UI unit and DOM tests (vitest)
 make smoke      # end-to-end: CLI, API, packs
 make doctor
 ```
