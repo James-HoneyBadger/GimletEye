@@ -4,13 +4,24 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] — 2026-10-24
 
-Native cryptography: authenticated file encryption, Ed25519 signatures, and the
-`.melv` container. Plus removal policies, GPS redaction, a workbench interface,
-a self-contained desktop app, and CI-friendly exit codes. Batch execution, a
-manifest that says whether a tool writes, and a workbench that reports what it
-did.
+Batch execution, a manifest that says whether a tool writes, an audit API, and a
+workbench that reports what it did — on top of the native crypto engine,
+removal policies, GPS redaction, and the self-contained desktop app that landed
+in the previous cycle. Everything here came out of running the toolkit: the
+last four fixes in this entry exist because a real run exposed them.
+
+Highlights:
+
+- `mellivora batch` runs one tool over a directory tree, with a per-file entry
+  and one aggregate report.
+- `./run.sh` builds what is stale and opens the native window, the browser
+  workbench, or a hot-reloading window.
+- Tools declare `mutates`, so a dry run is offered only where it means
+  something, and the catalogue says which tools write.
+- The workbench validates before it sends, keeps drafts and reports per tool,
+  and shows the equivalent CLI command for every run.
 
 ### Added
 
