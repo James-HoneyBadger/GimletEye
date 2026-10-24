@@ -14,6 +14,11 @@ did.
 
 ### Added
 
+- **`./run.sh`.** One entry point for the whole project: it builds what is out of
+  date (UI, CLI, desktop binary) and launches the native window, the browser
+  workbench (`--serve`), or a hot-reloading window (`--dev`). `--build` forces a
+  rebuild; `--foreground` keeps the app attached to the terminal instead of
+  detaching it.
 - **`mellivora batch`.** Run one tool over many files:
   `mellivora batch privacy.metadata-strip ~/Pictures --ext jpg`. Expands
   directories, binds each path to `--input-arg` (default `input`), runs with

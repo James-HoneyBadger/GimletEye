@@ -87,6 +87,17 @@ engine running inside the app: no server to start, no port to configure.
 
 ## Quick start
 
+One script builds whatever is out of date and opens the workbench:
+
+```bash
+./run.sh            # native desktop window
+./run.sh --serve    # same tools in a browser at http://127.0.0.1:7878
+./run.sh --dev      # desktop window with hot reload
+./run.sh --help     # all options (--build, --port, --foreground)
+```
+
+Or work with the crates directly:
+
 ```bash
 cargo test --workspace
 cargo build --release
@@ -176,7 +187,8 @@ the batch still runs unless `--fail-fast` is given.
 Desktop app — one command, engine included:
 
 ```bash
-cd apps/desktop && npm install && npm run build   # bundles for this platform
+./run.sh                                          # builds and opens the window
+cd apps/desktop && npm run build                  # bundles for this platform
 npm run build -- --no-bundle                      # or just the standalone binary
 npm run dev                                       # or run it hot-reloading
 ```
