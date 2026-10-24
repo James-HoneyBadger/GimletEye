@@ -118,7 +118,11 @@ did.
 - Reports from the privacy tools include the resolved policy and, when
   applicable, the post-redaction coordinates (never the originals).
 - The smoke test now covers profiles, GPS redaction, and `--strict`.
-
+- The UI test suite needed Node 22 through `jsdom` 30's `undici`; `jsdom` is now
+  pinned to 26, so the documented Node 20 baseline runs the tests.
+- A pack source that has been renamed, deleted, or made private no longer fails
+  `scripts/link-sources.sh`: it warns and the smoke test skips that pack.
+  `REQUIRE_SOURCES=1` restores the hard failure.
 - A pack listed twice when `MELLIVORA_PLUGIN_PATH` named a directory that was
   also discovered relative to the working directory: `plugins` and
   `/abs/path/plugins` are the same directory with two spellings. Plugins are now

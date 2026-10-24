@@ -9,6 +9,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 external="$root/external"
 mkdir -p "$external"
 
+missing=0
+
 clone_if_missing() {
     local name="$1" url="$2"
     local dest="$external/$name"
@@ -17,7 +19,16 @@ clone_if_missing() {
         return
     fi
     printf '  + %-14s cloning (shallow)\n' "$name"
-    git clone --depth 1 --quiet "$url" "$dest"
+    if git clone --depth 1 --quiet "$url" "$dest"; then
+        return
+    fi
+    # The sources behind a pack are optional: a private, renamed, or deleted
+    # upstream must not fail a build that does not need it. The smoke test
+    # skips the pack when its sources are absent.
+    rm -rf "$dest"
+    missing=1
+    printf '  ! %-14s unavailable: %s\n' "$name" "$url" >&2
+    printf '    packs that wrap it are skipped; set REQUIRE_SOURCES=1 to fail instead\n' >&2
 }
 
 echo "linking pack sources into $external"
@@ -34,5 +45,10 @@ else
 fi
 
 echo
+if [ "$missing" -eq 1 ] && [ "${REQUIRE_SOURCES:-0}" = "1" ]; then
+    echo "error: required pack sources are missing (REQUIRE_SOURCES=1)" >&2
+    exit 1
+fi
+
 echo "verify with:"
 echo "  cargo run -p mellivora-cli -- plugins doctor"
