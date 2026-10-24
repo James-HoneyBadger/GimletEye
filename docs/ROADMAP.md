@@ -50,8 +50,12 @@ criterion so "done" is not a matter of opinion.
   fail closed; header readable without the passphrase.
 - [x] `crypto.sign` / `crypto.verify` (Ed25519).
   *Acceptance:* RFC 8032 known-answer test; a modified file fails verification.
-- [ ] Streaming container (v2) for multi-gigabyte files.
+- [x] Streaming container (v2) for multi-gigabyte files.
   *Acceptance:* bounded memory on a 10 GB input; v1 files still open.
+  *Landed as* chunked AEAD framing with a per-chunk counter, position, and
+  final-flag in the associated data ([ADR 0005](adr/0005-chunked-container-v2.md)).
+  Measured peak RSS is 22.7 MiB for a 512 MiB and a 2 GiB input alike; a real
+  0.2.0 container is a compatibility fixture.
 - [ ] Keystore tools (`crypto.key-list`, encrypted storage) and key wrapping.
   *Acceptance:* secrets are zeroized on drop; a keystore survives restart.
 - [ ] X25519/RSA and OpenPGP interop.

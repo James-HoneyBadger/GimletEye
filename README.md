@@ -143,7 +143,7 @@ Optional compatibility packs add capabilities from other implementations:
 | `crypto.passgen`, `crypto.sha256` | ✅ native |
 | `privacy.metadata-{scan,strip,verify}` for JPEG/PNG/WebP | ✅ native |
 | Removal profiles, field-level control, GPS redaction | ✅ native |
-| Encryption container, AEAD, Argon2id, Ed25519 signatures | ✅ native |
+| Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ native |
 | Keystore, secret sharing, shredding, OpenPGP interop | ⏳ roadmap |
 | HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ packs, then native |
 | WASM target, TUI, scheduler | ⏳ roadmap |

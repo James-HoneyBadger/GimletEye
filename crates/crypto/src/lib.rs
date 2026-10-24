@@ -15,7 +15,8 @@ mod passgen;
 
 pub use backend::{AeadAlgorithm, CryptoBackend, KdfParams, NativeBackend};
 pub use container::{
-    ContainerHeader, EXTENSION as CONTAINER_EXTENSION, HEADER_LEN, MAGIC, VERSION,
+    inspect, open, open_stream, seal, seal_stream, ContainerHeader, StreamStats, CHUNK_SIZE,
+    EXTENSION as CONTAINER_EXTENSION, HEADER_LEN, MAGIC, VERSION, VERSION_STREAMING,
 };
 pub use hash::Sha256;
 pub use keys::{Ed25519KeyPair, PUBLIC_EXTENSION, SECRET_EXTENSION};

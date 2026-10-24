@@ -74,7 +74,8 @@ import json, sys
 report = json.load(sys.stdin)
 data = report["data"]
 assert data["algorithm"] == "chacha20-poly1305", data
-assert data["container_version"] == 1, data
+assert data["container_version"] == 2, data
+assert data["streaming"] is True, data
 assert data["ciphertext_bytes"] > 0, data
 print("container:", report["summary"])
 '

@@ -9,3 +9,4 @@ context, the decision, and what it costs.
 | [0002](0002-single-report-contract.md) | One `Report` type for every tool, everywhere | Accepted |
 | [0003](0003-one-ui-for-all-surfaces.md) | One TypeScript UI, rendered by Tauri and by the browser | Accepted |
 | [0004](0004-namespaced-configuration.md) | One TOML config with module-owned namespaces | Accepted |
+| [0005](0005-chunked-container-v2.md) | Chunked `.melv` v2 so memory is bounded by the chunk size, not the file | Accepted |

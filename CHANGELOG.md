@@ -4,6 +4,37 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-10-24
+
+Encryption no longer depends on how big the file is. Containers written from
+this release are version 2 (chunked); every earlier container still opens.
+
+
+### Added
+
+- **Chunked `.melv` container (version 2).** `crypto.encrypt` now writes a
+  header plus 64 KiB AEAD chunks instead of one message over the whole file, so
+  memory no longer grows with the input: peak RSS measured at 22.7 MiB for both
+  a 512 MiB and a 2 GiB file, against 1539.5 MiB for the same 512 MiB file under
+  version 1 — and it is roughly twice as fast, because the old path copied the
+  plaintext and ciphertext several times. Each chunk authenticates the header,
+  its position, and its final flag, so reordering, truncation, splicing, and
+  trailing data are authentication failures. `crypto.decrypt` and
+  `crypto.inspect` read both versions; a genuine 0.2.0 container is committed as
+  a compatibility fixture. Specified in [docs/CONTAINER.md](docs/CONTAINER.md),
+  decided in [ADR 0005](docs/adr/0005-chunked-container-v2.md).
+
+### Changed
+
+- `crypto.encrypt`, `crypto.decrypt`, and `crypto.inspect` report
+  `container_version`; the encrypt report adds `chunk_size_bytes` and `chunks`.
+  Inspect reads only the header, so inspecting a huge container is instant.
+- A container is written to a sibling temporary file and renamed into place, so
+  a failure part-way through cannot leave a plausible-looking file at the
+  destination.
+- Encrypt and decrypt refuse an `output` that is the `input`, which would
+  truncate the source before it is read.
+
 ## [0.2.1] — 2026-10-24
 
 The release pipeline that 0.2.0 promised, and the icon set it needed to build on

@@ -1,7 +1,8 @@
 //! File-level cryptographic operations: encrypt, decrypt, inspect, sign,
 //! verify, and key generation.
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -70,6 +71,52 @@ fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Res
     if !context.dry_run && target.exists() && !overwrite {
         return Err(MellivoraError::Config(format!(
             "{} already exists (use overwrite=true to replace it)",
+            target.display()
+        )));
+    }
+    Ok(())
+}
+
+/// Stream into a sibling temporary file and rename it into place.
+///
+/// A container that fails halfway through is not written at the destination:
+/// for a large file that is the difference between an error and a plausible
+/// looking file that cannot be opened.
+fn stream_to_file<F>(context: &ToolContext, target: &Path, write: F) -> Result<()>
+where
+    F: FnOnce(BufWriter<File>) -> Result<()>,
+{
+    context.require(Capability::FsWrite)?;
+    if let Some(parent) = target.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    let name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let temp = target.with_file_name(format!("{name}.tmp"));
+
+    let file = File::create(&temp)?;
+    let outcome = write(BufWriter::new(file));
+    if let Err(err) = outcome.and_then(|()| Ok(fs::rename(&temp, target)?)) {
+        let _ = fs::remove_file(&temp);
+        return Err(err);
+    }
+    Ok(())
+}
+
+/// Refuse a target that is the input itself, which would truncate the source
+/// before it is read.
+fn ensure_distinct(input: &Path, target: &Path) -> Result<()> {
+    let same = match (input.canonicalize(), target.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => input == target,
+    };
+    if same {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "output {} is the input file; choose another path",
             target.display()
         )));
     }
@@ -155,7 +202,9 @@ impl Tool for Encrypt {
         let started = Instant::now();
 
         let input = args.require_path("input")?;
-        let plaintext = read_file(&input)?;
+        if !input.is_file() {
+            return Err(MellivoraError::NotFound(input.display().to_string()));
+        }
         let algorithm = match args.opt_str("algorithm")? {
             Some(value) => AeadAlgorithm::parse(&value)?,
             None => AeadAlgorithm::ChaCha20Poly1305,
@@ -166,32 +215,56 @@ impl Tool for Encrypt {
         let params = KdfParams::default();
         let passphrase = passphrase(args)?;
 
+        ensure_distinct(&input, &target)?;
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
-        let sealed = container::seal(
-            &*self.backend,
-            passphrase.as_ref(),
-            algorithm,
-            params,
-            &plaintext,
-        )?;
-        write_file(ctx, &target, &sealed)?;
+
+        let stats = if ctx.dry_run {
+            // Nothing is written, so nothing is encrypted either: report what
+            // the run would produce from the input's size.
+            let bytes = fs::metadata(&input)?.len();
+            container::StreamStats {
+                version: container::VERSION_STREAMING,
+                chunks: bytes.div_ceil(container::CHUNK_SIZE as u64).max(1),
+                plaintext_bytes: bytes,
+                container_bytes: 0,
+            }
+        } else {
+            let source = BufReader::new(File::open(&input)?);
+            let mut stats = None;
+            stream_to_file(ctx, &target, |sink| {
+                stats = Some(container::seal_stream(
+                    &*self.backend,
+                    passphrase.as_ref(),
+                    algorithm,
+                    params,
+                    source,
+                    sink,
+                )?);
+                Ok(())
+            })?;
+            stats.unwrap_or_default()
+        };
 
         Ok(Report::new(&self.manifest.id)
             .with_summary(format!(
-                "{} {} → {} ({}, {})",
+                "{} {} → {} ({}, {}, {} chunk(s))",
                 if ctx.dry_run { "would encrypt" } else { "encrypted" },
                 input.display(),
                 target.display(),
                 algorithm.as_str(),
-                "argon2id"
+                "argon2id",
+                stats.chunks
             ))
             .with_data(json!({
                 "input": input.display().to_string(),
                 "output": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
                 "algorithm": algorithm,
                 "kdf": params,
-                "plaintext_bytes": plaintext.len(),
-                "container_bytes": sealed.len(),
+                "container_version": stats.version,
+                "chunk_size_bytes": container::CHUNK_SIZE,
+                "chunks": stats.chunks,
+                "plaintext_bytes": stats.plaintext_bytes,
+                "container_bytes": if ctx.dry_run { 0 } else { stats.container_bytes },
                 "dry_run": ctx.dry_run,
             }))
             .with_duration(started.elapsed())
@@ -243,30 +316,57 @@ impl Tool for Decrypt {
         let started = Instant::now();
 
         let input = args.require_path("input")?;
-        let sealed = read_file(&input)?;
-        let header = container::inspect(&sealed)?;
+        if !input.is_file() {
+            return Err(MellivoraError::NotFound(input.display().to_string()));
+        }
         let target = args
             .opt_path("output")?
             .unwrap_or_else(|| decrypted_path(&input));
         let passphrase = passphrase(args)?;
 
-        let plaintext = container::open(&*self.backend, passphrase.as_ref(), &sealed)?;
+        ensure_distinct(&input, &target)?;
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
-        write_file(ctx, &target, &plaintext)?;
+
+        // A dry run still verifies the passphrase and every chunk — it just
+        // discards the plaintext instead of writing it.
+        let (header, stats) = if ctx.dry_run {
+            container::open_stream(
+                &*self.backend,
+                passphrase.as_ref(),
+                BufReader::new(File::open(&input)?),
+                std::io::sink(),
+            )?
+        } else {
+            let source = BufReader::new(File::open(&input)?);
+            let mut opened = None;
+            stream_to_file(ctx, &target, |sink| {
+                opened = Some(container::open_stream(
+                    &*self.backend,
+                    passphrase.as_ref(),
+                    source,
+                    sink,
+                )?);
+                Ok(())
+            })?;
+            opened.expect("open_stream ran inside stream_to_file")
+        };
 
         Ok(Report::new(&self.manifest.id)
             .with_summary(format!(
-                "{} {} → {} ({})",
+                "{} {} → {} ({}, {} chunk(s))",
                 if ctx.dry_run { "would decrypt" } else { "decrypted" },
                 input.display(),
                 target.display(),
-                header.algorithm.as_str()
+                header.algorithm.as_str(),
+                stats.chunks
             ))
             .with_data(json!({
                 "input": input.display().to_string(),
                 "output": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
                 "algorithm": header.algorithm,
-                "plaintext_bytes": plaintext.len(),
+                "container_version": header.version,
+                "chunks": stats.chunks,
+                "plaintext_bytes": stats.plaintext_bytes,
                 "dry_run": ctx.dry_run,
             }))
             .with_duration(started.elapsed())
@@ -310,25 +410,37 @@ impl Tool for Inspect {
         ctx.require(Capability::FsRead)?;
         let started = Instant::now();
         let input = args.require_path("input")?;
-        let bytes = read_file(&input)?;
-        let header = container::inspect(&bytes)?;
+        if !input.is_file() {
+            return Err(MellivoraError::NotFound(input.display().to_string()));
+        }
+        let bytes = fs::metadata(&input)?.len();
+        let mut file = BufReader::new(File::open(&input)?);
+        let header = container::inspect_stream(&mut file)?;
+        let streaming = header.version == container::VERSION_STREAMING;
 
         Ok(Report::new(&self.manifest.id)
             .with_summary(format!(
-                "{} · {} · Argon2id {} KiB/{} iterations",
+                "{} · {} · Argon2id {} KiB/{} iterations · {}",
                 input.display(),
                 header.algorithm.as_str(),
                 header.kdf.m_cost_kib,
-                header.kdf.t_cost
+                header.kdf.t_cost,
+                if streaming {
+                    "chunked"
+                } else {
+                    "single message"
+                }
             ))
             .with_data(json!({
                 "path": input.display().to_string(),
                 "container_version": header.version,
+                "streaming": streaming,
+                "max_chunk_bytes": if streaming { Value::from(container::CHUNK_SIZE) } else { Value::Null },
                 "algorithm": header.algorithm,
                 "kdf": header.kdf,
                 "salt": header.salt_hex,
-                "container_bytes": bytes.len(),
-                "ciphertext_bytes": bytes.len() - container::HEADER_LEN,
+                "container_bytes": bytes,
+                "ciphertext_bytes": bytes.saturating_sub(container::HEADER_LEN as u64),
             }))
             .with_duration(started.elapsed())
             .sealed())
@@ -665,16 +777,42 @@ mod tests {
         args.insert("passphrase", "right");
         tool(Encrypt::new).run(&context(), &args).expect("encrypt");
 
+        let out = dir.join("wrong-pass.out");
         let mut decrypt_args = Args::new();
         decrypt_args.insert(
             "input",
             dir.join("wrong-pass.txt.melv").display().to_string(),
         );
+        decrypt_args.insert("output", out.display().to_string());
         decrypt_args.insert("passphrase", "wrong");
         let err = tool(Decrypt::new)
             .run(&context(), &decrypt_args)
             .expect_err("must fail");
         assert_eq!(err.code(), "tool");
+        // The temporary file is removed: a failed decrypt leaves nothing behind.
+        assert!(!out.exists(), "no partial plaintext");
+        assert!(
+            !out.with_extension("out.tmp").exists(),
+            "no leftover temp file"
+        );
+    }
+
+    #[test]
+    fn refuses_an_output_that_is_the_input() {
+        let dir = workspace();
+        let input = dir.join("same.txt");
+        fs::write(&input, b"data").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("output", input.display().to_string());
+        args.insert("passphrase", "right");
+
+        let err = tool(Encrypt::new)
+            .run(&context(), &args)
+            .expect_err("must refuse");
+        assert_eq!(err.code(), "invalid_args");
+        assert_eq!(fs::read(&input).expect("input intact"), b"data");
     }
 
     #[test]

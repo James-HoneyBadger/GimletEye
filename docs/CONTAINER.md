@@ -3,14 +3,14 @@
 The format written by `crypto.encrypt` and read by `crypto.decrypt`. It exists to
 be small, self-describing, and impossible to tamper with silently.
 
-Extension: `.melv` · Magic: `MELV` · Version: 1
+Extension: `.melv` · Magic: `MELV` · Versions: 1 (whole file) and 2 (chunked)
 
 ## Layout
 
 | Offset | Size | Field |
 |---|---|---|
 | 0 | 4 | magic `MELV` |
-| 4 | 1 | format version (`1`) |
+| 4 | 1 | format version (`1` = whole file, `2` = chunked) |
 | 5 | 1 | cipher id (`1` = AES-256-GCM, `2` = ChaCha20-Poly1305) |
 | 6 | 1 | KDF id (`1` = Argon2id) |
 | 7 | 1 | reserved, must be `0` |
@@ -19,7 +19,7 @@ Extension: `.melv` · Magic: `MELV` · Version: 1
 | 16 | 1 | Argon2id parallelism |
 | 17 | 4 | reserved, must be `0` |
 | 21 | 16 | salt |
-| 37 | 12 | nonce |
+| 37 | 12 | nonce (version 2: the base nonce for chunk 0) |
 | 49 | … | ciphertext, including the authentication tag |
 
 The first 49 bytes are the **header**. Everything after offset 49 is
@@ -75,11 +75,61 @@ A file that is modified in transit fails at the tag check. A file whose header
 is modified fails the same way. There is no partial decrypt: the plaintext is
 only written after the tag verifies.
 
-## Limitations (v1)
+## Version 2: chunked framing
 
-- **Whole file in memory.** There is no streaming mode yet; a multi-gigabyte
-  file is read entirely. A streaming v2 would keep this header and add chunked
-  framing with a per-chunk counter.
+Version 1 puts the whole file in one AEAD message, so encrypting a 2 GiB file
+costs about 4 GiB of memory. Version 2 keeps the same 49-byte header and adds a
+chunk stream after it. `crypto.encrypt` writes version 2; `crypto.decrypt`
+reads both.
+
+Each chunk is framed as:
+
+| Bytes | Field |
+|---|---|
+| 1 | flags: bit 0 set on the final chunk, all others zero |
+| 4 | ciphertext length, little-endian |
+| *n* | ciphertext, including its 16-byte tag |
+
+The plaintext chunk is at most 64 KiB, so a frame is at most 65 552 bytes. A
+reader refuses a length outside `16..=65552`, so a crafted frame cannot ask for
+an arbitrary allocation.
+
+**Per-chunk nonce.** Chunk *i* uses the header's base nonce with the counter
+`i` XORed into its low 8 bytes. The base nonce is random per file and the
+counter never repeats, so no nonce is ever reused under a key.
+
+**Per-chunk associated data.** Each chunk authenticates the header, its own
+index, and its final flag:
+
+```
+aad = header[49] || index (u64le) || flags (1)
+```
+
+That single construction buys the properties worth having:
+
+- **Reordering fails.** Moving a chunk changes its index, so its tag no longer
+  verifies.
+- **Truncation fails.** A reader that hits EOF where a chunk header belongs
+  reports `container is truncated`, and a stream whose last chunk is not
+  flagged final cannot verify.
+- **Splicing fails.** Chunks from another file carry a different header.
+- **Trailing data fails.** Bytes after the final chunk are rejected rather than
+  ignored.
+
+`privacy`-style partial output is impossible: the tool writes to a sibling
+temporary file and renames it only after the last chunk verifies.
+
+Measured on a 4-core aarch64 machine, peak RSS is flat as input grows:
+
+| Input | Peak RSS | Time |
+|---|---|---|
+| 512 MiB | 22.7 MiB | 2.0 s |
+| 2 GiB | 22.7 MiB | 9.2 s |
+
+The same 512 MiB file under version 1 measured 1539.5 MiB and 5.0 s.
+
+## Limitations (v2)
+
 - **Passphrase only.** There are no public-key recipients and no key wrapping.
 - **No embedded metadata.** Filenames, sizes, and timestamps are *not* stored;
   the container is opaque by design.
@@ -88,7 +138,9 @@ only written after the tag verifies.
 
 ## Versioning
 
-Version 1 is the first published format. Any change to the layout, the meaning
+Version 1 is the first published format; version 2 is the chunked layout above.
+A reader accepts both, a version-1 writer is kept for compatibility fixtures,
+and version 2 is what tools write. Any further change to the layout, the meaning
 of a field, or the derivation inputs requires:
 
 1. a new version byte,

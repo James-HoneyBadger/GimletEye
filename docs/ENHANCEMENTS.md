@@ -38,10 +38,11 @@ it. AEAD, signatures, HBZF, and the keystore are unavailable.
 key derivation, Ed25519 signing, and the `.melv` container are implemented and
 covered by known-answer tests.
 
+**Done since:** streaming container v2 (chunked framing, bounded memory, v1
+files still open — see [ADR 0005](adr/0005-chunked-container-v2.md)).
+
 **Remaining.**
-1. **Streaming container v2** — chunked framing with a per-chunk counter, so a
-   10 GB file does not need 10 GB of RAM. v1 files must keep opening.
-2. **Keystore** — encrypted key storage, listing, rotation, and expiry checks.
+1. **Keystore** — encrypted key storage, listing, rotation, and expiry checks.
    Today keys are plain files with mode 0600.
 3. **Key exchange** — X25519 recipients and RSA, then OpenPGP interop so the
    tool can talk to existing GPG users.
