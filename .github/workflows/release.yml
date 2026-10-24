@@ -202,6 +202,8 @@ jobs:
       - name: Attach the artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The job does not check out the repository; tell `gh` which one.
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
             gh release create "$RELEASE_TAG" --title "Mellivora ToolKit ${RELEASE_TAG#v}" --generate-notes
