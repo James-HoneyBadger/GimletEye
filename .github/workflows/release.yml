@@ -185,11 +185,17 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Checksums
-        working-directory: artifacts
+      # Artifacts keep the directory structure of their `path:` glob, so the
+      # installers arrive as appimage/, deb/, dmg/, nsis/. Flatten them: a
+      # release listing is flat, and checksums are meaningless across folders.
+      - name: Collect the files
         run: |
-          ls -l
-          sha256sum * > SHA256SUMS
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -l release
+          test -n "$(ls -A release)" || { echo "no artifacts to publish" >&2; exit 1; }
+          (cd release && sha256sum * > SHA256SUMS)
+          cat release/SHA256SUMS
 
       # `gh` uploads the files and leaves the release notes alone; the release
       # itself is written when the tag is cut.
@@ -197,8 +203,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          test -n "$(ls -A artifacts)" || { echo "no artifacts to upload" >&2; exit 1; }
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
             gh release create "$RELEASE_TAG" --title "Mellivora ToolKit ${RELEASE_TAG#v}" --generate-notes
-          gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          gh release upload "$RELEASE_TAG" release/* --clobber
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | sort
