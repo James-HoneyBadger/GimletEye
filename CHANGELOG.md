@@ -14,6 +14,13 @@ All notable changes to Mellivora ToolKit. Format follows
   installers for the desktop app; and a `SHA256SUMS` file. The publish job waits
   for every build, so a partial release is impossible.
 
+### Fixed
+
+- The desktop bundle shipped a single 128 px PNG as its icon, so a Windows build
+  could not run at all: `tauri-build` needs `icons/icon.ico` for the resource
+  file. The full set (`.ico`, `.icns`, and the sized PNGs) is generated from the
+  brand mark and referenced from `tauri.conf.json`.
+
 ## [0.2.0] — 2026-10-24
 
 Batch execution, a manifest that says whether a tool writes, an audit API, and a
