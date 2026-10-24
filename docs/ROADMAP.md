@@ -26,7 +26,7 @@ criterion so "done" is not a matter of opinion.
 ## v0.2 — Privacy parity
 
 - [x] Privacy profiles and GPS redaction (see [ENHANCEMENTS.md](ENHANCEMENTS.md)).
-- [ ] `hb-scrub` Node pack exposing the remaining 10 formats.
+- [ ] `hb-scrub` Node pack exposing the formats that are still unsupported.
   *Acceptance:* HEIC/PDF/MP4 round-trip through `mellivora metadata-strip`;
   unsupported constructs produce warnings, not silent success.
 - [x] Privacy profiles (`privacy`, `sharing`, `archive`) and field-level `keep`/`remove`.

@@ -7,7 +7,7 @@ git clone https://github.com/James-HoneyBadger/Mellivora_ToolKit.git
 cd Mellivora_ToolKit
 
 rustup component add rustfmt clippy       # Rust 1.82+
-./scripts/link-sources.sh                 # Perl Den, needed by the pack
+./scripts/link-sources.sh                 # optional pack sources (warns if upstream is gone)
 (cd packages/ui && npm install)           # UI only
 ```
 
@@ -16,6 +16,7 @@ Verify:
 ```bash
 make check                                # fmt check, clippy, tests
 make ui                                   # UI type-check + build
+make ui-test                              # UI unit and DOM tests (vitest)
 make doctor                               # installation report, including packs
 ```
 
@@ -24,7 +25,7 @@ make doctor                               # installation report, including packs
 1. **Respect the dependency direction.** `mellivora-core` must not depend on a
    domain crate. Modules must not depend on each other. Surfaces hold no logic.
 2. **New capability? Add a tool, not a code path in a surface.** One line in
-   `crates/cli/src/app.rs` (and the module's `tools()`).
+   `crates/toolkit/src/runtime.rs` (and the module's `tools()`).
 3. **Findings, not prints.** A problem is `report.add_finding(severity, code,
    message)`. `status` is derived by `sealed()`.
 4. **Honour `--dry-run`** in anything that writes, and say so in the report.
@@ -48,7 +49,7 @@ pub fn tools() -> mellivora_core::Result<Vec<std::sync::Arc<dyn Tool>>> {
 ```
 
 ```rust
-// crates/cli/src/app.rs
+// crates/toolkit/src/runtime.rs
 registry.register_all(mellivora_newthing::tools()?)?;
 ```
 
@@ -78,8 +79,10 @@ cargo test -p mellivora-scrub               # one crate
 cargo test -p mellivora-core report::       # one area
 ```
 
-CI also runs the UI build, the Perl pack syntax check, and a live end-to-end
-slice that clones Perl Den and runs one module through the toolkit.
+CI also runs the UI build, the UI test suite, the Perl pack syntax check, and a
+live end-to-end slice. That slice runs a pack module when the optional upstream
+sources are reachable and skips the pack when they are not; `REQUIRE_SOURCES=1`
+makes `scripts/link-sources.sh` fail instead.
 
 ## Reporting problems
 

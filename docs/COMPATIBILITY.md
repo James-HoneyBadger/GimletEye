@@ -27,9 +27,9 @@ DOM — can change at any time.
 - **Protocol and schema versions are separate** from the product version. A
   patch release never changes them; a change to them is a headline in the
   changelog.
-- **Older config schemas are migrated, newer ones are refused.** Loading a
-  config written by a newer release fails with a clear message rather than
-  silently dropping keys it does not understand.
+- **Older config schemas load, newer ones are refused.** Fields a build does
+  not know about take their defaults; a config written by a newer release fails
+  with a clear message rather than being silently reinterpreted.
 
 ## Deprecating something
 
@@ -73,7 +73,7 @@ registry:
 | A pack's stdout framing breaks after a runtime upgrade | Per-pack timeout and isolation; `plugins doctor` in CI; stray stdout lines are ignored |
 | A native port changes a threshold or default | Port the tests first; move constants into config with defaults equal to the old behaviour |
 | A crypto engine change alters a container format | Golden files gate the change; a format change requires an ADR |
-| An external source checkout drifts | The pack reads it read-only; CI pins the checkout it tests |
+| An external source checkout drifts | The pack reads it read-only and reports what it found; CI exercises it only when the upstream is reachable |
 | A pack collides with a built-in id | Built-ins win resolution; collisions are logged and skipped at registration |
 
 ## Upgrading

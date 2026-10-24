@@ -16,7 +16,7 @@ These are ordered by value per unit of risk. Everything else can wait.
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
 | 1 | [Complete the crypto pillar](#1-complete-the-crypto-pillar) | Encryption and signatures shipped; streaming, keystore, and key exchange remain. | L | High |
-| 2 | [hb-scrub pack for the other ten formats](#2-hb-scrub-pack-for-the-remaining-ten-formats) | Ten formats of parity for a manifest and a small adapter. | S–M | Low |
+| 2 | [hb-scrub pack for the remaining formats](#2-hb-scrub-pack-for-the-remaining-formats) | Format parity for a manifest and a small adapter. | S–M | Low |
 | 3 | [Golden corpus and fuzzing](#3-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
 | 4 | [Pack trust and conformance](#4-pack-trust-and-conformance) | Packs are the extension story; they need a safety story. | M | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
@@ -50,10 +50,10 @@ covered by known-answer tests.
 **Effort** L · **Risk** High — a container or key-format regression here is
 unrecoverable data loss. Every change needs a golden-file test and an ADR.
 
-### 2. hb-scrub pack for the remaining ten formats
+### 2. hb-scrub pack for the remaining formats
 
-**Problem.** Native support covers JPEG, PNG, WebP. HEIC, AVIF, TIFF, PDF, MP4,
-RAW, GIF, and SVG return `unsupported`.
+**Problem.** Native support covers JPEG, PNG, and WebP. HEIC, AVIF, TIFF, PDF,
+MP4, RAW, GIF, and SVG all return `unsupported`.
 
 **Why.** The TypeScript implementation already exists and is tested. A pack
 adapter buys parity immediately and keeps the roadmap honest while native ports

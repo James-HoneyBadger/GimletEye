@@ -1,7 +1,7 @@
 import './styles/tokens.css';
 import './styles/app.css';
 
-import { createActions, type Renderer } from './lib/actions';
+import { createActions, FOCUSABLE, type Renderer } from './lib/actions';
 import { modLabel } from './lib/format';
 import { persist, state } from './lib/store';
 import { renderSidebar } from './components/sidebar';
@@ -243,6 +243,23 @@ root.addEventListener('keydown', (event) => {
   if (mod && event.key === 'Enter') {
     event.preventDefault();
     void actions.run();
+    return;
+  }
+
+  if (state.sheet && event.key === 'Tab') {
+    // A modal sheet keeps Tab inside it; leaving would reach the page behind.
+    const panel = root.querySelector<HTMLElement>('[data-sheet-panel]');
+    const items = panel ? [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)] : [];
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !panel?.contains(active))) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && (active === last || !panel?.contains(active))) {
+      event.preventDefault();
+      first?.focus();
+    }
     return;
   }
 

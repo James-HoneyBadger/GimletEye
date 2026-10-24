@@ -123,6 +123,28 @@ did.
 - Reports from the privacy tools include the resolved policy and, when
   applicable, the post-redaction coordinates (never the originals).
 - The smoke test now covers profiles, GPS redaction, and `--strict`.
+- A required boolean argument was reported as missing when answered `false`,
+  which blocked the run before anything was sent.
+- The sidebar listed its groups in tool-id order while the category chips above
+  were alphabetical, so the list did not follow the tabs.
+- A sheet declared `aria-modal` but let Tab walk out of it; focus now cycles
+  inside the panel and returns to the control that opened it.
+- `mellivora batch` silently replaced `--arg <input-arg>=…` with the file path;
+  it now refuses the combination and exits `2`.
+- The batch report repeated `duration_ms` inside `data` as well as at the top
+  level, unlike every other report.
+- The structured-data view decided whether to warn about dropped columns from
+  the first row only.
+- The history badge in the title bar did not count the run that had just
+  finished until the sheet was reopened.
+- `run.sh` sent the desktop shell's log to `/dev/null`, hiding the engine
+  address and window events; it is kept in `$TMPDIR/mellivora-desktop.log`.
+- Documentation: `CONTRIBUTING.md` pointed at `crates/cli/src/app.rs` (now
+  `crates/toolkit/src/runtime.rs`) and described a CI step that no longer
+  exists; `COMPATIBILITY.md` promised config migrations and a pinned CI
+  checkout that are not implemented; three documents disagreed on how many
+  metadata formats exist, and the architecture's test and CI tables predated
+  the UI suite; the README overstated how the `network` capability is enforced.
 - The UI test suite needed Node 22 through `jsdom` 30's `undici`; `jsdom` is now
   pinned to 26, so the documented Node 20 baseline runs the tests.
 - A pack source that has been renamed, deleted, or made private no longer fails

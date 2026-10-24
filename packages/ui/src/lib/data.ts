@@ -46,7 +46,8 @@ function table(rows: Record<string, unknown>[]): string {
           .join('')}</tr>`,
     )
     .join('');
-  const more = Object.keys(rows[0] ?? {}).length > MAX_COLUMNS ? `<caption>Showing the first ${MAX_COLUMNS} columns</caption>` : '';
+  const truncated = rows.some((row) => Object.keys(row).length > MAX_COLUMNS);
+  const more = truncated ? `<caption>Showing the first ${MAX_COLUMNS} columns</caption>` : '';
   return `<div class="table-wrap"><table class="data-table">${more}<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 

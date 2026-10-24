@@ -24,8 +24,10 @@ mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or deskto
 | **Crypto** | Authenticated file encryption (AES-256-GCM, ChaCha20-Poly1305 with Argon2id), Ed25519 signing and verification, SHA-256, password generation with an entropy budget |
 | **Privacy** | Metadata scan, strip, and verify for JPEG, PNG, and WebP; removal profiles; field-level keep/remove; GPS redaction that preserves the rest of EXIF |
 
-Everything runs locally. There is no telemetry, no auto-update, and no network
-access unless a tool declares the `network` capability and you grant it.
+Everything runs locally: nothing here opens a network connection, and there is
+no telemetry, no auto-update, and no remote logging. A pack declares the
+`network` capability, and the host refuses to dispatch its tools unless that
+capability is granted.
 
 ## Design
 

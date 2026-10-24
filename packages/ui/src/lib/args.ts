@@ -32,12 +32,12 @@ export function validateArgs(tool: ToolManifest, values: RawValues): Record<stri
   const errors: Record<string, string> = {};
   for (const spec of tool.args ?? []) {
     const value = values[spec.name];
-    const text = typeof value === 'string' ? value.trim() : '';
-    if (spec.required && (value === undefined || text === '')) {
+    const missing = value === undefined || (typeof value === 'string' && value.trim() === '');
+    if (spec.required && missing) {
       errors[spec.name] = spec.type === 'path' ? 'Choose a file or directory' : 'Required';
       continue;
     }
-    if (spec.type === 'integer' && text !== '' && !/^-?\d+$/.test(text)) {
+    if (spec.type === 'integer' && typeof value === 'string' && value !== '' && !/^-?\d+$/.test(value.trim())) {
       errors[spec.name] = 'Whole number expected';
     }
   }

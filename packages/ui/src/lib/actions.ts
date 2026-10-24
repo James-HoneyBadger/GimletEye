@@ -46,7 +46,20 @@ function visibleTools(): string[] {
     .map((tool) => tool.id);
 }
 
+/** Elements a dialog may hand focus to, in document order. */
+export const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function createActions(root: HTMLElement, render: Renderer): Actions {
+  // Focus is a modal concern: a sheet takes it on open and gives it back on close.
+  let sheetReturnFocus: HTMLElement | null = null;
+
+  const restoreFocus = (): void => {
+    const previous = sheetReturnFocus;
+    sheetReturnFocus = null;
+    if (previous?.isConnected) previous.focus();
+  };
+
   const toast = (message: string, tone: 'ok' | 'error' = 'ok'): void => {
     const stack = root.querySelector('#toasts');
     if (!stack) return;
@@ -102,9 +115,11 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
 
     selectTool(id: string): void {
       const changed = state.selectedId !== id;
+      const hadSheet = state.sheet !== null;
       state.sheet = null;
       if (!changed) {
         render.sheets();
+        if (hadSheet) restoreFocus();
         return;
       }
       state.selectedId = id;
@@ -166,6 +181,7 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
         state.running = false;
         setRunning(false);
         render.result();
+        render.chrome();
       }
     },
 
@@ -192,6 +208,7 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
     },
 
     openSheet(sheet: Sheet): void {
+      sheetReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       state.sheet = sheet;
       render.sheets();
       if (sheet === 'history' && !state.historyLoaded) void this.refreshHistory();
@@ -202,6 +219,7 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       if (!state.sheet) return;
       state.sheet = null;
       render.sheets();
+      restoreFocus();
     },
 
     async refreshHistory(): Promise<void> {

@@ -49,3 +49,26 @@ describe('toPayload', () => {
     expect(toPayload(tool, { input: '/tmp/x', count: '', profile: '' })).toEqual({ input: '/tmp/x' });
   });
 });
+
+describe('required booleans', () => {
+  const flags: ToolManifest = {
+    id: 'demo.flags',
+    title: 'Flags',
+    summary: 'required switch',
+    category: 'sysadmin',
+    origin: 'builtin',
+    args: [{ name: 'confirm', type: 'boolean', required: true }],
+  };
+
+  it('accepts false as an answer rather than calling it missing', () => {
+    expect(validateArgs(flags, { confirm: false })).toEqual({});
+  });
+
+  it('still reports a field that was never rendered', () => {
+    expect(validateArgs(flags, {})).toHaveProperty('confirm');
+  });
+
+  it('keeps false in the payload', () => {
+    expect(toPayload(flags, { confirm: false })).toEqual({ confirm: false });
+  });
+});

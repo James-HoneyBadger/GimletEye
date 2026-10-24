@@ -145,15 +145,18 @@ launch_app() {
     fi
 
     # Detached on purpose: closing the terminal should not close the window.
+    # The log keeps the shell's own diagnostics (engine address, window events).
+    local log="${TMPDIR:-/tmp}/mellivora-desktop.log"
     if have setsid; then
-        setsid "$desktop_bin" >/dev/null 2>&1 &
+        setsid "$desktop_bin" >"$log" 2>&1 &
     else
-        "$desktop_bin" >/dev/null 2>&1 &
+        "$desktop_bin" >"$log" 2>&1 &
     fi
     local pid=$!
     printf '\n\033[32mMellivora ToolKit is starting.\033[0m  Close the window to exit.\n'
     info "binary: $desktop_bin"
     info "pid:    $pid   (kill $pid to stop)"
+    info "log:    $log"
 }
 
 launch_serve() {

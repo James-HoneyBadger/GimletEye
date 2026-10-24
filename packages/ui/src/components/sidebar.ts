@@ -57,10 +57,13 @@ export function renderSidebar(state: AppState): string {
       bucket.push(tool);
       buckets.set(tool.category, bucket);
     }
-    list = [...buckets.entries()]
+    // Same order as the filter chips above, so the list follows the tabs.
+    const order = groups.map((group) => group.name).filter((name) => buckets.has(name));
+    list = order
+      .map((category) => [category, buckets.get(category) ?? []] as const)
       .map(
         ([category, tools]) => `
-        <section class="group">
+        <section class="group" data-group="${escapeHtml(category)}">
           <h2 class="group-title">${categoryIcon(category)}${escapeHtml(titleCase(category))}<span class="count">${tools.length}</span></h2>
           <div class="tool-list" role="listbox" aria-label="${escapeHtml(titleCase(category))} tools">${tools
             .map((tool) => toolRow(tool, state.selectedId))

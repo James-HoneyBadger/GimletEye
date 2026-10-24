@@ -52,6 +52,13 @@ pub fn execute(
     options: &BatchOptions,
     format: OutputFormat,
 ) -> Result<BatchSummary> {
+    if options.args.as_map().contains_key(&options.input_arg) {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "--arg {0}=… conflicts with --input-arg {0}: the file path would replace it",
+            options.input_arg
+        )));
+    }
+
     let files = collect_files(&options.paths, &options.extensions, options.recursive)?;
     if files.is_empty() {
         return Err(MellivoraError::NotFound(format!(
@@ -302,7 +309,6 @@ fn aggregate(
             "ok": ok,
             "warning": warnings,
             "error": errors,
-            "duration_ms": total_ms,
             "files": entries,
         }))
         .with_duration(Duration::from_millis(total_ms))
@@ -421,6 +427,25 @@ mod tests {
 
         let flat = collect_files(std::slice::from_ref(&dir), &[], false).expect("collect");
         assert_eq!(flat.len(), 2, "non-recursive skips nested entries");
+
+        fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_colliding_input_arg_is_refused() {
+        let dir = workspace("collide");
+        fs::create_dir_all(&dir).expect("mkdir");
+        fs::write(dir.join("a.png"), b"x").expect("write");
+
+        let mut opts = options(vec![dir.clone()], 1, false);
+        opts.args.insert("input", "/somewhere/else.png");
+
+        let tool: Arc<dyn Tool> = Arc::new(Echo);
+        let context = ToolContext::new(AppPaths::under(&dir));
+        let err = execute(tool, &context, &opts, OutputFormat::Text)
+            .expect_err("a colliding argument must not be silently replaced");
+        assert!(matches!(err, MellivoraError::InvalidArgs(_)), "{err}");
+        assert!(err.to_string().contains("--input-arg"));
 
         fs::remove_dir_all(&dir).expect("cleanup");
     }

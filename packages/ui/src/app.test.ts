@@ -160,12 +160,49 @@ describe('workbench shell', () => {
     await vi.waitFor(() => expect(document.querySelector('.sheet')).toBeNull());
   });
 
+  it('keeps Tab inside an open sheet and gives focus back on close', async () => {
+    await boot();
+    const trigger = document.querySelector<HTMLElement>('#show-history')!;
+    trigger.focus();
+    trigger.click();
+    await vi.waitFor(() => expect(document.querySelector('.sheet')).not.toBeNull());
+
+    const close = document.querySelector<HTMLElement>('.sheet-head .icon-button')!;
+    const runs = [...document.querySelectorAll<HTMLElement>('.run-tool')];
+    expect(runs.length).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(close);
+
+    // Tab on the last control wraps to the first.
+    const last = runs[runs.length - 1];
+    last.focus();
+    last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    expect(document.activeElement).toBe(close);
+
+    // Shift+Tab on the first wraps to the last.
+    close.focus();
+    close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+    expect(document.activeElement).toBe(last);
+
+    close.click();
+    await vi.waitFor(() => expect(document.querySelector('.sheet')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('shows recent runs from the audit trail', async () => {
     await boot();
     document.querySelector<HTMLElement>('#show-history')!.click();
 
     await vi.waitFor(() => expect(document.querySelector('.run')).not.toBeNull());
     expect(document.querySelector('.run-tool')?.textContent).toBe('demo.echo');
+  });
+
+  it('lists groups in the same order as the category chips', async () => {
+    await boot();
+    const groups = [...document.querySelectorAll<HTMLElement>('[data-group]')].map((el) => el.dataset.group);
+    const chips = [...document.querySelectorAll<HTMLElement>('[data-category]')]
+      .map((el) => el.dataset.category)
+      .filter((value) => value !== '');
+    expect(groups).toEqual(chips);
   });
 
   it('filters the sidebar by capability, as the search box promises', async () => {

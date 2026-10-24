@@ -361,7 +361,8 @@ The full protocol is in [PLUGIN_SDK.md](PLUGIN_SDK.md).
 | Contracts | report round-trip, status derivation, registry resolution, capability denial | unit tests in `core` |
 | Protocol | manifest validation, discovery, broken packs, encoding | unit tests + live pack run |
 | Surfaces | CLI arg rewriting, HTTP handlers | unit tests; `curl` in the smoke script |
-| End-to-end | Perl Den module through the pack | `scripts/smoke.sh` |
+| UI | search, argument validation and coercion, CLI-command rendering, data rendering, a full run and both sheets | `vitest`: pure functions plus a jsdom shell with a mocked API (`npm test`) |
+| End-to-end | batch runs, the audit endpoint, and a pack module when its sources are reachable | `scripts/smoke.sh` |
 
 Rules that keep this cheap:
 
@@ -381,9 +382,12 @@ Rules that keep this cheap:
   `[workspace.package]`.
 - **Workspace lints** deny `unsafe_code` and warn on `dbg!`/`todo!`, so those
   cannot pass review silently.
-- **CI** (`.github/workflows/ci.yml`) runs: `fmt --check`, `clippy -D warnings`,
-  `test --workspace`, UI type-check + build, the Perl pack syntax check, and a
-  live end-to-end slice with a shallow Perl Den clone.
+- **CI** (`.github/workflows/ci.yml`) runs five jobs: rust (`fmt --check`,
+  `clippy -D warnings`, `test --workspace`, release build), ui (`npm ci`,
+  `npm test`, build), integration (pack syntax check, source linking, smoke),
+  desktop (`cargo check` for the Tauri shell), and dependency policy
+  (`cargo deny`). The integration job exercises a pack only when its optional
+  upstream sources can be fetched.
 - **Versioning**: workspace version in one place; modules are versioned
   together until they have independent consumers. `Report` and the plugin
   protocol carry explicit versions because they are the public API.
@@ -454,9 +458,11 @@ Stated plainly, because a design document that hides them is not useful:
 1. **No keystore, no asymmetric encryption.** Files are encrypted with a
    passphrase; Ed25519 signs but cannot encrypt, and there is no keyring,
    X25519 exchange, or OpenPGP interop yet.
-2. **Three of thirteen metadata formats are native.** The rest return a clear
-   `unsupported` error that names the pack to install — not a silent success.
-   GPS redaction is likewise limited to those three containers.
+2. **Three metadata formats are native.** JPEG, PNG, and WebP are handled here;
+   every other container returns a clear `unsupported` error naming the pack to
+   install — not a silent success. GPS redaction is likewise limited to those
+   three. The exact list of pack-served formats lives with the pack, so it is
+   deliberately not restated here.
 3. **The Perl pack is synchronous.** One request at a time per pack; fine for
    interactive use, a limitation for bulk runs.
 4. **No scheduler or TUI yet.** Perl Den's crontab integration is not ported;
