@@ -71,7 +71,12 @@ criterion so "done" is not a matter of opinion.
 
 ## v1.0 — Distribution
 
-- [ ] Signed releases: CLI + server for Linux/macOS/Windows; Tauri installers.
+- [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
+  (x86_64, aarch64), and Windows (x86_64); `.deb`/`.AppImage`, `.dmg`, and NSIS
+  installers for the desktop app; checksums. `.github/workflows/release.yml`
+  builds and attaches them from a tag, and publishes nothing unless every build
+  succeeds.
+- [ ] Signed artifacts and reproducible builds.
 - [ ] Distro packaging (Arch, Debian, Fedora) and `cargo install`.
 - [ ] Stable `Report` and plugin protocol v1 with a written compatibility policy.
 - [ ] Documentation set complete: user guide, admin guide, pack gallery.

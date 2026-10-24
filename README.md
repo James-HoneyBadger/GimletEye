@@ -87,6 +87,21 @@ trade-offs behind each decision.
 The desktop app (`apps/desktop`) is the same bundle in a native window, with the
 engine running inside the app: no server to start, no port to configure.
 
+## Install a release
+
+Tagged releases carry prebuilt binaries:
+
+- `mellivora-<version>-<target>.tar.gz` / `.zip` — the CLI, with `README.md`,
+  `LICENSE`, and `CHANGELOG.md`, for Linux (x86_64, aarch64), macOS (x86_64,
+  aarch64), and Windows (x86_64)
+- `.deb`, `.AppImage`, `.dmg`, and NSIS `.exe` — the desktop app, engine included
+- `SHA256SUMS` for all of the above
+
+```bash
+tar -xzf mellivora-0.2.0-x86_64-unknown-linux-gnu.tar.gz
+cd mellivora-0.2.0-x86_64-unknown-linux-gnu && ./mellivora doctor
+```
+
 ## Quick start
 
 One script builds whatever is out of date and opens the workbench:

@@ -4,6 +4,16 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Release workflow.** A `v*` tag now builds the artifacts and attaches them to
+  the release: CLI archives for Linux (x86_64, aarch64), macOS (x86_64,
+  aarch64), and Windows (x86_64); `.deb` + `.AppImage`, `.dmg`, and NSIS
+  installers for the desktop app; and a `SHA256SUMS` file. The publish job waits
+  for every build, so a partial release is impossible.
+
 ## [0.2.0] — 2026-10-24
 
 Batch execution, a manifest that says whether a tool writes, an audit API, and a
