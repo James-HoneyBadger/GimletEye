@@ -24,7 +24,8 @@ export interface Renderer {
 
 export interface Actions {
   boot(): Promise<void>;
-  selectTool(id: string): void;
+  /** `fromKeyboard` keeps focus in the list; a pointer selection moves to the form. */
+  selectTool(id: string, fromKeyboard?: boolean): void;
   moveSelection(delta: number): void;
   toggleTheme(): void;
   run(): Promise<void>;
@@ -89,6 +90,12 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
     first?.focus();
   };
 
+  /** After choosing a tool with the pointer, continue into its form. */
+  const focusFirstField = (): void => {
+    const field = root.querySelector<HTMLElement>('#args [data-type]') ?? root.querySelector<HTMLElement>('#run');
+    field?.focus({ preventScroll: true });
+  };
+
   return {
     async boot(): Promise<void> {
       render.all();
@@ -113,7 +120,7 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       void this.refreshHistory();
     },
 
-    selectTool(id: string): void {
+    selectTool(id: string, fromKeyboard = false): void {
       const changed = state.selectedId !== id;
       const hadSheet = state.sheet !== null;
       state.sheet = null;
@@ -128,7 +135,11 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       state.tab = 'details';
       persist();
       render.all();
-      focusActiveTool();
+      if (fromKeyboard) {
+        focusActiveTool();
+      } else {
+        focusFirstField();
+      }
     },
 
     moveSelection(delta: number): void {
@@ -136,7 +147,7 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       if (ids.length === 0) return;
       const current = state.selectedId ? ids.indexOf(state.selectedId) : -1;
       const next = Math.min(Math.max(current + delta, 0), ids.length - 1);
-      if (ids[next] !== state.selectedId) this.selectTool(ids[next]);
+      if (ids[next] !== state.selectedId) this.selectTool(ids[next], true);
     },
 
     toggleTheme(): void {

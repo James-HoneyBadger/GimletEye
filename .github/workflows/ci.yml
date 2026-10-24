@@ -117,3 +117,9 @@ jobs:
       - uses: taiki-e/install-action@cargo-deny
 
       - run: cargo deny check advisories licenses bans sources
+
+      # The desktop shell is excluded from the workspace and has its own
+      # lockfile; apps/desktop/src-tauri/deny.toml documents what is accepted.
+      - name: Desktop dependency policy
+        working-directory: apps/desktop/src-tauri
+        run: cargo deny check advisories

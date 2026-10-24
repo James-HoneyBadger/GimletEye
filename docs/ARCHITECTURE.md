@@ -255,7 +255,9 @@ packages/ui/src/
 
 `lib/actions.ts` owns every state transition (select, run, copy, download,
 sheets, history); `main.ts` only maps DOM events onto it and knows which regions
-to re-render. A run re-renders the result region alone, a keystroke in search
+to re-render. Focus follows intent: a keyboard selection stays in the tool list
+so arrows keep working, while a pointer selection lands on the first form field,
+and a dialog traps Tab until it closes. A run re-renders the result region alone, a keystroke in search
 re-renders the sidebar alone, and the form is never rebuilt underneath the user
 — which is why an in-progress form and its validation messages survive a theme
 switch or a tool switch.

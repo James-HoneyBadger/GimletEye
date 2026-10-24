@@ -1,0 +1,28 @@
+# Advisory policy for the desktop shell.
+#
+# The shell is a separate crate with its own lockfile (the workspace excludes
+# it), so the root policy never saw these dependencies. CI runs
+# `cargo deny check advisories` here, so anything new fails the build.
+#
+# Two findings are accepted, both from Tauri's GTK3 stack:
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # proc-macro-error is unmaintained. It is a build-time macro dependency of
+    # glib-macros, contributes no runtime code to the binary, and cannot be
+    # dropped without a gtk-rs release that stops using it.
+    "RUSTSEC-2024-0370",
+]
+
+# Not in the RustSec database yet, so it cannot be listed above; Dependabot
+# tracks it as alert #1 instead:
+#
+#   GHSA-wrw7-89jp-8q8g - unsound Iterator/DoubleEndedIterator impls for
+#   glib::VariantStrIter. Fixed in glib 0.20.0, which requires gtk-rs 0.20.
+#   The GTK3 bindings are unmaintained upstream and stop at 0.19, and Tauri
+#   pins gtk ^0.18, so there is no upgrade path today. This shell's own code
+#   never constructs the type.
+#
+# Revisit when Tauri moves to gtk-rs 0.20 or to GTK4.

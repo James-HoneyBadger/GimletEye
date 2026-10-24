@@ -110,6 +110,10 @@ pub fn collect_files(
         .collect();
 
     let mut files = Vec::new();
+    // Symlinks are followed, because a path the user names and a path found by
+    // walking a directory should behave the same way. The visited set stops a
+    // link cycle from walking forever.
+    let mut visited: Vec<PathBuf> = Vec::new();
     for path in paths {
         if path.is_file() {
             if accepts(path, &wanted) {
@@ -118,12 +122,8 @@ pub fn collect_files(
             continue;
         }
         if path.is_dir() {
-            walk(
-                path,
-                &wanted,
-                if recursive { MAX_WALK_DEPTH } else { 1 },
-                &mut files,
-            )?;
+            let depth = if recursive { MAX_WALK_DEPTH } else { 1 };
+            walk(path, &wanted, depth, &mut visited, &mut files)?;
             continue;
         }
         return Err(MellivoraError::NotFound(format!(
@@ -137,22 +137,55 @@ pub fn collect_files(
     Ok(files)
 }
 
-fn walk(dir: &Path, wanted: &[String], depth: usize, out: &mut Vec<PathBuf>) -> Result<()> {
+fn walk(
+    dir: &Path,
+    wanted: &[String],
+    depth: usize,
+    visited: &mut Vec<PathBuf>,
+    out: &mut Vec<PathBuf>,
+) -> Result<()> {
     if depth == 0 {
         return Ok(());
     }
+    if let Ok(canonical) = dir.canonicalize() {
+        if visited.contains(&canonical) {
+            return Ok(());
+        }
+        visited.push(canonical);
+    }
+
     let entries = std::fs::read_dir(dir)?;
+    let mut real_dirs: Vec<PathBuf> = Vec::new();
+    let mut linked_dirs: Vec<PathBuf> = Vec::new();
+
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
-        let Ok(kind) = entry.file_type() else {
+        // `metadata` follows a link; `file_type` does not, which is how a
+        // linked directory is told apart from a real one.
+        let Ok(metadata) = std::fs::metadata(&path) else {
             continue;
         };
-        if kind.is_dir() {
-            walk(&path, wanted, depth - 1, out)?;
-        } else if kind.is_file() && accepts(&path, wanted) {
+        if metadata.is_dir() {
+            if entry
+                .file_type()
+                .map(|kind| kind.is_symlink())
+                .unwrap_or(false)
+            {
+                linked_dirs.push(path);
+            } else {
+                real_dirs.push(path);
+            }
+        } else if metadata.is_file() && accepts(&path, wanted) {
             out.push(path);
         }
+    }
+
+    // Real directories first: when a link and its target are both reachable,
+    // the tree is walked once, by the real path. A link is only followed when
+    // it points outside what has already been seen.
+    for path in real_dirs.into_iter().chain(linked_dirs) {
+        walk(&path, wanted, depth - 1, visited, out)?;
     }
     Ok(())
 }
@@ -427,6 +460,48 @@ mod tests {
 
         let flat = collect_files(std::slice::from_ref(&dir), &[], false).expect("collect");
         assert_eq!(flat.len(), 2, "non-recursive skips nested entries");
+
+        fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_followed_without_looping() {
+        use std::os::unix::fs::symlink;
+
+        let dir = workspace("symlinks");
+        fs::create_dir_all(dir.join("real")).expect("mkdir");
+        fs::write(dir.join("real/inside.png"), b"x").expect("write");
+
+        // A link to a file, a link to a directory, and a cycle back to the root.
+        symlink(dir.join("real/inside.png"), dir.join("file-link.png")).expect("symlink");
+        symlink(dir.join("real"), dir.join("dir-link")).expect("symlink");
+        symlink(&dir, dir.join("real/loop")).expect("symlink");
+
+        let files = collect_files(std::slice::from_ref(&dir), &[], true).expect("collect");
+        let names: Vec<String> = files
+            .iter()
+            .map(|path| {
+                path.strip_prefix(&dir)
+                    .unwrap_or(path)
+                    .display()
+                    .to_string()
+            })
+            .collect();
+
+        // The tree is walked once, by its real path; the link to it is not a
+        // second copy, and the cycle back to the root terminates.
+        assert!(names.contains(&"real/inside.png".to_string()), "{names:?}");
+        assert_eq!(
+            names
+                .iter()
+                .filter(|name| name.ends_with("inside.png"))
+                .count(),
+            1,
+            "each file is listed once: {names:?}"
+        );
+        assert!(names.contains(&"file-link.png".to_string()), "{names:?}");
+        assert!(names.len() < 10, "the cycle must stop: {names:?}");
 
         fs::remove_dir_all(&dir).expect("cleanup");
     }

@@ -24,7 +24,11 @@ pub struct AppPaths {
 /// The comparison is on the canonical path, because `plugins` and
 /// `/home/you/project/plugins` are the same directory with two spellings —
 /// which used to load every pack twice and start each pack process twice.
-fn push_unique(dirs: &mut Vec<PathBuf>, seen: &mut Vec<PathBuf>, candidate: PathBuf) {
+pub(crate) fn push_unique_dir(
+    dirs: &mut Vec<PathBuf>,
+    seen: &mut Vec<PathBuf>,
+    candidate: PathBuf,
+) {
     let identity = candidate
         .canonicalize()
         .unwrap_or_else(|_| candidate.clone());
@@ -50,12 +54,12 @@ impl AppPaths {
         let root = root.into();
         let mut plugin_dirs = Vec::new();
         let mut seen = Vec::new();
-        push_unique(&mut plugin_dirs, &mut seen, root.join("plugins"));
+        push_unique_dir(&mut plugin_dirs, &mut seen, root.join("plugins"));
 
         if let Some(extra) = env::var_os("MELLIVORA_PLUGIN_PATH") {
             for entry in env::split_paths(&extra) {
                 if !entry.as_os_str().is_empty() {
-                    push_unique(&mut plugin_dirs, &mut seen, entry);
+                    push_unique_dir(&mut plugin_dirs, &mut seen, entry);
                 }
             }
         }
@@ -63,7 +67,7 @@ impl AppPaths {
         // Packs checked out next to the sources are picked up during development.
         let repo_local = PathBuf::from("plugins");
         if repo_local.is_dir() {
-            push_unique(&mut plugin_dirs, &mut seen, repo_local);
+            push_unique_dir(&mut plugin_dirs, &mut seen, repo_local);
         }
 
         Self {
@@ -98,9 +102,9 @@ mod tests {
 
         let mut dirs = Vec::new();
         let mut seen = Vec::new();
-        push_unique(&mut dirs, &mut seen, dir.clone());
-        push_unique(&mut dirs, &mut seen, canonical.clone());
-        push_unique(&mut dirs, &mut seen, dir.join("./"));
+        push_unique_dir(&mut dirs, &mut seen, dir.clone());
+        push_unique_dir(&mut dirs, &mut seen, canonical.clone());
+        push_unique_dir(&mut dirs, &mut seen, dir.join("./"));
 
         assert_eq!(dirs.len(), 1);
         assert_eq!(dirs[0], dir);

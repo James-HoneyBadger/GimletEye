@@ -86,6 +86,16 @@ The format is specified in [docs/CONTAINER.md](docs/CONTAINER.md), including its
 known limitations (no streaming, no public-key recipients, no embedded
 metadata).
 
+## Known accepted risks
+
+| Finding | Why it is accepted | Revisit when |
+|---|---|---|
+| `GHSA-wrw7-89jp-8q8g` (glib `VariantStrIter` unsoundness, desktop only) | Tauri's GTK3 stack pins glib 0.18; the fix needs gtk-rs 0.20, and the GTK3 bindings are unmaintained and stop at 0.19. The type is not constructed by the desktop shell's own code. Tracked as Dependabot alert #1. | Tauri moves to gtk-rs 0.20 or GTK4 |
+| `RUSTSEC-2024-0370` (proc-macro-error unmaintained, desktop only) | Build-time dependency of `glib-macros`; no runtime code in the binary. | Same gtk-rs bump |
+
+Both are recorded in `apps/desktop/src-tauri/deny.toml`, which CI checks so a
+*new* advisory in the desktop graph fails the build rather than going unnoticed.
+
 ## Supported versions
 
 Security fixes land on the latest minor release. Pre-1.0, the newest release is

@@ -186,6 +186,9 @@ mellivora batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
 A failing file names itself in the report and sets exit code `1`, but the rest of
 the batch still runs unless `--fail-fast` is given.
 
+Symlinks are followed: a linked directory is walked, each directory is visited
+once by its real path, and a link cycle terminates instead of looping.
+
 Desktop app — one command, engine included:
 
 ```bash

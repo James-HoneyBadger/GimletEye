@@ -14,6 +14,10 @@ did.
 
 ### Added
 
+- **Desktop advisory policy.** The shell's lockfile is excluded from the
+  workspace, so the root `cargo deny` job never scanned it. It now has its own
+  policy and a CI step: new advisories fail the build, and the two accepted
+  GTK3-stack findings are documented in the file and in `SECURITY.md`.
 - **`./run.sh`.** One entry point for the whole project: it builds what is out of
   date (UI, CLI, desktop binary) and launches the native window, the browser
   workbench (`--serve`), or a hot-reloading window (`--dev`). `--build` forces a
@@ -123,6 +127,13 @@ did.
 - Reports from the privacy tools include the resolved policy and, when
   applicable, the post-redaction coordinates (never the originals).
 - The smoke test now covers profiles, GPS redaction, and `--strict`.
+- `mellivora batch` walked directories without following symlinks, so a link
+  named on the command line was processed while the same link found by walking
+  was skipped. Symlinks are followed now, each directory is walked once by its
+  real path, and a link cycle terminates.
+- Choosing a tool with the pointer left focus on the list, so the next Tab went
+  to the next tool instead of the form. Pointer selection now lands on the first
+  field (or Run); keyboard selection keeps focus in the list.
 - A required boolean argument was reported as missing when answered `false`,
   which blocked the run before anything was sent.
 - The sidebar listed its groups in tool-id order while the category chips above

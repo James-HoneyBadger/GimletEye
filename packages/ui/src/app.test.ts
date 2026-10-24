@@ -149,6 +149,26 @@ describe('workbench shell', () => {
     expect(copyCommand?.getAttribute('data-copy')).toBe('mellivora run demo.write --dry-run');
   });
 
+  it('moves focus into the form after a pointer selection, not the list', async () => {
+    await boot();
+    const row = document.querySelector<HTMLElement>('[data-tool="demo.write"]')!;
+    row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.write'),
+    );
+    // demo.write has no arguments, so the run button is the next thing to use.
+    expect(document.activeElement).toBe(document.querySelector('#run'));
+
+    // A keyboard selection keeps focus in the list so arrows keep working.
+    const echo = document.querySelector<HTMLElement>('[data-tool="demo.echo"]')!;
+    echo.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.echo'),
+    );
+    expect(document.activeElement).toBe(document.querySelector('.tool--active'));
+  });
+
   it('opens and closes the packs sheet', async () => {
     await boot();
     document.querySelector<HTMLElement>('#show-packs')!.click();

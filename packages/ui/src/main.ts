@@ -136,7 +136,8 @@ root.addEventListener('click', (event) => {
   // A tool link inside a sheet must win over the sheet's close handler.
   const toolButton = target.closest<HTMLElement>('[data-tool]');
   if (toolButton?.dataset.tool) {
-    actions.selectTool(toolButton.dataset.tool);
+    // `detail === 0` means the click came from the keyboard (Enter or Space).
+    actions.selectTool(toolButton.dataset.tool, event.detail === 0);
     return;
   }
 
@@ -290,7 +291,7 @@ root.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'search') {
     event.preventDefault();
     const first = root.querySelector<HTMLElement>('.tool');
-    if (first?.dataset.tool) actions.selectTool(first.dataset.tool);
+    if (first?.dataset.tool) actions.selectTool(first.dataset.tool, true);
   }
 });
 

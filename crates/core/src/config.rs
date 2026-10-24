@@ -135,12 +135,7 @@ impl Config {
         let mut dirs: Vec<PathBuf> = Vec::new();
         let mut seen: Vec<PathBuf> = Vec::new();
         for dir in self.plugins.dirs.iter().chain(paths.plugin_dirs.iter()) {
-            let identity = dir.canonicalize().unwrap_or_else(|_| dir.clone());
-            if seen.contains(&identity) {
-                continue;
-            }
-            seen.push(identity);
-            dirs.push(dir.clone());
+            crate::paths::push_unique_dir(&mut dirs, &mut seen, dir.clone());
         }
         dirs
     }
