@@ -47,15 +47,47 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
 
+      # The corpus grows across nights: libFuzzer's best input becomes tomorrow's
+      # starting point, so a week of soaks explores far more than seven isolated
+      # ten-minute runs. The committed seeds are only the floor.
+      - uses: actions/cache@v4
+        with:
+          path: crates/scrub/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
       - name: Fuzz ${{ matrix.target }}
         working-directory: crates/scrub/fuzz
         env:
           SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}
         run: |
           mkdir -p "corpus/${{ matrix.target }}"
+          # Two seed directories: the committed per-format seeds, and the golden
+          # corpus (a fixture of another format is a legitimate input - detection
+          # by magic bytes is part of what is under test).
           cargo fuzz run "${{ matrix.target }}" \
             "corpus/${{ matrix.target }}" "seeds/${{ matrix.target }}" \
+            ../tests/golden/fixtures \
             -- -max_total_time="$SECONDS_PER_TARGET" -print_final_stats=1
+
+      - name: Report coverage
+        if: always()
+        working-directory: crates/scrub/fuzz
+        run: |
+          inputs=$(find "corpus/${{ matrix.target }}" -type f | wc -l)
+          bytes=$(du -sk "corpus/${{ matrix.target }}" | cut -f1)
+          echo "- ${{ matrix.target }}: $inputs input(s), ${bytes} KiB of corpus" >> "$GITHUB_STEP_SUMMARY"
+
+      # Keep what the run learned, so evidence outlives the cache window.
+      - name: Keep the corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-${{ matrix.target }}
+          path: crates/scrub/fuzz/corpus/${{ matrix.target }}
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Keep a crashing input
         if: failure()

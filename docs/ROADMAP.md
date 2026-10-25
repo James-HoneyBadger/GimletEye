@@ -198,19 +198,61 @@ acceptable diff to `report.rs`, `protocol.rs`, the config schema, or the
 container constants is a bug fix with a test.
 
 - [ ] **Seven-day fuzz soak**, corpus grown from real, licence-clean images.
-- [ ] **Golden corpus** in `crates/scrub/tests/golden/`: expected scan decisions
+  The harness is ready and green locally (21.1 M executions over four targets,
+  three minutes each, corpus growing from 8 seeds to 1 438 inputs); the seven
+  green nights accumulate in `fuzz.yml`, which now caches the corpus per target
+  so night four starts where night three stopped, and seeds from the golden
+  fixtures. The tick waits for the calendar, not for the code.
+- [x] **Golden corpus** in `crates/scrub/tests/golden/`: expected scan decisions
   and stripped-output hashes, plus property tests for idempotence and no growth.
-- [ ] **Pack trust**: `[trust] sha256` pinning and `mellivora plugins conformance
-  <dir>` running the SDK checklist.
-- [ ] **Live-engine UI test** (Playwright): browse → validate → run → read the
-  report, including the token path added in 0.4.
-- [ ] **Benchmarks** for scan, strip, and encrypt at 10 MiB and 1 GiB, recorded in
-  CI so a regression is visible rather than argued about.
-- [ ] **Review-checklist rerun**: `cargo deny`, dependency freshness, and the
-  twelve review findings re-verified as still fixed.
+  Six synthesized fixtures, the generator that made them, and four tests that
+  compare whole documents — so a change in what `metadata-strip` decides shows up
+  as a diff. Writing the fixtures caught a wrong ICC segment in the fixture
+  itself, which is the corpus doing its job on day one.
+- [x] **Pack trust**: `[trust] sha256` pinning and `mellivora plugins conformance
+  <dir>` running the SDK checklist. The runner rejects a deliberately broken pack
+  in six tests, and it found a real deviation in the reference pack: it answered
+  an unknown tool with `-32003` instead of `-32001`.
+- [x] **Live-engine UI test** (Playwright): browse → validate → run → read the
+  report, including the token path added in 0.4. Four tests, a new `e2e` CI job,
+  and the only check in the project that would notice UI/engine wire drift.
+- [x] **Benchmarks** for scan, strip, and encrypt at 10 MiB and 1 GiB, recorded in
+  CI so a regression is visible rather than argued about. Scan turned out to be
+  header-bound (a 1 GiB file scans as fast as a 1 KiB one), so it reports that
+  instead of a fake throughput number.
+- [x] **Review-checklist rerun**: `cargo deny`, dependency freshness, and the
+  twelve review findings re-verified as still fixed. Done in 0.6; the evidence
+  is the table in [the 0.6 checklist](#06-review-checklist) below.
 
 *Acceptance:* the soak is green, the conformance runner rejects a deliberately
 broken pack, and `git diff v0.5..v0.6` shows no change to a versioned surface.
+
+### 0.6 review checklist
+
+Re-verified rather than assumed. Every finding from the 0.6 review is still
+fixed, and the test that would catch a regression if it were not:
+
+| # | Finding | Guard |
+|---|---|---|
+| 1 | CLI `key=value` text is not rewritten when it looks numeric | `cli_pairs_keep_text_that_only_looks_numeric` |
+| 2 | `crypto.sign` cannot destroy its input or silently replace a signature | `sign_refuses_to_overwrite_its_input`, `sign_refuses_to_replace_an_existing_signature` |
+| 3 | `metadata-strip` writes atomically and keeps permissions | `a_rewrite_leaves_no_temporary_file_behind`, `in_place_rewrite_keeps_the_original_permissions` |
+| 4 | The API needs a token, grants CORS only to known origins, refuses a remote bind | `a_required_policy_needs_the_exact_token`, `refuses_remote_and_opaque_origins`, `a_non_loopback_bind_needs_an_explicit_opt_in` |
+| 5 | Pack capabilities are enforced, not advisory | `a_tool_may_not_request_capabilities_the_manifest_omits` |
+| 6 | `[defaults] output` is honoured unless a flag overrides it | `json_flag_beats_a_text_default` |
+| 7 | `disk-usage path=<relative>` resolves before matching a mount | `relative_paths_are_resolved_before_matching`, `a_relative_path_selects_its_filesystem` |
+| 8 | `container::open` reads chunked containers | `open_accepts_a_chunked_container` |
+| 9 | An id-less plugin reply is not taken as the answer in flight | `a_notification_before_the_reply_does_not_consume_it` |
+| 10 | Audit pruning is atomic and serialised | `concurrent_records_keep_the_trail_capped_and_parseable` |
+| 11 | `mellivora batch` reports wall-clock duration | `aggregate_counts_every_outcome` |
+| 12 | GPS altitude below sea level is negative | `a_below_sea_level_altitude_is_reported_as_negative` |
+
+Also checked: `cargo deny` is clean on both dependency graphs; the tree resolves
+25 direct dependencies with two duplicates (`thiserror` 1 and 2, `syn` — both
+pulled by transitive deps); and the deliberate lags are recorded rather than
+fixed — `dirs 5`, `toml 0.8`, `sha2 0.10`, and the RustCrypto AEAD crates on
+0.10 exist because their next majors changed APIs, which is not work to do in a
+release whose whole point is not to move.
 
 ## v0.7 — Quiet: distribution and documentation
 

@@ -95,6 +95,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Changed
 
+- **The nightly fuzz soak accumulates.** `fuzz.yml` caches the working corpus per
+  target, so each night starts from everything the previous ones learned instead
+  of from the eight committed seeds, and it seeds runs from the golden fixtures
+  too. A local night's worth of soaking — 21.1 M executions across the four
+  targets — is green, and the corpus grew from 8 committed seeds to 1 438 inputs.
 - **`crypto.keygen` takes `kind` and `keystore` and reports `kind`.** A key is
   now Ed25519 *or* X25519, and it can live in the keystore instead of in two
   files. The old `algorithm` field stays in `data` next to `kind` for one minor,
