@@ -106,6 +106,9 @@ export function renderWorkbench(state: AppState): string {
 
   const args = tool.args ?? [];
   const capabilities = (tool.capabilities ?? []).map((capability) => `<span class="chip">${escapeHtml(capability)}</span>`).join('');
+  const platforms = (tool.platforms ?? [])
+    .map((platform) => `<span class="chip chip--quiet" title="Runs on ${escapeHtml(platform)} only">${escapeHtml(platform)}</span>`)
+    .join('');
   const tags = (tool.tags ?? []).slice(0, 4).map((tag) => `<span class="chip chip--quiet">${escapeHtml(tag)}</span>`).join('');
   const errors = state.errors;
   const draft = draftFor(tool.id);
@@ -129,6 +132,7 @@ export function renderWorkbench(state: AppState): string {
           <button class="icon-button icon-button--tiny" data-copy="${escapeHtml(tool.id)}" title="Copy tool id" aria-label="Copy tool id">
             ${icons.copy}
           </button>
+          ${platforms}
           ${capabilities}
           ${tags}
         </div>

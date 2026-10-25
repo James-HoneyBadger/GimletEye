@@ -19,6 +19,8 @@ export interface ToolManifest {
   version?: string;
   /** The tool can write to this machine. */
   mutates?: boolean;
+  /** Operating systems it runs on; empty or absent means everywhere. */
+  platforms?: string[];
 }
 
 export interface PackSummary {

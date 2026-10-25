@@ -396,6 +396,10 @@ pub struct ToolManifest {
     /// dry run only where it changes the outcome, and to warn before a run.
     #[serde(default)]
     pub mutates: bool,
+    /// Operating systems this tool supports, by `std::env::consts::OS` name.
+    /// Empty means everywhere; anything else is enforced by the registry.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub platforms: Vec<String>,
 }
 
 fn default_origin() -> String {
@@ -420,6 +424,7 @@ impl ToolManifest {
             origin: default_origin(),
             version: None,
             mutates: false,
+            platforms: Vec::new(),
         }
     }
 
@@ -446,6 +451,15 @@ impl ToolManifest {
     /// Declare that this tool can write to the host.
     pub fn mutating(mut self) -> Self {
         self.mutates = true;
+        self
+    }
+
+    /// Restrict the tool to the given operating systems (`linux`, `macos`, …).
+    pub fn with_platforms<I: IntoIterator<Item = impl Into<String>>>(
+        mut self,
+        platforms: I,
+    ) -> Self {
+        self.platforms = platforms.into_iter().map(Into::into).collect();
         self
     }
 }

@@ -3,7 +3,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::error::{MellivoraError, Result};
-use crate::tool::{Category, Tool, ToolManifest};
+use crate::platform;
+use crate::report::Report;
+use crate::tool::{Args, Category, Tool, ToolContext, ToolManifest};
 
 /// In-process catalogue of built-in tools plus adapters contributed by plugin
 /// packs. Surfaces only ever talk to this type.
@@ -27,7 +29,9 @@ impl Registry {
         if self.tools.contains_key(&id) {
             return Err(MellivoraError::Config(format!("duplicate tool id '{id}'")));
         }
-        self.tools.insert(id, tool);
+        // One gate for every surface: a tool that declares a platform is refused
+        // here rather than in each dispatch path.
+        self.tools.insert(id, Arc::new(PlatformGate::new(tool)));
         Ok(())
     }
 
@@ -147,6 +151,37 @@ impl fmt::Debug for Registry {
     }
 }
 
+/// Refuses a tool that does not run on this host, so no surface has to remember
+/// to ask.
+struct PlatformGate {
+    inner: Arc<dyn Tool>,
+}
+
+impl fmt::Debug for PlatformGate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PlatformGate")
+            .field("tool", &self.inner.manifest().id)
+            .finish()
+    }
+}
+
+impl PlatformGate {
+    fn new(inner: Arc<dyn Tool>) -> Self {
+        Self { inner }
+    }
+}
+
+impl Tool for PlatformGate {
+    fn manifest(&self) -> &ToolManifest {
+        self.inner.manifest()
+    }
+
+    fn run(&self, context: &ToolContext, args: &Args) -> Result<Report> {
+        platform::check(self.manifest())?;
+        self.inner.run(context, args)
+    }
+}
+
 /// Trigram Jaccard similarity, matching the fuzzy matching behaviour Perl Den
 /// users already rely on for script lookup.
 pub fn similarity(left: &str, right: &str) -> f64 {
@@ -232,6 +267,41 @@ mod tests {
         assert!(registry.resolve("system_info").is_some());
         assert!(registry.resolve("system-info").is_some());
         assert!(registry.resolve("nope").is_none());
+    }
+
+    #[test]
+    fn a_tool_for_another_platform_is_refused_at_dispatch() {
+        struct Elsewhere;
+
+        impl Tool for Elsewhere {
+            fn manifest(&self) -> &ToolManifest {
+                static MANIFEST: std::sync::OnceLock<ToolManifest> = std::sync::OnceLock::new();
+                MANIFEST.get_or_init(|| {
+                    ToolManifest::new(
+                        "demo.elsewhere",
+                        "Elsewhere",
+                        "runs elsewhere",
+                        Category::Sysadmin,
+                    )
+                    .with_platforms(["plan9"])
+                })
+            }
+
+            fn run(&self, _ctx: &ToolContext, _args: &Args) -> Result<Report> {
+                Ok(Report::new("demo.elsewhere"))
+            }
+        }
+
+        let mut registry = Registry::new();
+        registry.register(Arc::new(Elsewhere)).expect("register");
+        let tool = registry.get("demo.elsewhere").expect("registered");
+        assert_eq!(tool.manifest().platforms, vec!["plan9".to_string()]);
+
+        let context = ToolContext::new(crate::paths::AppPaths::under(std::env::temp_dir()));
+        let error = tool
+            .run(&context, &Args::new())
+            .expect_err("a tool for another platform must not run");
+        assert_eq!(error.code(), "unsupported");
     }
 
     #[test]

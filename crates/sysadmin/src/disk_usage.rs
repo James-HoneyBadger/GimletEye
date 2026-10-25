@@ -25,6 +25,7 @@ impl DiskUsage {
                 Category::Sysadmin,
             )
             .with_capabilities([Capability::System, Capability::ProcessExec])
+            .with_platforms(["linux"])
             .with_args([
                 mellivora_core::ArgSpec::new("path", mellivora_core::ArgKind::Path)
                     .help("Restrict the report to the filesystem holding this path"),

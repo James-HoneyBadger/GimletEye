@@ -23,6 +23,7 @@ impl SystemInfo {
                 Category::Sysadmin,
             )
             .with_capabilities([Capability::System])
+            .with_platforms(["linux"])
             .with_tags(["inspection", "snapshot", "host"]),
         }
     }

@@ -8,6 +8,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **Tools declare the platforms they run on.** `ToolManifest.platforms` is
+  enforced by the registry, so `sysadmin.system-info` and `sysadmin.disk-usage` —
+  which read `/proc` and parse `df` — return an `unsupported` error naming both
+  sides instead of an empty report on macOS or Windows. `tools list` gained a
+  `PLATFORM` column, and packs can declare the field too.
 - **The local API requires a token.** `mellivora serve` generates one on first
   run (`$MELLIVORA_HOME/api-token`, mode 0600), prints it, and answers `401` to
   any `/api/` request without `Authorization: Bearer <token>`. The printed URL

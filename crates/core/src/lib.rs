@@ -9,6 +9,7 @@ pub mod audit;
 pub mod config;
 pub mod error;
 pub mod paths;
+pub mod platform;
 pub mod plugin;
 pub mod registry;
 pub mod report;

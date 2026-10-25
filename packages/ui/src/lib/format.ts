@@ -56,6 +56,7 @@ interface Searchable {
   summary: string;
   tags?: string[];
   capabilities?: string[];
+  platforms?: string[];
   origin?: string;
   args?: { name: string; help?: string }[];
 }
@@ -72,6 +73,7 @@ export function searchText(tool: Searchable): string {
     tool.origin ?? '',
     ...(tool.tags ?? []),
     ...(tool.capabilities ?? []),
+    ...(tool.platforms ?? []),
     ...(tool.args ?? []).flatMap((arg) => [arg.name, arg.help ?? '']),
   ]
     .join(' ')

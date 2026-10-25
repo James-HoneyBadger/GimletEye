@@ -195,24 +195,35 @@ fn list_tools(globals: &Globals, category: Option<&str>) -> Result<ExitCode> {
     }
 
     crate::outln!(
-        "{:<30} {:<11} {:<22} {:<7} SUMMARY",
+        "{:<30} {:<11} {:<22} {:<7} {:<9} SUMMARY",
         "ID",
         "CATEGORY",
         "ORIGIN",
-        "WRITES"
+        "WRITES",
+        "PLATFORM"
     );
     for manifest in &manifests {
         crate::outln!(
-            "{:<30} {:<11} {:<22} {:<7} {}",
+            "{:<30} {:<11} {:<22} {:<7} {:<9} {}",
             manifest.id,
             manifest.category,
             manifest.origin,
             if manifest.mutates { "yes" } else { "-" },
+            platform_label(&manifest.platforms),
             manifest.summary
         );
     }
     crate::outln!("\n{} tool(s)", manifests.len());
     Ok(ExitCode::SUCCESS)
+}
+
+/// `any`, or the platforms a tool declares, for the catalogue column.
+fn platform_label(platforms: &[String]) -> String {
+    if platforms.is_empty() {
+        "any".to_string()
+    } else {
+        platforms.join(",")
+    }
 }
 
 fn show_tool(globals: &Globals, id: &str) -> Result<ExitCode> {

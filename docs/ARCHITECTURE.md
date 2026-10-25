@@ -157,7 +157,14 @@ capabilities = ["system", "process:exec"]
 args        = [{ name = "path", type = "path" }, { name = "all", type = "boolean", default = false }]
 origin      = "builtin"          # or "plugin:<pack-name>"
 mutates     = false              # true when the tool can write to the host
+platforms   = ["linux"]          # empty or absent means every OS
 ```
+
+`platforms` is enforced by the registry, not by each tool: a tool that declares an
+OS it is not running on is refused with an `unsupported` error that names both
+sides, so no surface has to remember to ask. It exists because several tools are
+only meaningful on Linux — they read `/proc` and parse `df`, and the failure mode
+elsewhere is an empty report rather than an error.
 
 `Report` is the single result shape:
 

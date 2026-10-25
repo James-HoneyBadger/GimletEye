@@ -112,7 +112,7 @@ surfaces a shape. Surface changes are allowed and expected here.
   sends it on every call.
   *Acceptance:* an unauthenticated `POST /api/v1/run` is 401; a preflight gets no
   grant; the token file is 0600; both `curl` and the UI path are documented.
-- [ ] **Platform contract.** `ToolManifest.platforms` (optional, absent means
+- [x] **Platform contract.** `ToolManifest.platforms` (optional, absent means
   everywhere); `sysadmin.*` declare `["linux"]`; running them elsewhere returns
   `unsupported` naming the platform.
   *Acceptance:* a test flips the declaration and asserts the error; `tools list`

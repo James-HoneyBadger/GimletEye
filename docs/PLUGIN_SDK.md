@@ -94,6 +94,12 @@ else. `category` is one of `sysadmin | crypto | privacy | forensics |
 automation | developer`. `args[].type` is `string | integer | boolean | path |
 enum` (for `enum`, add `"values": ["a","b"]`).
 
+`platforms` (optional, default every OS) is a list of `std::env::consts::OS`
+names — `["linux"]`, `["linux", "macos"]`. The host refuses to run a tool on an
+operating system it does not declare, with an `unsupported` error naming both
+sides, so a pack built around `/proc` or a Windows API does not have to fail in
+an interesting way.
+
 `mutates` (optional, default `false`) tells the surfaces whether the tool can
 write to the host. Set it for anything that creates, rewrites, or deletes files:
 the workbench then offers a dry run for that tool and marks it in the catalogue,
