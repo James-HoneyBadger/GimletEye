@@ -13,4 +13,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  test: {
+    // Unit tests only. `e2e/` holds Playwright specs, which need a real browser
+    // and a real engine; vitest would try to run them and fail.
+    include: ['src/**/*.test.ts'],
+  },
 });
