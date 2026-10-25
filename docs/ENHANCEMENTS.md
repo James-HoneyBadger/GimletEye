@@ -40,14 +40,16 @@ key derivation, Ed25519 signing, and the `.melv` container are implemented and
 covered by known-answer tests.
 
 **Done since:** streaming container v2 (chunked framing, bounded memory, v1
-files still open — see [ADR 0005](adr/0005-chunked-container-v2.md)).
+files still open — see [ADR 0005](adr/0005-chunked-container-v2.md)); the sealed
+keystore, X25519 recipients in container v3, and OpenPGP interop through the
+system `gpg` (see [ADR 0007](adr/0007-keystore-and-recipients.md)).
 
 **Remaining.**
-1. **Keystore** — encrypted key storage, listing, rotation, and expiry checks.
-   Today keys are plain files with mode 0600.
-3. **Key exchange** — X25519 recipients and RSA, then OpenPGP interop so the
-   tool can talk to existing GPG users.
-4. **Shamir split/combine and secure shred**, with `--dry-run` by default.
+1. **Key expiry and audit** — the keystore lists and rotates, but nothing tracks
+   an expiry date or reports a weak or duplicated key.
+2. **RSA recipients** — X25519 covers the modern case; RSA is for talking to
+   older tooling, and survives review only if it earns its weight.
+3. **Shamir split/combine and secure shred**, with `--dry-run` by default.
 
 **Effort** L · **Risk** High — a container or key-format regression here is
 unrecoverable data loss. Every change needs a golden-file test and an ADR.
@@ -162,11 +164,11 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | `crypto.pass-audit` | Password *generation* exists; auditing an existing one does not. Offline strength + pattern checks, no network calls. | S |
-| `crypto.key-audit` | Expired, weak, or duplicated keys in a keystore. Pairs naturally with `sysadmin` audits. | M |
+| `crypto.key-audit` | Expired, weak, or duplicated keys in the keystore that 0.5 introduced. Pairs naturally with `sysadmin` audits. | M |
 | Shamir split/combine | Secret sharing is a natural companion to key management, and a small wrapper. | S |
 | Secure shred | Deletion that survives forensic recovery. Must be `--dry-run` first and require explicit confirmation. | S |
 | QR export/import | Out-of-band key exchange without a network. Needs a terminal renderer plus UI support. | M |
-| OpenPGP interop tools | Sequoia integration exists; `crypto.gpg-*` tools make migration from existing GPG users practical. | M |
+| ~~OpenPGP interop tools~~ | **Done in 0.5** as `crypto.gpg-verify`/`crypto.gpg-encrypt` driving the system `gpg`; a Sequoia-backed implementation would remove the external dependency. | M |
 | Post-quantum readiness | Track ML-KEM/ML-DSA support in the RustCrypto ecosystem; do not implement primitives. | S now, L later |
 
 ---

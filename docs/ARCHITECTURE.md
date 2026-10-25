@@ -438,9 +438,12 @@ test before it ships. Thresholds live in the `modules.sysadmin` config namespace
 | Capability | Status |
 |---|---|
 | OS randomness, SHA-256, password generation | native |
-| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) + Argon2id | native, `.melv` container v1 |
+| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) + Argon2id | native, `.melv` container v2 |
+| Recipient encryption (X25519 + HKDF-SHA256) | native, `.melv` container v3 |
+| Sealed keystore with passphrase rotation | native (`crypto.key-*`) |
 | Signatures (Ed25519) | native |
-| Streaming encryption, keystore, X25519/RSA/OpenPGP, Shamir, shredding, QR | planned |
+| OpenPGP verify/encrypt | native, by driving the system `gpg` |
+| RSA recipients, Shamir secret sharing, shredding, QR | planned |
 
 `CryptoBackend` is the seam: adopting each capability is an implementation of
 one trait, not a change to any tool or surface. The container format is
@@ -474,9 +477,11 @@ The provenance of any adapter is recorded in
 
 Stated plainly, because a design document that hides them is not useful:
 
-1. **No keystore, no asymmetric encryption.** Files are encrypted with a
-   passphrase; Ed25519 signs but cannot encrypt, and there is no keyring,
-   X25519 exchange, or OpenPGP interop yet.
+1. **Recipients are X25519 only, and anonymous.** Files can be encrypted to a
+   passphrase or to X25519 recipients; there is no RSA recipient and no sender
+   authentication in the container (sign the file if origin matters). The
+   keystore holds Ed25519 and X25519 keys, is sealed with a passphrase, and has
+   one unlock path — a second (hardware token, recovery key) is planned.
 2. **Three metadata formats are native.** JPEG, PNG, and WebP are handled here;
    every other container returns a clear `unsupported` error naming the pack to
    install — not a silent success. GPS redaction is likewise limited to those
@@ -490,6 +495,8 @@ Stated plainly, because a design document that hides them is not useful:
    dialogs.** Everything is driven from the shared web UI, so a "choose a
    file" button would need a Tauri command — deliberately deferred until the
    UI needs it.
-6. **`crates/server` has no authentication.** It must stay on loopback until it
-   does. The desktop shell binds an ephemeral loopback port for exactly this
-   reason.
+6. **`crates/server` authenticates with a loopback token, not with users.** It
+   generates `<home>/api-token` (mode 0600) on first run, requires it on every
+   `/api/` request, and refuses a non-loopback bind without `--allow-remote`.
+   There are no accounts, no per-caller permissions, and no TLS: it is a local
+   control plane, not a service.

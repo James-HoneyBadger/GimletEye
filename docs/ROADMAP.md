@@ -159,24 +159,37 @@ first so the rest of the release builds on it.
 Theme: finish the pillars the README already claims. This is the **last minor
 allowed to change a versioned surface**.
 
-- [ ] **Keystore**: `crypto.key-list`, `crypto.key-import`, `crypto.key-export`,
+**Status: complete except the `hb-scrub` pack, which is deferred past 1.0** with
+its reason recorded below. The quiet-period check starts enforcing at v0.5.0, so
+the two release stretches after this one must be still.
+
+- [x] **Keystore**: `crypto.key-list`, `crypto.key-import`, `crypto.key-export`,
   `crypto.key-rotate`. One sealed file under the app home, Argon2id-derived key,
   AEAD framing reused from the container, secrets zeroized on drop.
   *Acceptance:* survives restart; a wrong passphrase fails closed; no secret ever
-  reaches `data`, the summary, or the audit trail; file mode 0600.
-- [ ] **X25519 recipients and container v3** (requires ADR 0007). Ephemeral
-  X25519, HKDF per file, a recipient block in the header, `crypto.encrypt --to`.
+  reaches `data`, the summary, or the audit trail; file mode 0600. All four are
+  asserted, the last two in `scripts/smoke.sh` against the audit file itself.
+- [x] **X25519 recipients and container v3** (ADR 0007). Ephemeral X25519, HKDF
+  per file, a recipient block in the header, `crypto.encrypt to=`.
   *Acceptance:* v1 and v2 still open; another key cannot decrypt; a committed v3
   fixture pins the format the way `container-v1.melv` pins v1.
-- [ ] **OpenPGP interop**: `crypto.gpg-verify`, `crypto.gpg-encrypt`, timeboxed
-  to two weeks behind a feature flag.
-  *Acceptance:* verifies a `gpg`-signed file. **If the timebox expires, drop it
-  and remove the claim** — ADR 0006 prefers a smaller 1.0.
-- [ ] **`hb-scrub` pack** for HEIC/AVIF/TIFF/PDF/MP4/RAW/GIF/SVG.
-  *Acceptance:* each advertised format round-trips through `metadata-strip`;
-  unsupported constructs warn instead of reporting success.
-- [ ] **Deprecation aliases** for anything renamed on the way here.
-  *Acceptance:* the old spelling resolves and warns for one minor.
+  `crates/crypto/tests/container_compat.rs` holds all three versions side by side.
+- [x] **OpenPGP interop**: `crypto.gpg-verify`, `crypto.gpg-encrypt`, behind a
+  feature flag (`openpgp`, on by default).
+  *Acceptance:* verifies a `gpg`-signed file — done, in
+  `crates/crypto/tests/gpg_interop.rs`, which also has `gpg` decrypt what the
+  tool encrypted. Scope stayed deliberately narrow: driving the system `gpg`
+  rather than reimplementing OpenPGP.
+- [ ] **`hb-scrub` pack** for HEIC/AVIF/TIFF/PDF/MP4/RAW/GIF/SVG — **deferred past
+  1.0** (ADR 0007, decision 4). *Acceptance:* each advertised format round-trips
+  through `metadata-strip`; unsupported constructs warn instead of reporting
+  success. That criterion cannot be met or checked without `exiftool` in CI, and
+  shipping a pack whose claims nothing verifies is the overstatement ADR 0006
+  rejects. The README says "packs, then native", which is a plan, not a claim.
+- [x] **Deprecation aliases** for anything renamed on the way here.
+  *Acceptance:* the old spelling resolves for one minor. No tool id was renamed;
+  the one `Report.data` rename (`algorithm` → `kind` in `crypto.keygen`) reports
+  both until 0.6, and COMPATIBILITY.md states the rule.
 
 ## v0.6 — Quiet: evidence
 

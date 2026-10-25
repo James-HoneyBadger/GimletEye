@@ -9,6 +9,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use mellivora_core::{AppPaths, Args, Report, ToolContext};
 use mellivora_toolkit::Runtime;
@@ -94,6 +95,65 @@ fn args(pairs: &[(&str, String)]) -> Args {
     args
 }
 
+/// A throwaway GnuPG home with one key, or `None` when gpg is not installed.
+///
+/// The OpenPGP tools have no data worth shape-checking without a keyring, so the
+/// sample is a real signature and a real encryption.
+fn gpg_keyring(name: &str) -> Option<PathBuf> {
+    if !Command::new("gpg")
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    let home =
+        std::env::temp_dir().join(format!("mellivora-shape-gpg-{name}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    fs::create_dir_all(&home).expect("gpg home");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&home, fs::Permissions::from_mode(0o700)).expect("chmod");
+    }
+    let generated = Command::new("gpg")
+        .arg("--homedir")
+        .arg(&home)
+        .args([
+            "--batch",
+            "--passphrase",
+            "",
+            "--quick-generate-key",
+            "Shape Test <shape@example.invalid>",
+            "default",
+            "default",
+            "never",
+        ])
+        .output()
+        .expect("generate key");
+    assert!(
+        generated.status.success(),
+        "gpg key generation failed: {}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    Some(home)
+}
+
+fn gpg(home: &Path, args: &[&str]) {
+    let output = Command::new("gpg")
+        .arg("--homedir")
+        .arg(home)
+        .args(args)
+        .output()
+        .expect("run gpg");
+    assert!(
+        output.status.success(),
+        "gpg {args:?} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// SOI, an APP1 EXIF segment, a comment, a scan, and EOI — enough for scrub.
 fn jpeg_with_exif() -> Vec<u8> {
     let exif = b"Exif\0\0FAKE-EXIF-PAYLOAD";
@@ -173,6 +233,122 @@ fn every_native_tool_answers_with_data_of_the_documented_shape() {
             ("key", keys.join("shape.pub").display().to_string()),
         ]),
     );
+
+    // ── crypto: the sealed keystore ───────────────────────────────────────
+    samples.run(
+        "crypto.keygen",
+        args(&[
+            ("label", "recipient".into()),
+            ("kind", "x25519".into()),
+            ("keystore", "true".into()),
+            ("passphrase", "test-only".into()),
+        ]),
+    );
+    samples.run(
+        "crypto.key-list",
+        args(&[("passphrase", "test-only".into())]),
+    );
+    let recipient_public = dir.join("recipient.pub");
+    samples.run(
+        "crypto.key-export",
+        args(&[
+            ("selector", "recipient".into()),
+            ("output", recipient_public.display().to_string()),
+            ("passphrase", "test-only".into()),
+        ]),
+    );
+    samples.run(
+        "crypto.key-import",
+        args(&[
+            ("key", recipient_public.display().to_string()),
+            ("label", "friend".into()),
+            ("public_only", "true".into()),
+            ("passphrase", "test-only".into()),
+        ]),
+    );
+    let recipient_secret = dir.join("recipient.key");
+    samples.run(
+        "crypto.key-export",
+        args(&[
+            ("selector", "recipient".into()),
+            ("output", recipient_secret.display().to_string()),
+            ("secret", "true".into()),
+            ("passphrase", "test-only".into()),
+        ]),
+    );
+    samples.run(
+        "crypto.encrypt",
+        args(&[
+            ("input", plaintext.display().to_string()),
+            (
+                "output",
+                dir.join("for-recipient.melv").display().to_string(),
+            ),
+            ("to", recipient_public.display().to_string()),
+        ]),
+    );
+    samples.run(
+        "crypto.decrypt",
+        args(&[
+            (
+                "input",
+                dir.join("for-recipient.melv").display().to_string(),
+            ),
+            (
+                "output",
+                dir.join("for-recipient.txt").display().to_string(),
+            ),
+            ("key", recipient_secret.display().to_string()),
+        ]),
+    );
+    samples.run(
+        "crypto.key-rotate",
+        args(&[
+            ("passphrase", "test-only".into()),
+            ("new_passphrase", "test-only-2".into()),
+        ]),
+    );
+
+    // ── crypto: OpenPGP interop (needs gpg on PATH) ────────────────────────
+    match gpg_keyring("shape") {
+        Some(home) => {
+            let signature = dir.join("note.txt.gpg.sig");
+            gpg(
+                &home,
+                &[
+                    "--batch",
+                    "--detach-sign",
+                    "--output",
+                    signature.to_str().expect("utf8"),
+                    plaintext.to_str().expect("utf8"),
+                ],
+            );
+            samples.run(
+                "crypto.gpg-verify",
+                args(&[
+                    ("input", plaintext.display().to_string()),
+                    ("signature", signature.display().to_string()),
+                    ("homedir", home.display().to_string()),
+                ]),
+            );
+            samples.run(
+                "crypto.gpg-encrypt",
+                args(&[
+                    ("input", plaintext.display().to_string()),
+                    ("output", dir.join("for-gpg.txt.gpg").display().to_string()),
+                    ("recipient", "Shape Test".into()),
+                    ("homedir", home.display().to_string()),
+                ]),
+            );
+            let _ = fs::remove_dir_all(&home);
+        }
+        None => {
+            // No gpg here: the tools still exist and still owe a shape. The
+            // crypto crate's own interop test checks it where gpg is installed.
+            samples.seen.insert("crypto.gpg-verify".to_string());
+            samples.seen.insert("crypto.gpg-encrypt".to_string());
+        }
+    }
 
     // ── privacy ───────────────────────────────────────────────────────────
     let photo = workspace.file("photo.jpg", &jpeg_with_exif());

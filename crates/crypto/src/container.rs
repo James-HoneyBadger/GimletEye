@@ -13,6 +13,22 @@
 //! 49..    ciphertext, whole file (v1) or a chunk stream (v2)
 //! ```
 //!
+//! Version 3 replaces the passphrase with recipients, and with it the 49-byte
+//! header:
+//!
+//! ```text
+//! 0..4    magic "MELV"
+//! 4       format version (3)
+//! 5       cipher id
+//! 6       kdf id (3 = x25519-hkdf-sha256)
+//! 7       reserved (0)
+//! 8..40   ephemeral X25519 public key, one per file
+//! 40..44  recipient count (u32le)
+//! 44..    recipients, count × 92: public key(32) | wrap nonce(12) | wrapped file key(48)
+//! ...     base nonce (12)
+//! ...     the same chunk stream as version 2, under the unwrapped file key
+//! ```
+//!
 //! The whole header is passed as associated data, so altering the cipher, the
 //! KDF parameters, or the salt causes decryption to fail instead of silently
 //! weakening the file. Parameter bounds are validated *before* key derivation so
@@ -32,6 +48,8 @@ pub const MAGIC: [u8; 4] = *b"MELV";
 pub const VERSION: u8 = 1;
 /// v2: a header followed by independently authenticated chunks.
 pub const VERSION_STREAMING: u8 = 2;
+/// v3: a recipient block, then the same chunk stream as v2.
+pub const VERSION_RECIPIENT: u8 = 3;
 /// Plaintext per chunk in v2. Small enough to stay well inside memory, large
 /// enough that per-chunk framing is noise.
 pub const CHUNK_SIZE: usize = 64 * 1024;
@@ -42,15 +60,59 @@ pub const SALT_LEN: usize = 16;
 pub const NONCE_LEN: usize = 12;
 pub const HEADER_LEN: usize = 49;
 pub const EXTENSION: &str = "melv";
+/// Bytes before the recipient block in a v3 header.
+pub const RECIPIENT_PREFIX_LEN: usize = 44;
+/// One recipient entry: public key, wrap nonce, wrapped file key.
+pub const RECIPIENT_ENTRY_LEN: usize = 92;
+/// A hostile file must not make the reader allocate without bound.
+pub const MAX_RECIPIENTS: usize = 1024;
 
 const KDF_ARGON2ID: u8 = 1;
+const KDF_X25519_HKDF: u8 = 3;
+const WRAP_INFO: &[u8] = b"melv-v3-recipient";
+
+/// How the payload key is reached: a passphrase (v1/v2) or a recipient (v3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Kdf {
+    Argon2id(KdfParams),
+    X25519HkdfSha256,
+}
+
+impl Kdf {
+    /// Argon2id parameters, or an error for containers that take a key instead.
+    pub fn argon2id(&self) -> Result<KdfParams> {
+        match self {
+            Self::Argon2id(params) => Ok(*params),
+            Self::X25519HkdfSha256 => Err(MellivoraError::InvalidArgs(
+                "this container is encrypted for keys, not for a passphrase".into(),
+            )),
+        }
+    }
+}
+
+impl Serialize for Kdf {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Self::Argon2id(params) => params.serialize(serializer),
+            Self::X25519HkdfSha256 => serializer.serialize_str("x25519-hkdf-sha256"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ContainerHeader {
     pub version: u8,
     pub algorithm: AeadAlgorithm,
-    pub kdf: KdfParams,
+    pub kdf: Kdf,
+    /// Argon2id salt; empty for version 3.
     pub salt_hex: String,
+    /// Per-file ephemeral X25519 public key; empty before version 3.
+    pub ephemeral_hex: String,
+    /// Recipient public keys in hex; empty before version 3.
+    pub recipients: Vec<String>,
 }
 
 /// Encrypt `plaintext` into a complete container.
@@ -94,7 +156,7 @@ pub fn open(
         open_stream(backend, passphrase, bytes, &mut plaintext)?;
         return Ok(Zeroizing::new(plaintext));
     }
-    let key = backend.derive_key(passphrase, &header_salt(bytes)?, header.kdf)?;
+    let key = backend.derive_key(passphrase, &header_salt(bytes)?, header.kdf.argon2id()?)?;
     backend.aead_decrypt(
         header.algorithm,
         &key,
@@ -129,7 +191,7 @@ fn build_header(
 }
 
 fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
-    if bytes.len() < HEADER_LEN {
+    if bytes.len() < 5 {
         return Err(MellivoraError::InvalidArgs(
             "not an encrypted container (file is too short)".into(),
         ));
@@ -139,11 +201,19 @@ fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
             "not an encrypted container (bad magic bytes)".into(),
         ));
     }
+    if bytes[4] == VERSION_RECIPIENT {
+        return parse_recipient_header(bytes);
+    }
     if bytes[4] != VERSION && bytes[4] != VERSION_STREAMING {
         return Err(MellivoraError::Unsupported(format!(
             "container format version {} is not supported",
             bytes[4]
         )));
+    }
+    if bytes.len() < HEADER_LEN {
+        return Err(MellivoraError::InvalidArgs(
+            "not an encrypted container (file is too short)".into(),
+        ));
     }
     if bytes[6] != KDF_ARGON2ID {
         return Err(MellivoraError::Unsupported(format!(
@@ -162,8 +232,75 @@ fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
     Ok(ContainerHeader {
         version: bytes[4],
         algorithm: AeadAlgorithm::from_wire(bytes[5])?,
-        kdf: KdfParams::from_wire(&bytes[8..17])?,
+        kdf: Kdf::Argon2id(KdfParams::from_wire(&bytes[8..17])?),
         salt_hex: hex_encode(&bytes[21..37]),
+        ephemeral_hex: String::new(),
+        recipients: Vec::new(),
+    })
+}
+
+fn recipient_count(bytes: &[u8]) -> Result<usize> {
+    let raw = bytes.get(40..44).ok_or_else(|| {
+        MellivoraError::InvalidArgs("not an encrypted container (header is too short)".into())
+    })?;
+    let count = u32::from_le_bytes(raw.try_into().expect("4 bytes")) as usize;
+    if count == 0 {
+        return Err(MellivoraError::InvalidArgs(
+            "recipient container names no recipients".into(),
+        ));
+    }
+    if count > MAX_RECIPIENTS {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "recipient container names {count} recipients (limit {MAX_RECIPIENTS})"
+        )));
+    }
+    Ok(count)
+}
+
+fn parse_recipient_header(bytes: &[u8]) -> Result<ContainerHeader> {
+    if bytes.len() < RECIPIENT_PREFIX_LEN {
+        return Err(MellivoraError::InvalidArgs(
+            "not an encrypted container (file is too short)".into(),
+        ));
+    }
+    if bytes[0..4] != MAGIC {
+        return Err(MellivoraError::InvalidArgs(
+            "not an encrypted container (bad magic bytes)".into(),
+        ));
+    }
+    if bytes[6] != KDF_X25519_HKDF {
+        return Err(MellivoraError::Unsupported(format!(
+            "container uses unknown key-derivation id {}",
+            bytes[6]
+        )));
+    }
+    if bytes[7] != 0 {
+        return Err(MellivoraError::Unsupported(
+            "container uses features this build does not support".into(),
+        ));
+    }
+    let count = recipient_count(bytes)?;
+    let needed = RECIPIENT_PREFIX_LEN + count * RECIPIENT_ENTRY_LEN + NONCE_LEN;
+    if bytes.len() < needed {
+        return Err(MellivoraError::InvalidArgs(
+            "container header is truncated".into(),
+        ));
+    }
+
+    let recipients = (0..count)
+        .map(|index| {
+            let at = RECIPIENT_PREFIX_LEN + index * RECIPIENT_ENTRY_LEN;
+            hex_encode(&bytes[at..at + 32])
+        })
+        .collect();
+
+    Ok(ContainerHeader {
+        version: VERSION_RECIPIENT,
+        algorithm: AeadAlgorithm::from_wire(bytes[5])?,
+        kdf: Kdf::X25519HkdfSha256,
+        salt_hex: String::new(),
+        ephemeral_hex: hex_encode(&bytes[8..40]),
+        recipients,
     })
 }
 
@@ -207,6 +344,197 @@ impl StreamStats {
     }
 }
 
+/// The AAD for one recipient's wrapped key: the fixed prefix plus that
+/// recipient's public key, so a block cannot be moved between files or swapped
+/// between recipients.
+fn recipient_aad(prefix: &[u8], recipient: &[u8; 32]) -> Vec<u8> {
+    let mut aad = Vec::with_capacity(prefix.len() + 32);
+    aad.extend_from_slice(prefix);
+    aad.extend_from_slice(recipient);
+    aad
+}
+
+fn recipient_kek(
+    backend: &dyn CryptoBackend,
+    shared: &[u8; 32],
+    ephemeral: &[u8; 32],
+    recipient: &[u8; 32],
+) -> Result<Zeroizing<[u8; 32]>> {
+    let mut info = Vec::with_capacity(WRAP_INFO.len() + 32);
+    info.extend_from_slice(WRAP_INFO);
+    info.extend_from_slice(recipient);
+    backend.hkdf_sha256(shared, ephemeral, &info)
+}
+
+/// Encrypt `reader` into `writer` for a list of X25519 recipients (version 3).
+///
+/// One ephemeral keypair per file is shared by every recipient; each recipient
+/// gets its own wrap nonce and its own KEK, and all of them wrap the same random
+/// file key. The chunk stream below the header is byte-for-byte the version 2
+/// framing, so the streaming guarantees are unchanged.
+pub fn seal_for_recipients<R: Read, W: Write>(
+    backend: &dyn CryptoBackend,
+    algorithm: AeadAlgorithm,
+    recipients: &[[u8; 32]],
+    mut reader: R,
+    mut writer: W,
+) -> Result<StreamStats> {
+    if recipients.is_empty() {
+        return Err(MellivoraError::InvalidArgs(
+            "provide at least one recipient public key".into(),
+        ));
+    }
+    if recipients.len() > MAX_RECIPIENTS {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "{} recipients exceeds the limit of {MAX_RECIPIENTS}",
+            recipients.len()
+        )));
+    }
+    let mut seen: Vec<[u8; 32]> = Vec::with_capacity(recipients.len());
+    for recipient in recipients {
+        if seen.contains(recipient) {
+            return Err(MellivoraError::InvalidArgs(
+                "the same recipient is listed twice".into(),
+            ));
+        }
+        seen.push(*recipient);
+    }
+
+    let ephemeral = backend.x25519_keygen();
+    let mut file_key = Zeroizing::new([0u8; 32]);
+    file_key.copy_from_slice(&backend.random_bytes(32));
+    let mut base_nonce = [0u8; NONCE_LEN];
+    base_nonce.copy_from_slice(&backend.random_bytes(NONCE_LEN));
+
+    let mut header = Vec::with_capacity(
+        RECIPIENT_PREFIX_LEN + recipients.len() * RECIPIENT_ENTRY_LEN + NONCE_LEN,
+    );
+    header.extend_from_slice(&MAGIC);
+    header.push(VERSION_RECIPIENT);
+    header.push(algorithm.to_wire());
+    header.push(KDF_X25519_HKDF);
+    header.push(0);
+    header.extend_from_slice(&ephemeral.public);
+    header.extend_from_slice(&(recipients.len() as u32).to_le_bytes());
+    let prefix = header.clone();
+
+    for recipient in recipients {
+        let shared = backend.x25519_shared(&ephemeral.secret, recipient)?;
+        let kek = recipient_kek(backend, &shared, &ephemeral.public, recipient)?;
+        let mut nonce = [0u8; NONCE_LEN];
+        nonce.copy_from_slice(&backend.random_bytes(NONCE_LEN));
+        let wrapped = backend.aead_encrypt(
+            algorithm,
+            &kek,
+            &nonce,
+            file_key.as_ref(),
+            &recipient_aad(&prefix, recipient),
+        )?;
+        if wrapped.len() != 32 + TAG_LEN {
+            return Err(MellivoraError::Internal(
+                "wrapped key has an unexpected length".into(),
+            ));
+        }
+        header.extend_from_slice(recipient);
+        header.extend_from_slice(&nonce);
+        header.extend_from_slice(&wrapped);
+    }
+    header.extend_from_slice(&base_nonce);
+
+    writer.write_all(&header)?;
+    write_chunks(
+        backend,
+        algorithm,
+        &file_key,
+        &header,
+        &base_nonce,
+        &mut reader,
+        &mut writer,
+        VERSION_RECIPIENT,
+    )
+}
+
+/// Decrypt a version 3 container with the secret half of one recipient key.
+///
+/// The recipient is found by comparing the public key derived from `secret`
+/// against the header block, so a file meant for someone else is reported as
+/// such instead of as a decryption failure.
+pub fn open_for_recipient<R: Read, W: Write>(
+    backend: &dyn CryptoBackend,
+    secret: &[u8; 32],
+    mut reader: R,
+    mut writer: W,
+) -> Result<(ContainerHeader, StreamStats)> {
+    let mut prefix = [0u8; RECIPIENT_PREFIX_LEN];
+    read_exact_or(&mut reader, &mut prefix, "container header is truncated")?;
+    if prefix[0..4] != MAGIC {
+        return Err(MellivoraError::InvalidArgs(
+            "not an encrypted container (bad magic bytes)".into(),
+        ));
+    }
+    if prefix[4] != VERSION_RECIPIENT {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "container version {} is not encrypted for a key (use its passphrase)",
+            prefix[4]
+        )));
+    }
+    let count = recipient_count(&prefix)?;
+    let mut block = vec![0u8; count * RECIPIENT_ENTRY_LEN + NONCE_LEN];
+    read_exact_or(&mut reader, &mut block, "container header is truncated")?;
+
+    let mut header = Vec::with_capacity(RECIPIENT_PREFIX_LEN + block.len());
+    header.extend_from_slice(&prefix);
+    header.extend_from_slice(&block);
+    let parsed = parse_recipient_header(&header)?;
+
+    let me = backend.x25519_public(secret);
+    let index = (0..count)
+        .find(|index| {
+            let at = RECIPIENT_PREFIX_LEN + index * RECIPIENT_ENTRY_LEN;
+            header[at..at + 32] == me
+        })
+        .ok_or_else(|| {
+            MellivoraError::Tool("this container is not encrypted for that key".into())
+        })?;
+
+    let ephemeral: [u8; 32] = header[8..40].try_into().expect("32 bytes");
+    let shared = backend.x25519_shared(secret, &ephemeral)?;
+    let kek = recipient_kek(backend, &shared, &ephemeral, &me)?;
+
+    let at = RECIPIENT_PREFIX_LEN + index * RECIPIENT_ENTRY_LEN;
+    let wrap_nonce: [u8; NONCE_LEN] = header[at + 32..at + 44].try_into().expect("12 bytes");
+    let wrapped = &header[at + 44..at + RECIPIENT_ENTRY_LEN];
+    let unwrapped = backend.aead_decrypt(
+        parsed.algorithm,
+        &kek,
+        &wrap_nonce,
+        wrapped,
+        &recipient_aad(&prefix, &me),
+    )?;
+    let mut file_key = Zeroizing::new([0u8; 32]);
+    if unwrapped.len() != 32 {
+        return Err(MellivoraError::Tool(
+            "the wrapped file key has an unexpected length".into(),
+        ));
+    }
+    file_key.copy_from_slice(&unwrapped);
+
+    let base_nonce: [u8; NONCE_LEN] = header[header.len() - NONCE_LEN..]
+        .try_into()
+        .expect("12 bytes");
+    let stats = read_chunks(
+        backend,
+        parsed.algorithm,
+        &file_key,
+        &header,
+        &base_nonce,
+        &mut reader,
+        &mut writer,
+        VERSION_RECIPIENT,
+    )?;
+    Ok((parsed, stats))
+}
+
 /// Encrypt `reader` into `writer` as a chunked container (version 2).
 ///
 /// Memory is bounded by two chunks plus one ciphertext, whatever the input
@@ -230,24 +558,49 @@ pub fn seal_stream<R: Read, W: Write>(
     let key = backend.derive_key(passphrase, &salt, params)?;
     writer.write_all(&header)?;
 
-    let mut stats = StreamStats::new(VERSION_STREAMING);
-    stats.container_bytes = HEADER_LEN as u64;
+    write_chunks(
+        backend,
+        algorithm,
+        &key,
+        &header,
+        &base_nonce,
+        &mut reader,
+        &mut writer,
+        VERSION_STREAMING,
+    )
+}
 
-    // One chunk of lookahead: the last chunk is the one after which nothing
-    // follows, and it has to say so inside its associated data.
+/// Write the chunk stream shared by versions 2 and 3.
+///
+/// One chunk of lookahead: the last chunk is the one after which nothing
+/// follows, and it has to say so inside its associated data.
+#[allow(clippy::too_many_arguments)]
+fn write_chunks<R: Read, W: Write>(
+    backend: &dyn CryptoBackend,
+    algorithm: AeadAlgorithm,
+    key: &[u8; 32],
+    header: &[u8],
+    base_nonce: &[u8; NONCE_LEN],
+    reader: &mut R,
+    writer: &mut W,
+    version: u8,
+) -> Result<StreamStats> {
+    let mut stats = StreamStats::new(version);
+    stats.container_bytes = header.len() as u64;
+
     let mut current = vec![0u8; CHUNK_SIZE];
     let mut lookahead = vec![0u8; CHUNK_SIZE];
-    let mut current_len = read_chunk(&mut reader, &mut current)?;
+    let mut current_len = read_chunk(reader, &mut current)?;
     let mut index = 0u64;
 
     loop {
-        let next_len = read_chunk(&mut reader, &mut lookahead)?;
+        let next_len = read_chunk(reader, &mut lookahead)?;
         let flags = if next_len == 0 { FLAG_FINAL } else { 0 };
 
-        let nonce = chunk_nonce(&base_nonce, index);
-        let aad = chunk_aad(&header, index, flags);
+        let nonce = chunk_nonce(base_nonce, index);
+        let aad = chunk_aad(header, index, flags);
         let ciphertext =
-            backend.aead_encrypt(algorithm, &key, &nonce, &current[..current_len], &aad)?;
+            backend.aead_encrypt(algorithm, key, &nonce, &current[..current_len], &aad)?;
 
         writer.write_all(&[flags])?;
         writer.write_all(&(ciphertext.len() as u32).to_le_bytes())?;
@@ -280,10 +633,19 @@ pub fn open_stream<R: Read, W: Write>(
     mut reader: R,
     mut writer: W,
 ) -> Result<(ContainerHeader, StreamStats)> {
+    let mut probe = [0u8; 5];
+    read_exact_or(&mut reader, &mut probe, "container header is truncated")?;
+    if probe[4] == VERSION_RECIPIENT {
+        return Err(MellivoraError::InvalidArgs(
+            "this container is encrypted for keys; decrypt it with the recipient's key".into(),
+        ));
+    }
+
     let mut header_bytes = [0u8; HEADER_LEN];
+    header_bytes[..5].copy_from_slice(&probe);
     read_exact_or(
         &mut reader,
-        &mut header_bytes,
+        &mut header_bytes[5..],
         "container header is truncated",
     )?;
     let header = parse_header(&header_bytes)?;
@@ -291,7 +653,11 @@ pub fn open_stream<R: Read, W: Write>(
     if header.version == VERSION {
         let mut ciphertext = Vec::new();
         reader.read_to_end(&mut ciphertext)?;
-        let key = backend.derive_key(passphrase, &header_salt(&header_bytes)?, header.kdf)?;
+        let key = backend.derive_key(
+            passphrase,
+            &header_salt(&header_bytes)?,
+            header.kdf.argon2id()?,
+        )?;
         let plaintext = backend.aead_decrypt(
             header.algorithm,
             &key,
@@ -308,10 +674,41 @@ pub fn open_stream<R: Read, W: Write>(
         return Ok((header, stats));
     }
 
-    let key = backend.derive_key(passphrase, &header_salt(&header_bytes)?, header.kdf)?;
+    let key = backend.derive_key(
+        passphrase,
+        &header_salt(&header_bytes)?,
+        header.kdf.argon2id()?,
+    )?;
     let base_nonce = header_nonce(&header_bytes)?;
-    let mut stats = StreamStats::new(VERSION_STREAMING);
-    stats.container_bytes = HEADER_LEN as u64;
+    let stats = read_chunks(
+        backend,
+        header.algorithm,
+        &key,
+        &header_bytes,
+        &base_nonce,
+        &mut reader,
+        &mut writer,
+        VERSION_STREAMING,
+    )?;
+
+    writer.flush()?;
+    Ok((header, stats))
+}
+
+/// Read the chunk stream shared by versions 2 and 3.
+#[allow(clippy::too_many_arguments)]
+fn read_chunks<R: Read, W: Write>(
+    backend: &dyn CryptoBackend,
+    algorithm: AeadAlgorithm,
+    key: &[u8; 32],
+    header: &[u8],
+    base_nonce: &[u8; NONCE_LEN],
+    mut reader: &mut R,
+    writer: &mut W,
+    version: u8,
+) -> Result<StreamStats> {
+    let mut stats = StreamStats::new(version);
+    stats.container_bytes = header.len() as u64;
     let mut index = 0u64;
 
     loop {
@@ -351,9 +748,9 @@ pub fn open_stream<R: Read, W: Write>(
         let mut ciphertext = vec![0u8; length];
         read_exact_or(&mut reader, &mut ciphertext, "container chunk is truncated")?;
 
-        let nonce = chunk_nonce(&base_nonce, index);
-        let aad = chunk_aad(&header_bytes, index, flags);
-        let plaintext = backend.aead_decrypt(header.algorithm, &key, &nonce, &ciphertext, &aad)?;
+        let nonce = chunk_nonce(base_nonce, index);
+        let aad = chunk_aad(header, index, flags);
+        let plaintext = backend.aead_decrypt(algorithm, key, &nonce, &ciphertext, &aad)?;
         writer.write_all(&plaintext)?;
 
         stats.chunks += 1;
@@ -372,14 +769,31 @@ pub fn open_stream<R: Read, W: Write>(
         index += 1;
     }
 
-    writer.flush()?;
-    Ok((header, stats))
+    Ok(stats)
 }
 
 /// Read only the header, so inspecting a large container stays cheap.
 pub fn inspect_stream<R: Read>(reader: &mut R) -> Result<ContainerHeader> {
+    let mut prefix = [0u8; RECIPIENT_PREFIX_LEN];
+    read_exact_or(reader, &mut prefix, "container header is truncated")?;
+
+    if prefix[4] == VERSION_RECIPIENT {
+        let count = recipient_count(&prefix)?;
+        let mut rest = vec![0u8; count * RECIPIENT_ENTRY_LEN + NONCE_LEN];
+        read_exact_or(reader, &mut rest, "container header is truncated")?;
+        let mut header = Vec::with_capacity(RECIPIENT_PREFIX_LEN + rest.len());
+        header.extend_from_slice(&prefix);
+        header.extend_from_slice(&rest);
+        return parse_recipient_header(&header);
+    }
+
     let mut header_bytes = [0u8; HEADER_LEN];
-    read_exact_or(reader, &mut header_bytes, "container header is truncated")?;
+    header_bytes[..RECIPIENT_PREFIX_LEN].copy_from_slice(&prefix);
+    read_exact_or(
+        reader,
+        &mut header_bytes[RECIPIENT_PREFIX_LEN..],
+        "container header is truncated",
+    )?;
     parse_header(&header_bytes)
 }
 
@@ -408,8 +822,8 @@ fn chunk_nonce(base: &[u8; NONCE_LEN], index: u64) -> [u8; NONCE_LEN] {
 
 /// The associated data binds each chunk to the header, its position, and
 /// whether it is the last one.
-fn chunk_aad(header: &[u8; HEADER_LEN], index: u64, flags: u8) -> Vec<u8> {
-    let mut aad = Vec::with_capacity(HEADER_LEN + 9);
+fn chunk_aad(header: &[u8], index: u64, flags: u8) -> Vec<u8> {
+    let mut aad = Vec::with_capacity(header.len() + 9);
     aad.extend_from_slice(header);
     aad.extend_from_slice(&index.to_le_bytes());
     aad.push(flags);
@@ -449,6 +863,238 @@ mod tests {
             m_cost_kib: 64,
             t_cost: 1,
             p_cost: 1,
+        }
+    }
+
+    fn recipient_pair(seed: u8) -> crate::keys::X25519KeyPair {
+        let secret = [seed; 32];
+        crate::keys::X25519KeyPair {
+            secret,
+            public: NativeBackend.x25519_public(&secret),
+        }
+    }
+
+    #[test]
+    fn recipient_containers_round_trip_for_every_listed_key() {
+        for algorithm in [AeadAlgorithm::Aes256Gcm, AeadAlgorithm::ChaCha20Poly1305] {
+            let alice = recipient_pair(7);
+            let bob = recipient_pair(9);
+
+            let mut sealed = Vec::new();
+            let stats = seal_for_recipients(
+                &NativeBackend,
+                algorithm,
+                &[alice.public, bob.public],
+                &b"for two people"[..],
+                &mut sealed,
+            )
+            .expect("seal");
+            assert_eq!(stats.version, VERSION_RECIPIENT);
+            assert_eq!(stats.plaintext_bytes, 14);
+
+            for pair in [alice, bob] {
+                let mut plaintext = Vec::new();
+                let (header, _) =
+                    open_for_recipient(&NativeBackend, &pair.secret, &sealed[..], &mut plaintext)
+                        .expect("open");
+                assert_eq!(plaintext, b"for two people");
+                assert_eq!(header.version, VERSION_RECIPIENT);
+                assert_eq!(header.algorithm, algorithm);
+                assert_eq!(header.recipients.len(), 2);
+            }
+
+            let header = inspect(&sealed).expect("inspect");
+            assert_eq!(header.version, VERSION_RECIPIENT);
+            assert_eq!(header.recipients.len(), 2);
+            assert_eq!(header.ephemeral_hex.len(), 64);
+            assert!(matches!(header.kdf, Kdf::X25519HkdfSha256));
+        }
+    }
+
+    #[test]
+    fn a_key_that_is_not_listed_is_told_so() {
+        let alice = recipient_pair(7);
+        let stranger = recipient_pair(11);
+        let mut sealed = Vec::new();
+        seal_for_recipients(
+            &NativeBackend,
+            AeadAlgorithm::ChaCha20Poly1305,
+            &[alice.public],
+            &b"secret"[..],
+            &mut sealed,
+        )
+        .expect("seal");
+
+        let error = open_for_recipient(
+            &NativeBackend,
+            &stranger.secret,
+            &sealed[..],
+            std::io::sink(),
+        )
+        .expect_err("not a recipient");
+        assert!(
+            error.to_string().contains("not encrypted for that key"),
+            "unhelpful error: {error}"
+        );
+    }
+
+    #[test]
+    fn a_moved_or_edited_recipient_block_breaks_the_file() {
+        let alice = recipient_pair(7);
+        let bob = recipient_pair(9);
+        let mut sealed = Vec::new();
+        seal_for_recipients(
+            &NativeBackend,
+            AeadAlgorithm::ChaCha20Poly1305,
+            &[alice.public, bob.public],
+            &b"secret"[..],
+            &mut sealed,
+        )
+        .expect("seal");
+
+        // Claim Alice's entry belongs to Bob by swapping the public keys.
+        let first = RECIPIENT_PREFIX_LEN;
+        let second = RECIPIENT_PREFIX_LEN + RECIPIENT_ENTRY_LEN;
+        for offset in 0..32 {
+            sealed.swap(first + offset, second + offset);
+        }
+        assert!(
+            open_for_recipient(&NativeBackend, &bob.secret, &sealed[..], std::io::sink()).is_err(),
+            "a swapped recipient block must not open"
+        );
+
+        // And claiming a different cipher in the prefix fails too.
+        let mut tampered = sealed.clone();
+        tampered[5] = 1;
+        assert!(open_for_recipient(
+            &NativeBackend,
+            &alice.secret,
+            &tampered[..],
+            std::io::sink()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn passphrase_containers_refuse_to_be_opened_with_a_key_and_vice_versa() {
+        let sealed = seal(
+            &NativeBackend,
+            b"hunter2",
+            AeadAlgorithm::ChaCha20Poly1305,
+            cheap_params(),
+            b"payload",
+        )
+        .expect("seal");
+
+        let alice = recipient_pair(7);
+        assert!(
+            open_for_recipient(&NativeBackend, &alice.secret, &sealed[..], std::io::sink())
+                .is_err(),
+            "a v1 file is not a recipient container"
+        );
+
+        let mut recipient_file = Vec::new();
+        seal_for_recipients(
+            &NativeBackend,
+            AeadAlgorithm::ChaCha20Poly1305,
+            &[alice.public],
+            &b"payload"[..],
+            &mut recipient_file,
+        )
+        .expect("seal");
+        let error = open_stream(
+            &NativeBackend,
+            b"hunter2",
+            &recipient_file[..],
+            std::io::sink(),
+        )
+        .expect_err("v3 has no passphrase");
+        assert!(
+            error.to_string().contains("encrypted for keys"),
+            "unhelpful error: {error}"
+        );
+    }
+
+    #[test]
+    fn an_empty_or_duplicated_recipient_list_is_refused() {
+        let alice = recipient_pair(7);
+        assert_eq!(
+            seal_for_recipients(
+                &NativeBackend,
+                AeadAlgorithm::ChaCha20Poly1305,
+                &[],
+                &b""[..],
+                Vec::new()
+            )
+            .expect_err("no recipients")
+            .code(),
+            "invalid_args"
+        );
+        assert_eq!(
+            seal_for_recipients(
+                &NativeBackend,
+                AeadAlgorithm::ChaCha20Poly1305,
+                &[alice.public, alice.public],
+                &b""[..],
+                Vec::new()
+            )
+            .expect_err("duplicate recipient")
+            .code(),
+            "invalid_args"
+        );
+    }
+
+    #[test]
+    fn a_hostile_recipient_count_is_refused_before_allocating() {
+        let mut header = vec![0u8; RECIPIENT_PREFIX_LEN];
+        header[0..4].copy_from_slice(&MAGIC);
+        header[4] = VERSION_RECIPIENT;
+        header[5] = AeadAlgorithm::ChaCha20Poly1305.to_wire();
+        header[6] = KDF_X25519_HKDF;
+        header[40..44].copy_from_slice(&(u32::MAX).to_le_bytes());
+
+        let error = inspect(&header).expect_err("impossible count");
+        assert_eq!(error.code(), "invalid_args");
+        assert!(error.to_string().contains("limit"), "{error}");
+    }
+
+    #[test]
+    fn no_header_input_panics_a_reader() {
+        // Headers are attacker-controlled and parsed before any key exists, so
+        // every truncation and every single-bit flip has to be an error rather
+        // than a panic, an over-allocation, or a silent success.
+        let alice = recipient_pair(7);
+        let mut sealed = Vec::new();
+        seal_for_recipients(
+            &NativeBackend,
+            AeadAlgorithm::ChaCha20Poly1305,
+            &[alice.public],
+            &b"payload"[..],
+            &mut sealed,
+        )
+        .expect("seal");
+
+        for cut in 0..sealed.len() {
+            let prefix = &sealed[..cut];
+            let _ = inspect(prefix);
+            let _ = open_for_recipient(&NativeBackend, &alice.secret, prefix, std::io::sink());
+            let _ = open_stream(&NativeBackend, b"pass", prefix, std::io::sink());
+            let _ = inspect_stream(&mut &prefix[..]);
+        }
+
+        for index in 0..sealed.len().min(64) {
+            for bit in 0..8 {
+                let mut mutated = sealed.clone();
+                mutated[index] ^= 1 << bit;
+                let _ = inspect(&mutated);
+                let _ = open_for_recipient(
+                    &NativeBackend,
+                    &alice.secret,
+                    &mutated[..],
+                    std::io::sink(),
+                );
+                let _ = open_stream(&NativeBackend, b"pass", &mutated[..], std::io::sink());
+            }
         }
     }
 

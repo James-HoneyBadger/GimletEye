@@ -5,14 +5,16 @@ use aes_gcm::{Aes256Gcm, Nonce as AesNonce};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::{ChaCha20Poly1305, Nonce as ChaChaNonce};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use hkdf::Hkdf;
 use mellivora_core::{MellivoraError, Result};
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256 as Sha2};
+use x25519_dalek::{PublicKey as X25519Public, StaticSecret};
 use zeroize::Zeroizing;
 
-use crate::keys::Ed25519KeyPair;
+use crate::keys::{Ed25519KeyPair, X25519KeyPair};
 
 /// Authenticated encryption algorithms the engine can provide.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +189,28 @@ pub trait CryptoBackend: Send + Sync {
 
     fn ed25519_verify(&self, public: &[u8; 32], message: &[u8], signature: &[u8; 64])
         -> Result<()>;
+
+    fn x25519_keygen(&self) -> X25519KeyPair;
+
+    /// The public half of an Ed25519 secret, so an imported key file can be
+    /// checked against its own secret instead of trusted.
+    fn ed25519_public(&self, secret: &[u8; 32]) -> [u8; 32];
+
+    /// The public half of an X25519 secret, so a container can find its
+    /// recipient entry without trusting a public key stored next to the secret.
+    fn x25519_public(&self, secret: &[u8; 32]) -> [u8; 32];
+
+    /// X25519 Diffie-Hellman. A shared secret that is all zeros (a low-order
+    /// peer point) is rejected rather than stretched into a key.
+    fn x25519_shared(
+        &self,
+        secret: &[u8; 32],
+        peer_public: &[u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>>;
+
+    /// HKDF-SHA256 over a shared secret. Used to turn one DH result into a key
+    /// bound to a specific recipient and file.
+    fn hkdf_sha256(&self, ikm: &[u8], salt: &[u8], info: &[u8]) -> Result<Zeroizing<[u8; 32]>>;
 }
 
 /// Operating-system CSPRNG plus RustCrypto primitives.
@@ -206,6 +230,8 @@ impl CryptoBackend for NativeBackend {
             "cipher:aes256-gcm".to_string(),
             "cipher:chacha20-poly1305".to_string(),
             "signature:ed25519".to_string(),
+            "keyexchange:x25519".to_string(),
+            "kdf:hkdf-sha256".to_string(),
         ]
     }
 
@@ -342,6 +368,45 @@ impl CryptoBackend for NativeBackend {
         let signature = Signature::from_bytes(signature);
         key.verify_strict(message, &signature)
             .map_err(|_| MellivoraError::Tool("signature verification failed".into()))
+    }
+
+    fn ed25519_public(&self, secret: &[u8; 32]) -> [u8; 32] {
+        SigningKey::from_bytes(secret).verifying_key().to_bytes()
+    }
+
+    fn x25519_keygen(&self) -> X25519KeyPair {
+        let secret = StaticSecret::random_from_rng(OsRng);
+        X25519KeyPair {
+            secret: secret.to_bytes(),
+            public: X25519Public::from(&secret).to_bytes(),
+        }
+    }
+
+    fn x25519_public(&self, secret: &[u8; 32]) -> [u8; 32] {
+        X25519Public::from(&StaticSecret::from(*secret)).to_bytes()
+    }
+
+    fn x25519_shared(
+        &self,
+        secret: &[u8; 32],
+        peer_public: &[u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>> {
+        let secret = StaticSecret::from(*secret);
+        let shared = secret.diffie_hellman(&X25519Public::from(*peer_public));
+        if !shared.was_contributory() {
+            return Err(MellivoraError::InvalidArgs(
+                "the recipient key is not a usable X25519 point".into(),
+            ));
+        }
+        Ok(Zeroizing::new(shared.to_bytes()))
+    }
+
+    fn hkdf_sha256(&self, ikm: &[u8], salt: &[u8], info: &[u8]) -> Result<Zeroizing<[u8; 32]>> {
+        let hkdf = Hkdf::<Sha2>::new(Some(salt), ikm);
+        let mut out = Zeroizing::new([0u8; 32]);
+        hkdf.expand(info, out.as_mut())
+            .map_err(|_| MellivoraError::Internal("hkdf expansion failed".into()))?;
+        Ok(out)
     }
 }
 

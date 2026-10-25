@@ -4,9 +4,17 @@
 //! That is easy to break silently, so the fixture is a real artifact from the
 //! release that wrote it, not something this build produced.
 
-use mellivora_crypto::{inspect, open_stream, NativeBackend, VERSION, VERSION_STREAMING};
+use mellivora_crypto::{
+    inspect, open_for_recipient, open_stream, Kdf, NativeBackend, VERSION, VERSION_RECIPIENT,
+    VERSION_STREAMING,
+};
 
 const V1_FIXTURE: &[u8] = include_bytes!("fixtures/container-v1.melv");
+const V3_FIXTURE: &[u8] = include_bytes!("fixtures/container-v3.melv");
+/// The recipient secret key behind `container-v3.melv`, fixed so the fixture
+/// can be opened forever. It is a test key and protects nothing.
+const V3_RECIPIENT_SECRET: [u8; 32] = [3u8; 32];
+const V3_PLAINTEXT: &[u8] = b"a container written by 0.5.0: x25519 recipient, version 3\n";
 const V1_PASSPHRASE: &[u8] = b"correct horse battery staple";
 const V1_PLAINTEXT: &[u8] = b"a container written by 0.2.0: whole-file AEAD, version 1\n";
 
@@ -30,4 +38,57 @@ fn the_fixture_is_not_what_the_current_writer_emits() {
     // which would quietly turn the compatibility test into a tautology.
     assert_eq!(V1_FIXTURE[4], VERSION);
     assert_ne!(V1_FIXTURE[4], VERSION_STREAMING);
+}
+
+#[test]
+fn a_v3_container_pins_the_recipient_format() {
+    let header = inspect(V3_FIXTURE).expect("header parses");
+    assert_eq!(header.version, VERSION_RECIPIENT);
+    assert_eq!(header.recipients.len(), 1);
+    assert!(matches!(header.kdf, Kdf::X25519HkdfSha256));
+    assert_eq!(header.ephemeral_hex.len(), 64);
+
+    let mut plaintext = Vec::new();
+    let (header, stats) = open_for_recipient(
+        &NativeBackend,
+        &V3_RECIPIENT_SECRET,
+        V3_FIXTURE,
+        &mut plaintext,
+    )
+    .expect("opens");
+
+    assert_eq!(header.version, VERSION_RECIPIENT);
+    assert_eq!(stats.chunks, 1);
+    assert_eq!(plaintext, V3_PLAINTEXT);
+}
+
+#[test]
+fn a_v3_container_cannot_be_opened_with_another_key() {
+    let other = [4u8; 32];
+    let error = open_for_recipient(&NativeBackend, &other, V3_FIXTURE, std::io::sink())
+        .expect_err("not a recipient");
+    assert!(
+        error.to_string().contains("not encrypted for that key"),
+        "{error}"
+    );
+}
+
+#[test]
+fn the_v3_fixture_is_not_what_a_passphrase_writer_emits() {
+    assert_eq!(V3_FIXTURE[4], VERSION_RECIPIENT);
+    assert_ne!(V3_FIXTURE[4], VERSION_STREAMING);
+    assert_ne!(V3_FIXTURE[4], VERSION);
+}
+
+#[test]
+fn the_old_fixtures_are_still_readable_next_to_the_new_one() {
+    // The point of keeping both: a later format must not change an earlier one.
+    let mut v1 = Vec::new();
+    open_stream(&NativeBackend, V1_PASSPHRASE, V1_FIXTURE, &mut v1).expect("v1 opens");
+    assert_eq!(v1, V1_PLAINTEXT);
+
+    let mut v3 = Vec::new();
+    open_for_recipient(&NativeBackend, &V3_RECIPIENT_SECRET, V3_FIXTURE, &mut v3)
+        .expect("v3 opens");
+    assert_eq!(v3, V3_PLAINTEXT);
 }

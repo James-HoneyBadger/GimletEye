@@ -1,9 +1,12 @@
-//! Ed25519 key material and its on-disk representation.
+//! Key material and its on-disk representation.
 //!
-//! Keys are plain files, not a keystore: this layer only knows how to encode,
-//! decode, and write them. A secret key file is created with mode 0600 and is
-//! never printed in a report.
+//! Two kinds share one file format: Ed25519 signing keys and X25519 encryption
+//! recipients, distinguished by the `algorithm` field. Keys written here are
+//! plain files, not a keystore - see [`crate::keystore`] for the sealed
+//! alternative. A secret key file is created with mode 0600 and is never
+//! printed in a report.
 
+use std::fmt;
 use std::fs;
 use std::path::Path;
 
@@ -11,6 +14,7 @@ use mellivora_core::{MellivoraError, Result};
 use serde::{Deserialize, Serialize};
 
 pub const ALGORITHM: &str = "ed25519";
+pub const X25519_ALGORITHM: &str = "x25519";
 pub const SECRET_EXTENSION: &str = "key";
 pub const PUBLIC_EXTENSION: &str = "pub";
 
@@ -19,6 +23,22 @@ pub const PUBLIC_EXTENSION: &str = "pub";
 pub struct Ed25519KeyPair {
     pub secret: [u8; 32],
     pub public: [u8; 32],
+}
+
+/// An X25519 keypair: the secret is a scalar, the public part is `X25519(scalar)`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct X25519KeyPair {
+    pub secret: [u8; 32],
+    pub public: [u8; 32],
+}
+
+impl fmt::Debug for X25519KeyPair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("X25519KeyPair")
+            .field("secret", &"<redacted>")
+            .field("public", &hex_encode(&self.public))
+            .finish()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,19 +50,18 @@ struct KeyFile {
 }
 
 pub fn encode_secret(pair: &Ed25519KeyPair) -> String {
-    let file = KeyFile {
-        algorithm: ALGORITHM.to_string(),
-        public_key: hex_encode(&pair.public),
-        secret_key: Some(hex_encode(&pair.secret)),
-    };
-    serde_json::to_string_pretty(&file).unwrap_or_default()
+    encode_as(ALGORITHM, &pair.public, Some(&pair.secret))
 }
 
 pub fn encode_public(pair: &Ed25519KeyPair) -> String {
+    encode_as(ALGORITHM, &pair.public, None)
+}
+
+fn encode_as(algorithm: &str, public: &[u8; 32], secret: Option<&[u8; 32]>) -> String {
     let file = KeyFile {
-        algorithm: ALGORITHM.to_string(),
-        public_key: hex_encode(&pair.public),
-        secret_key: None,
+        algorithm: algorithm.to_string(),
+        public_key: hex_encode(public),
+        secret_key: secret.map(|bytes| hex_encode(bytes)),
     };
     serde_json::to_string_pretty(&file).unwrap_or_default()
 }
@@ -59,6 +78,51 @@ pub fn decode_public(text: &str) -> Result<[u8; 32]> {
     to_array(&parse(text)?.public_key)
 }
 
+pub fn encode_x25519_secret(pair: &X25519KeyPair) -> String {
+    encode_as(X25519_ALGORITHM, &pair.public, Some(&pair.secret))
+}
+
+pub fn encode_x25519_public(pair: &X25519KeyPair) -> String {
+    encode_as(X25519_ALGORITHM, &pair.public, None)
+}
+
+pub fn decode_x25519_secret(text: &str) -> Result<[u8; 32]> {
+    let file = parse_as(text, X25519_ALGORITHM)?;
+    let secret = file.secret_key.ok_or_else(|| {
+        MellivoraError::InvalidArgs("this is a public key file, not a secret key".into())
+    })?;
+    to_array(&secret)
+}
+
+pub fn decode_x25519_public(text: &str) -> Result<[u8; 32]> {
+    to_array(&parse_as(text, X25519_ALGORITHM)?.public_key)
+}
+
+/// The algorithm a key file declares, without decoding the material.
+pub fn algorithm_of(text: &str) -> Result<String> {
+    let file: KeyFile = serde_json::from_str(text)
+        .map_err(|err| MellivoraError::InvalidArgs(format!("not a key file: {err}")))?;
+    match file.algorithm.as_str() {
+        ALGORITHM | X25519_ALGORITHM => Ok(file.algorithm),
+        other => Err(MellivoraError::Unsupported(format!(
+            "key algorithm '{other}' is not supported"
+        ))),
+    }
+}
+
+pub fn write_x25519_secret(path: &Path, pair: &X25519KeyPair) -> Result<()> {
+    create_parent(path)?;
+    fs::write(path, encode_x25519_secret(pair))?;
+    restrict_permissions(path)?;
+    Ok(())
+}
+
+pub fn write_x25519_public(path: &Path, pair: &X25519KeyPair) -> Result<()> {
+    create_parent(path)?;
+    fs::write(path, encode_x25519_public(pair))?;
+    Ok(())
+}
+
 pub fn write_secret(path: &Path, pair: &Ed25519KeyPair) -> Result<()> {
     create_parent(path)?;
     fs::write(path, encode_secret(pair))?;
@@ -72,16 +136,17 @@ pub fn write_public(path: &Path, pair: &Ed25519KeyPair) -> Result<()> {
     Ok(())
 }
 
-pub fn public_hex(pair: &Ed25519KeyPair) -> String {
-    hex_encode(&pair.public)
+fn parse(text: &str) -> Result<KeyFile> {
+    parse_as(text, ALGORITHM)
 }
 
-fn parse(text: &str) -> Result<KeyFile> {
-    let file: KeyFile = serde_json::from_str(text)
-        .map_err(|err| MellivoraError::InvalidArgs(format!("not an ed25519 key file: {err}")))?;
-    if file.algorithm != ALGORITHM {
+fn parse_as(text: &str, algorithm: &str) -> Result<KeyFile> {
+    let file: KeyFile = serde_json::from_str(text).map_err(|err| {
+        MellivoraError::InvalidArgs(format!("not an {algorithm} key file: {err}"))
+    })?;
+    if file.algorithm != algorithm {
         return Err(MellivoraError::Unsupported(format!(
-            "key algorithm '{}' is not supported",
+            "key algorithm '{}' is not supported here (expected {algorithm})",
             file.algorithm
         )));
     }

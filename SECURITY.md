@@ -16,7 +16,10 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Data | Where it goes |
 |---|---|
 | Tool input files | Read locally; written only to the path you specify |
-| Passwords, keys | Never logged, never audited, never placed in `summary` |
+| Passwords, keys | Never logged, never audited, never placed in `summary` or `data`; the keystore is a sealed `.melv` file with mode 0600 |
+| Keystore (`keystore.melv`) | Argon2id → AEAD, so a wrong passphrase fails before any JSON is parsed; rotation re-seals the document and does not touch key material |
+| Recipient containers (v3) | The recipient list and ephemeral public key are visible in the header; the payload key is wrapped per recipient and the plaintext is not |
+| `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` and are off in a `--no-default-features` build |
 | Audit entries | `$MELLIVORA_HOME/audit.jsonl` — tool, status, duration, argument **names** |
 | API token | `$MELLIVORA_HOME/api-token`, mode 0600, printed once by `serve` so it can be pasted |
 | Network | Only tools that declare `network` may use it |
@@ -32,6 +35,8 @@ There is no telemetry, no auto-update check, and no remote logging.
 - A crafted image or document causing a parser to mis-strip data (privacy leak).
 - A tool writing to an unintended path.
 - Secrets leaking into logs, audit records, or shell-visible output.
+- A container header being edited to re-address a file to another recipient (the
+  recipient block is authenticated, so this fails rather than redirects).
 
 **Out of scope**
 

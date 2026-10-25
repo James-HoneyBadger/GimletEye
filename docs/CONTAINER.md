@@ -3,7 +3,8 @@
 The format written by `crypto.encrypt` and read by `crypto.decrypt`. It exists to
 be small, self-describing, and impossible to tamper with silently.
 
-Extension: `.melv` · Magic: `MELV` · Versions: 1 (whole file) and 2 (chunked)
+Extension: `.melv` · Magic: `MELV` · Versions: 1 (whole file), 2 (chunked), and
+3 (recipients)
 
 ## Layout
 
@@ -128,9 +129,79 @@ Measured on a 4-core aarch64 machine, peak RSS is flat as input grows:
 
 The same 512 MiB file under version 1 measured 1539.5 MiB and 5.0 s.
 
+## Version 3: recipients
+
+Version 3 exists for one reason: encrypting to a person instead of to a shared
+passphrase. `crypto.encrypt to=<keys>` writes it; `crypto.decrypt key=<file>`
+reads it. A passphrase is not involved, so a v3 file cannot be opened with one
+and a v1/v2 file cannot be opened with a key — both say which they are.
+
+The header is no longer fixed-length, because it holds one entry per recipient.
+The 49-byte layout above is unchanged for versions 1 and 2.
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 4 | magic `MELV` |
+| 4 | 1 | format version (`3`) |
+| 5 | 1 | cipher id (`1` = AES-256-GCM, `2` = ChaCha20-Poly1305) |
+| 6 | 1 | KDF id (`3` = X25519 + HKDF-SHA256) |
+| 7 | 1 | reserved, must be `0` |
+| 8 | 32 | ephemeral X25519 public key, one per file |
+| 40 | 4 | recipient count, little-endian (1 … 1024) |
+| 44 | 92 × n | recipient entries, below |
+| 44 + 92n | 12 | base nonce for the chunk stream |
+| 56 + 92n | … | chunk stream, identical to version 2 |
+
+Each recipient entry:
+
+| Offset within entry | Size | Field |
+|---|---|---|
+| 0 | 32 | recipient X25519 public key |
+| 32 | 12 | wrap nonce |
+| 44 | 48 | the file key (32 bytes) sealed with a 16-byte tag |
+
+### How the file key is wrapped
+
+One ephemeral X25519 keypair is generated per file and discarded; only its
+public half is stored. Each recipient entry wraps the *same* random 32-byte file
+key, and the payload below the header is encrypted with that key — which is why
+the chunk stream is byte-for-byte the version 2 framing, with the same nonce
+derivation and the same associated data (over a longer header).
+
+```
+shared  = X25519(ephemeral_secret, recipient_public)
+kek     = HKDF-SHA256(ikm = shared, salt = ephemeral_public,
+                      info = "melv-v3-recipient" || recipient_public)
+wrapped = AEAD(kek, wrap_nonce, file_key, aad = header[0..44] || recipient_public)
+```
+
+Three consequences worth stating:
+
+- **A block cannot be moved.** The associated data binds the wrap to the fixed
+  prefix and to *that* recipient's public key, so copying an entry from another
+  file, swapping two recipients, or editing the cipher id breaks the file
+  instead of re-addressing it.
+- **A stranger is told, not left guessing.** The reader compares the public key
+  derived from its secret against the block. No match means "this container is
+  not encrypted for that key" — not a decryption failure that looks like a wrong
+  key.
+- **The payload key is not the DH result.** A random file key keeps the chunk
+  layer identical to v2 and means a recipient's DH output is only ever used to
+  unwrap one key.
+
+### Limitations (v3)
+
+- **No sender authentication.** Anyone can encrypt to a recipient's public key,
+  exactly as with any anonymous public-key recipient scheme. Sign the file with
+  `crypto.sign` if origin matters.
+- **No passphrase fallback.** A file is either for keys or for a passphrase.
+- **Recipient public keys are visible in the header.** So is the ephemeral key.
+  That is metadata, not plaintext; the same warning as below applies.
+
 ## Limitations (v2)
 
 - **Passphrase only.** There are no public-key recipients and no key wrapping.
+  (Version 3, above, is the answer for recipients.)
 - **No embedded metadata.** Filenames, sizes, and timestamps are *not* stored;
   the container is opaque by design.
 - **No compression.** Compression before encryption changes length; do it
@@ -138,12 +209,14 @@ The same 512 MiB file under version 1 measured 1539.5 MiB and 5.0 s.
 
 ## Versioning
 
-Version 1 is the first published format; version 2 is the chunked layout above.
+Version 1 is the first published format; version 2 is the chunked layout above;
+version 3 adds recipient headers.
 A reader accepts both, a version-1 writer is kept for compatibility fixtures,
 and version 2 is what tools write. Any further change to the layout, the meaning
 of a field, or the derivation inputs requires:
 
 1. a new version byte,
 2. an ADR,
-3. a compatibility test that still decrypts v1 files,
+3. a compatibility test that still decrypts v1 files and, since v3, the
+   committed `container-v3.melv` fixture,
 4. an entry in [COMPATIBILITY.md](COMPATIBILITY.md).

@@ -11,6 +11,8 @@ mellivora system-info                       # what is this host doing?
 mellivora disk-usage --format json          # what is filling the disk?
 mellivora passgen length=32                 # generate a secret
 mellivora crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
+mellivora keygen kind=x25519 label=alice keystore=true passphrase_env=KEY_PASS
+mellivora crypto.encrypt input=notes.txt to=alice.pub   # for Alice, no shared secret
 mellivora metadata-strip input=photo.jpg profile=sharing
 mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
 mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or desktop window
@@ -21,7 +23,7 @@ mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or deskto
 | Pillar | Capability |
 |---|---|
 | **System** | Host inventory, filesystem utilisation with thresholds, and — through packs — log, auth, permission, package, and service audits |
-| **Crypto** | Authenticated file encryption (AES-256-GCM, ChaCha20-Poly1305 with Argon2id), Ed25519 signing and verification, SHA-256, password generation with an entropy budget |
+| **Crypto** | Authenticated file encryption (AES-256-GCM, ChaCha20-Poly1305 with Argon2id), encryption to X25519 recipients, a sealed keystore, Ed25519 signing and verification, OpenPGP interop through the system `gpg`, SHA-256, password generation with an entropy budget |
 | **Privacy** | Metadata scan, strip, and verify for JPEG, PNG, and WebP; removal profiles; field-level keep/remove; GPS redaction that preserves the rest of EXIF |
 
 Everything runs locally: nothing here opens a network connection, and there is
@@ -145,7 +147,9 @@ Optional compatibility packs add capabilities from other implementations:
 | `privacy.metadata-{scan,strip,verify}` for JPEG/PNG/WebP | ✅ native |
 | Removal profiles, field-level control, GPS redaction | ✅ native |
 | Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ native |
-| Keystore, secret sharing, shredding, OpenPGP interop | ⏳ roadmap |
+| Sealed keystore (`crypto.key-*`), X25519 recipients in container v3 | ✅ native |
+| OpenPGP interop (`crypto.gpg-verify`, `crypto.gpg-encrypt`) via system `gpg` | ✅ native |
+| Secret sharing, shredding, QR | ⏳ roadmap |
 | HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ packs, then native |
 | WASM target, TUI, scheduler | ⏳ roadmap |
 

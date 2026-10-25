@@ -8,6 +8,12 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[features]
+default = ["openpgp"]
+# The `crypto.gpg-*` tools shell out to the system gpg. On by default so the
+# shipped build and the tests agree; `--no-default-features` removes them.
+openpgp = []
+
 [dependencies]
 mellivora-core = { workspace = true }
 serde = { workspace = true }
@@ -18,6 +24,8 @@ aes-gcm = { workspace = true }
 chacha20poly1305 = { workspace = true }
 argon2 = { workspace = true }
 ed25519-dalek = { workspace = true }
+x25519-dalek = { workspace = true }
+hkdf = { workspace = true }
 zeroize = { workspace = true }
 
 [lints]

@@ -8,6 +8,33 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **A sealed keystore, and encryption to recipients.** `crypto.keygen
+  kind=x25519 label=alice keystore=true` writes a key into
+  `$MELLIVORA_HOME/keystore.melv` — one `.melv` container (Argon2id → AEAD, mode
+  0600, atomic replace) holding a JSON document, so a wrong passphrase fails the
+  tag before anything is parsed and there is no second format to keep
+  compatible. `crypto.key-list`, `crypto.key-import`, `crypto.key-export`, and
+  `crypto.key-rotate` manage it; no secret reaches `data`, the summary, the body,
+  or the audit trail (asserted in the smoke test), and `Debug` prints
+  `<redacted>`. Rotation re-seals the store under a new passphrase — key material
+  is deliberately not regenerated, because that would invalidate signatures the
+  user already published.
+- **X25519 recipients and container version 3.** `crypto.encrypt
+  input=… to=alice.pub` encrypts to one or more recipient keys and
+  `crypto.decrypt input=… key=alice.key` opens it, so two people no longer need a
+  shared secret. One ephemeral X25519 keypair per file, HKDF-SHA256 per
+  recipient, and a random file key wrapped once for each of them; the chunk
+  stream below the header is byte-for-byte the version 2 framing. A file for
+  somebody else says "not encrypted for that key" rather than reporting a bad
+  passphrase. v1 and v2 still open, and a committed `container-v3.melv` pins the
+  format. See [CONTAINER.md](docs/CONTAINER.md#version-3-recipients).
+- **OpenPGP interop through the system `gpg`.** `crypto.gpg-verify` checks a
+  detached signature and `crypto.gpg-encrypt` produces an OpenPGP message, for
+  people who already have GPG keys. Paths are passed as arguments (never through
+  a shell), runs are `--batch` with no TTY, a missing `gpg` is reported as
+  missing, and the test suite signs and encrypts with a real `gpg` in a
+  throwaway keyring — including `gpg` decrypting what the tool produced. Behind
+  the `openpgp` Cargo feature, on by default.
 - **The quiet period is enforced, not remembered.** `scripts/check-quiet-period.sh`
   runs in CI and fails when `Report`, the plugin protocol, the config schema, or
   the container format moves after the last release — continuously, not just at
@@ -44,6 +71,14 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Changed
 
+- **`crypto.keygen` takes `kind` and `keystore` and reports `kind`.** A key is
+  now Ed25519 *or* X25519, and it can live in the keystore instead of in two
+  files. The old `algorithm` field stays in `data` next to `kind` for one minor,
+  per the deprecation policy.
+- **`CryptoBackend` grew five methods** — `x25519_keygen`, `x25519_public`,
+  `x25519_shared`, `hkdf_sha256`, `ed25519_public` — because a recipient
+  container cannot be built from a hash and an AEAD alone. An alternative engine
+  has to implement them; the native one covers all of it.
 - **The declared MSRV is 1.85, not 1.82.** 1.82 was never true: `zeroize`,
   `tokio`, `clap`, and `hashbrown` all require 1.85, and Cargo 1.82 cannot even
   parse `zeroize_derive`'s edition-2024 manifest. Nothing this project writes

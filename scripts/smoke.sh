@@ -101,6 +101,55 @@ if cli crypto.verify input="$work/secret.txt" signature="$work/secret.txt.sig" \
     fail "verify should fail on a modified file"
 fi
 
+step "keystore and recipient containers"
+cli crypto.keygen label=recipient kind=x25519 keystore=true \
+    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null || fail "could not create a keystore"
+[ -f "$MELLIVORA_HOME/keystore.melv" ] || fail "no keystore was written"
+
+# Owner-only, like every other secret this toolkit writes.
+mode=$(stat -c '%a' "$MELLIVORA_HOME/keystore.melv" 2>/dev/null || echo unknown)
+[ "$mode" = "600" ] || fail "keystore mode is $mode, expected 600"
+
+cli crypto.key-export selector=recipient output="$work/recipient.pub" \
+    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+cli crypto.key-export selector=recipient output="$work/recipient.key" secret=true \
+    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+
+# Nothing that reached stdout or the audit trail may contain the secret.
+secret=$(python3 - "$work/recipient.key" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1]))["secret_key"])
+PY
+)
+reports=$(cat "$MELLIVORA_HOME"/audit.jsonl)
+if grep -q "$secret" <<<"$reports"; then
+    fail "the secret key reached the audit trail"
+fi
+if cli crypto.key-list passphrase_env=MELLIVORA_SMOKE_PASS --format json 2>&1 | grep -q "$secret"; then
+    fail "key-list printed the secret key"
+fi
+
+printf 'for one recipient\n' > "$work/note.txt"
+cli crypto.encrypt input="$work/note.txt" to="$work/recipient.pub" >/dev/null \
+    || fail "recipient encryption failed"
+
+# A passphrase cannot open a recipient container: it must fail closed.
+if cli crypto.decrypt input="$work/note.txt.melv" output="$work/note-pass.txt" \
+    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null 2>&1; then
+    fail "a v3 container should not open with a passphrase"
+fi
+
+cli crypto.decrypt input="$work/note.txt.melv" output="$work/note-round.txt" \
+    key="$work/recipient.key" >/dev/null || fail "recipient decryption failed"
+cmp -s "$work/note.txt" "$work/note-round.txt" || fail "recipient round trip mismatched"
+
+cli crypto.key-rotate passphrase_env=MELLIVORA_SMOKE_PASS \
+    new_passphrase=rotated-smoke-pass >/dev/null || fail "keystore rotation failed"
+if MELLIVORA_SMOKE_PASS=wrong cli crypto.key-list passphrase_env=MELLIVORA_SMOKE_PASS \
+    >/dev/null 2>&1; then
+    fail "the old passphrase still opens the keystore after rotation"
+fi
+
 step "metadata strip round trip"
 python3 - "$work/photo.jpg" <<'PY'
 import struct, sys

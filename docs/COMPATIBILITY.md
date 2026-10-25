@@ -13,9 +13,11 @@ policy. This document states it.
 | `Report` fields | Stable | `status` is derived from findings and must stay that way |
 | Plugin protocol v1 | Versioned | A breaking change bumps `PROTOCOL_VERSION`; the host refuses mismatches |
 | Config file | Versioned | `schema_version` is checked on load |
-| `.melv` container | Versioned | Version byte in the header; v1 files must always open |
+| `.melv` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open |
+| Keystore (`keystore.melv`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
 | HTTP API `/api/v1` | Versioned | Path carries the major version |
 | Environment variables | Stable | `MELLIVORA_*`; new ones are additive |
+| `Report.data` keys | Stable | Renames keep the old key for one minor (see the `algorithm`/`kind` example below) |
 
 Anything not in this table — internal module layout, parser helpers, the UI's
 DOM — can change at any time.
@@ -37,6 +39,11 @@ reverse-engineer each tool; with them, one parser handles every report.
 
 There is deliberately no per-tool schema at 1.0. One can be added additively
 later; a schema *language* is a much larger promise than the shape itself.
+
+**Renaming a key means carrying both for a minor.** `crypto.keygen` reports
+`kind` from 0.5 because a key is now Ed25519 *or* X25519; `algorithm` stays
+alongside it until 0.6 so a consumer that reads the old name keeps working. The
+same rule applies to anything else renamed before the freeze.
 
 The rules are enforced, not remembered: `crates/toolkit/tests/data_shape.rs` runs
 every native tool against a sample invocation, checks rules 1–4, and fails when a

@@ -18,6 +18,8 @@ pub struct AppPaths {
     pub audit_file: PathBuf,
     /// Credential for `/api/v1`, created on first `serve` with mode 0600.
     pub api_token_file: PathBuf,
+    /// Sealed key store, created on first `crypto.key-*` write with mode 0600.
+    pub keystore_file: PathBuf,
     pub plugin_dirs: Vec<PathBuf>,
 }
 
@@ -79,6 +81,7 @@ impl AppPaths {
             cache_dir: root.join("cache"),
             audit_file: root.join("audit.jsonl"),
             api_token_file: root.join("api-token"),
+            keystore_file: root.join("keystore.melv"),
             root,
             plugin_dirs,
         }
@@ -129,6 +132,10 @@ mod tests {
         assert_eq!(
             paths.api_token_file,
             PathBuf::from("/tmp/mellivora-test/api-token")
+        );
+        assert_eq!(
+            paths.keystore_file,
+            PathBuf::from("/tmp/mellivora-test/keystore.melv")
         );
         assert!(paths
             .plugin_dirs

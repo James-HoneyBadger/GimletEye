@@ -17,10 +17,11 @@ use zeroize::Zeroizing;
 use crate::backend::{AeadAlgorithm, CryptoBackend, KdfParams};
 use crate::container;
 use crate::keys::{self, Ed25519KeyPair};
+use crate::keystore;
 
 const ALGORITHMS: [&str; 2] = ["chacha20-poly1305", "aes256-gcm"];
 
-fn passphrase_args() -> [ArgSpec; 2] {
+pub(crate) fn passphrase_args() -> [ArgSpec; 2] {
     [
         ArgSpec::new("passphrase_env", ArgKind::String)
             .help("Environment variable holding the passphrase (preferred: keeps it out of shell history)"),
@@ -29,12 +30,12 @@ fn passphrase_args() -> [ArgSpec; 2] {
     ]
 }
 
-fn input_arg(help: &str) -> ArgSpec {
+pub(crate) fn input_arg(help: &str) -> ArgSpec {
     ArgSpec::new("input", ArgKind::Path).required().help(help)
 }
 
 /// Resolve the passphrase from the environment (preferred) or the argument.
-fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
+pub(crate) fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
     if let Some(variable) = args.opt_str("passphrase_env")? {
         let value = std::env::var(&variable).map_err(|_| {
             MellivoraError::InvalidArgs(format!("environment variable '{variable}' is not set"))
@@ -59,7 +60,7 @@ fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
     ))
 }
 
-fn read_file(path: &Path) -> Result<Vec<u8>> {
+pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>> {
     if !path.exists() {
         return Err(MellivoraError::NotFound(path.display().to_string()));
     }
@@ -67,7 +68,7 @@ fn read_file(path: &Path) -> Result<Vec<u8>> {
 }
 
 /// Refuse to clobber an existing file unless the caller asked for it.
-fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Result<()> {
+pub(crate) fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Result<()> {
     if !context.dry_run && target.exists() && !overwrite {
         return Err(MellivoraError::Config(format!(
             "{} already exists (use overwrite=true to replace it)",
@@ -82,7 +83,7 @@ fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Res
 /// A container that fails halfway through is not written at the destination:
 /// for a large file that is the difference between an error and a plausible
 /// looking file that cannot be opened.
-fn stream_to_file<F>(context: &ToolContext, target: &Path, write: F) -> Result<()>
+pub(crate) fn stream_to_file<F>(context: &ToolContext, target: &Path, write: F) -> Result<()>
 where
     F: FnOnce(BufWriter<File>) -> Result<()>,
 {
@@ -109,7 +110,7 @@ where
 
 /// Refuse a target that is the input itself, which would truncate the source
 /// before it is read.
-fn ensure_distinct(input: &Path, target: &Path) -> Result<()> {
+pub(crate) fn ensure_distinct(input: &Path, target: &Path) -> Result<()> {
     let same = match (input.canonicalize(), target.canonicalize()) {
         (Ok(a), Ok(b)) => a == b,
         _ => input == target,
@@ -123,7 +124,7 @@ fn ensure_distinct(input: &Path, target: &Path) -> Result<()> {
     Ok(())
 }
 
-fn write_file(context: &ToolContext, target: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_file(context: &ToolContext, target: &Path, bytes: &[u8]) -> Result<()> {
     if context.dry_run {
         return Ok(());
     }
@@ -135,6 +136,40 @@ fn write_file(context: &ToolContext, target: &Path, bytes: &[u8]) -> Result<()> 
     }
     fs::write(target, bytes)?;
     Ok(())
+}
+
+/// Resolve `--to` into recipient public keys: `.pub` files, key files, or bare
+/// 64-character hex.
+fn resolve_recipients(value: &str) -> Result<Vec<[u8; 32]>> {
+    let mut recipients = Vec::new();
+    for item in value
+        .split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+    {
+        let bytes = if item.len() == 64 && item.chars().all(|c| c.is_ascii_hexdigit()) {
+            keys::hex_decode(item)?
+                .try_into()
+                .map_err(|_| MellivoraError::InvalidArgs("recipient key is not 32 bytes".into()))?
+        } else {
+            let path = Path::new(item);
+            if !path.is_file() {
+                return Err(MellivoraError::NotFound(format!(
+                    "recipient key {item} is neither a 64-character hex key nor a file"
+                )));
+            }
+            let text = String::from_utf8(read_file(path)?)
+                .map_err(|_| MellivoraError::InvalidArgs(format!("key file {item} is not text")))?;
+            keys::decode_x25519_public(&text)?
+        };
+        recipients.push(bytes);
+    }
+    if recipients.is_empty() {
+        return Err(MellivoraError::InvalidArgs(
+            "provide at least one recipient key with 'to'".into(),
+        ));
+    }
+    Ok(recipients)
 }
 
 fn encrypted_path(input: &Path) -> PathBuf {
@@ -178,13 +213,16 @@ impl Encrypt {
                 )
                 .default_value(Value::from("chacha20-poly1305"))
                 .help("Authenticated cipher"),
+                ArgSpec::new("to", ArgKind::String).help(
+                    "Recipient public keys: comma-separated .pub files or 64-hex keys (writes a version 3 container instead of using a passphrase)",
+                ),
                 passphrase_args()[0].clone(),
                 passphrase_args()[1].clone(),
                 ArgSpec::new("overwrite", ArgKind::Boolean)
                     .default_value(Value::Bool(false))
                     .help("Replace the output file if it exists"),
             ])
-            .with_tags(["encryption", "container", "aead"])
+            .with_tags(["encryption", "container", "aead", "recipients"])
             .mutating(),
             backend,
         }
@@ -213,7 +251,14 @@ impl Tool for Encrypt {
             .opt_path("output")?
             .unwrap_or_else(|| encrypted_path(&input));
         let params = KdfParams::default();
-        let passphrase = passphrase(args)?;
+        let recipients = match args.opt_str("to")? {
+            Some(value) => Some(resolve_recipients(&value)?),
+            None => None,
+        };
+        let passphrase = match recipients {
+            Some(_) => Zeroizing::new(Vec::new()),
+            None => passphrase(args)?,
+        };
 
         ensure_distinct(&input, &target)?;
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
@@ -223,7 +268,11 @@ impl Tool for Encrypt {
             // the run would produce from the input's size.
             let bytes = fs::metadata(&input)?.len();
             container::StreamStats {
-                version: container::VERSION_STREAMING,
+                version: if recipients.is_some() {
+                    container::VERSION_RECIPIENT
+                } else {
+                    container::VERSION_STREAMING
+                },
                 chunks: bytes.div_ceil(container::CHUNK_SIZE as u64).max(1),
                 plaintext_bytes: bytes,
                 container_bytes: 0,
@@ -232,14 +281,23 @@ impl Tool for Encrypt {
             let source = BufReader::new(File::open(&input)?);
             let mut stats = None;
             stream_to_file(ctx, &target, |sink| {
-                stats = Some(container::seal_stream(
-                    &*self.backend,
-                    passphrase.as_ref(),
-                    algorithm,
-                    params,
-                    source,
-                    sink,
-                )?);
+                stats = Some(match &recipients {
+                    Some(keys) => container::seal_for_recipients(
+                        &*self.backend,
+                        algorithm,
+                        keys,
+                        source,
+                        sink,
+                    )?,
+                    None => container::seal_stream(
+                        &*self.backend,
+                        passphrase.as_ref(),
+                        algorithm,
+                        params,
+                        source,
+                        sink,
+                    )?,
+                });
                 Ok(())
             })?;
             stats.unwrap_or_default()
@@ -252,14 +310,21 @@ impl Tool for Encrypt {
                 input.display(),
                 target.display(),
                 algorithm.as_str(),
-                "argon2id",
+                match &recipients {
+                    Some(keys) => format!("x25519 to {} recipient(s)", keys.len()),
+                    None => "argon2id".to_string(),
+                },
                 stats.chunks
             ))
             .with_data(json!({
                 "input": input.display().to_string(),
                 "output": if ctx.dry_run { Value::Null } else { Value::String(target.display().to_string()) },
                 "algorithm": algorithm,
-                "kdf": params,
+                "kdf": match &recipients {
+                    Some(_) => Value::from("x25519-hkdf-sha256"),
+                    None => serde_json::to_value(params).unwrap_or(Value::Null),
+                },
+                "recipients": recipients.as_ref().map(|keys| keys.len()).unwrap_or(0),
                 "container_version": stats.version,
                 "chunk_size_bytes": container::CHUNK_SIZE,
                 "chunks": stats.chunks,
@@ -292,6 +357,9 @@ impl Decrypt {
                 input_arg("Container to decrypt"),
                 ArgSpec::new("output", ArgKind::Path)
                     .help("Destination path (default: input without the .melv suffix)"),
+                ArgSpec::new("key", ArgKind::Path).help(
+                    "Recipient secret key file (<label>.key); required for version 3 containers",
+                ),
                 passphrase_args()[0].clone(),
                 passphrase_args()[1].clone(),
                 ArgSpec::new("overwrite", ArgKind::Boolean)
@@ -322,33 +390,40 @@ impl Tool for Decrypt {
         let target = args
             .opt_path("output")?
             .unwrap_or_else(|| decrypted_path(&input));
-        let passphrase = passphrase(args)?;
+        let recipient = match args.opt_path("key")? {
+            Some(path) => {
+                let text = String::from_utf8(read_file(&path)?)
+                    .map_err(|_| MellivoraError::InvalidArgs("key file is not text".into()))?;
+                Some(Zeroizing::new(keys::decode_x25519_secret(&text)?))
+            }
+            None => None,
+        };
+        let passphrase = match recipient {
+            Some(_) => Zeroizing::new(Vec::new()),
+            None => passphrase(args)?,
+        };
 
         ensure_distinct(&input, &target)?;
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
 
-        // A dry run still verifies the passphrase and every chunk — it just
-        // discards the plaintext instead of writing it.
+        // A dry run still verifies the key and every chunk — it just discards
+        // the plaintext instead of writing it.
+        let open = |source: BufReader<File>, sink: &mut dyn std::io::Write| match &recipient {
+            Some(secret) => container::open_for_recipient(&*self.backend, secret, source, sink),
+            None => container::open_stream(&*self.backend, passphrase.as_ref(), source, sink),
+        };
+
         let (header, stats) = if ctx.dry_run {
-            container::open_stream(
-                &*self.backend,
-                passphrase.as_ref(),
-                BufReader::new(File::open(&input)?),
-                std::io::sink(),
-            )?
+            let mut sink = std::io::sink();
+            open(BufReader::new(File::open(&input)?), &mut sink)?
         } else {
             let source = BufReader::new(File::open(&input)?);
             let mut opened = None;
-            stream_to_file(ctx, &target, |sink| {
-                opened = Some(container::open_stream(
-                    &*self.backend,
-                    passphrase.as_ref(),
-                    source,
-                    sink,
-                )?);
+            stream_to_file(ctx, &target, |mut sink| {
+                opened = Some(open(source, &mut sink)?);
                 Ok(())
             })?;
-            opened.expect("open_stream ran inside stream_to_file")
+            opened.expect("open ran inside stream_to_file")
         };
 
         Ok(Report::new(&self.manifest.id)
@@ -416,15 +491,35 @@ impl Tool for Inspect {
         let bytes = fs::metadata(&input)?.len();
         let mut file = BufReader::new(File::open(&input)?);
         let header = container::inspect_stream(&mut file)?;
-        let streaming = header.version == container::VERSION_STREAMING;
+        // Versions 2 and 3 share the chunk stream; a v3 header is simply longer
+        // because of its recipient block.
+        let streaming = matches!(
+            header.version,
+            container::VERSION_STREAMING | container::VERSION_RECIPIENT
+        );
+        let header_bytes = match header.version {
+            container::VERSION_RECIPIENT => {
+                container::RECIPIENT_PREFIX_LEN
+                    + header.recipients.len() * container::RECIPIENT_ENTRY_LEN
+                    + container::NONCE_LEN
+            }
+            _ => container::HEADER_LEN,
+        };
 
         Ok(Report::new(&self.manifest.id)
             .with_summary(format!(
-                "{} · {} · Argon2id {} KiB/{} iterations · {}",
+                "{} · {} · {} · {}",
                 input.display(),
                 header.algorithm.as_str(),
-                header.kdf.m_cost_kib,
-                header.kdf.t_cost,
+                match &header.kdf {
+                    crate::container::Kdf::Argon2id(params) => format!(
+                        "argon2id {} KiB/{} iterations",
+                        params.m_cost_kib, params.t_cost
+                    ),
+                    crate::container::Kdf::X25519HkdfSha256 => {
+                        format!("{} recipient(s)", header.recipients.len())
+                    }
+                },
                 if streaming {
                     "chunked"
                 } else {
@@ -438,9 +533,12 @@ impl Tool for Inspect {
                 "max_chunk_bytes": if streaming { Value::from(container::CHUNK_SIZE) } else { Value::Null },
                 "algorithm": header.algorithm,
                 "kdf": header.kdf,
-                "salt": header.salt_hex,
+                "salt": if header.salt_hex.is_empty() { Value::Null } else { Value::String(header.salt_hex.clone()) },
+                "ephemeral_key": if header.ephemeral_hex.is_empty() { Value::Null } else { Value::String(header.ephemeral_hex.clone()) },
+                "recipient_count": header.recipients.len(),
+                "recipients": header.recipients,
                 "container_bytes": bytes,
-                "ciphertext_bytes": bytes.saturating_sub(container::HEADER_LEN as u64),
+                "ciphertext_bytes": bytes.saturating_sub(header_bytes as u64),
             }))
             .with_duration(started.elapsed())
             .sealed())
@@ -463,18 +561,34 @@ impl KeyGen {
                 Category::Crypto,
             )
             .with_capabilities([Capability::FsWrite, Capability::Secrets])
-            .with_args([
-                ArgSpec::new("label", ArgKind::String)
-                    .default_value(Value::from("default"))
-                    .help("Key name; files are <label>.key and <label>.pub"),
-                ArgSpec::new("dir", ArgKind::Path)
-                    .default_value(Value::from("."))
-                    .help("Directory to write the key files into"),
-                ArgSpec::new("overwrite", ArgKind::Boolean)
-                    .default_value(Value::Bool(false))
-                    .help("Replace existing key files"),
-            ])
-            .with_tags(["keys", "ed25519", "signature"])
+            .with_args(
+                [
+                    ArgSpec::new("label", ArgKind::String)
+                        .default_value(Value::from("default"))
+                        .help("Key name; files are <label>.key and <label>.pub"),
+                    ArgSpec::new(
+                        "kind",
+                        ArgKind::Enum {
+                            values: vec!["ed25519".to_string(), "x25519".to_string()],
+                        },
+                    )
+                    .default_value(Value::from("ed25519"))
+                    .help("ed25519 signs, x25519 receives encrypted files"),
+                    ArgSpec::new("dir", ArgKind::Path)
+                        .default_value(Value::from("."))
+                        .help("Directory to write the key files into"),
+                    ArgSpec::new("keystore", ArgKind::Boolean)
+                        .default_value(Value::Bool(false))
+                        .help("Store the key in the sealed keystore instead of writing files"),
+                    ArgSpec::new("overwrite", ArgKind::Boolean)
+                        .default_value(Value::Bool(false))
+                        .help("Replace existing key files"),
+                ]
+                .into_iter()
+                .chain(passphrase_args())
+                .collect::<Vec<_>>(),
+            )
+            .with_tags(["keys", "ed25519", "x25519", "keystore"])
             .mutating(),
             backend,
         }
@@ -498,6 +612,72 @@ impl Tool for KeyGen {
         }
         let dir = args.opt_path("dir")?.unwrap_or_else(|| PathBuf::from("."));
         let overwrite = args.bool_or("overwrite", false)?;
+        let kind = keystore::KeyKind::parse(&args.str_or("kind", "ed25519")?)?;
+        let into_store = args.bool_or("keystore", false)?;
+
+        let (secret, public) = match kind {
+            keystore::KeyKind::Ed25519 => {
+                let pair: Ed25519KeyPair = self.backend.ed25519_keygen();
+                (pair.secret, pair.public)
+            }
+            keystore::KeyKind::X25519 => {
+                let pair = self.backend.x25519_keygen();
+                (pair.secret, pair.public)
+            }
+        };
+
+        if into_store {
+            let pass = passphrase(args)?;
+            let mut store = if keystore::exists(&ctx.paths.keystore_file) {
+                keystore::load(&*self.backend, &ctx.paths.keystore_file, pass.as_ref())?
+            } else {
+                keystore::Keystore::empty()
+            };
+            let id = keystore::new_id(&*self.backend);
+            store.insert(keystore::Entry {
+                id: id.clone(),
+                label: label.clone(),
+                kind,
+                public_key: keys::hex_encode(&public),
+                secret_key: keys::hex_encode(&secret),
+                created_at: mellivora_core::util::now_rfc3339(),
+            })?;
+            if !ctx.dry_run {
+                ctx.require(Capability::FsWrite)?;
+                keystore::save(
+                    &*self.backend,
+                    &ctx.paths.keystore_file,
+                    pass.as_ref(),
+                    &store,
+                )?;
+            }
+            return Ok(Report::new(&self.manifest.id)
+                .with_summary(format!(
+                    "{} {kind} key '{label}' in the keystore",
+                    if ctx.dry_run {
+                        "would generate"
+                    } else {
+                        "generated"
+                    }
+                ))
+                .with_data(json!({
+                    // `algorithm` is the pre-0.5 spelling of this field; it stays
+                    // for one minor per the deprecation policy in
+                    // COMPATIBILITY.md, then `kind` is the only name.
+                    "algorithm": kind,
+                    "kind": kind,
+                    "label": label,
+                    "id": id,
+                    "public_key": keys::hex_encode(&public),
+                    "stored": "keystore",
+                    "secret_path": Value::Null,
+                    "public_path": Value::Null,
+                    "keys": store.entries.len(),
+                    "dry_run": ctx.dry_run,
+                }))
+                .with_duration(started.elapsed())
+                .sealed());
+        }
 
         let secret_path = dir.join(format!("{label}.{}", keys::SECRET_EXTENSION));
         let public_path = dir.join(format!("{label}.{}", keys::PUBLIC_EXTENSION));
@@ -510,26 +690,36 @@ impl Tool for KeyGen {
 
         if !ctx.dry_run {
             ctx.require(Capability::FsWrite)?;
-        }
-        let pair: Ed25519KeyPair = self.backend.ed25519_keygen();
-        if !ctx.dry_run {
-            keys::write_secret(&secret_path, &pair)?;
-            keys::write_public(&public_path, &pair)?;
+            match kind {
+                keystore::KeyKind::Ed25519 => {
+                    let pair = Ed25519KeyPair { secret, public };
+                    keys::write_secret(&secret_path, &pair)?;
+                    keys::write_public(&public_path, &pair)?;
+                }
+                keystore::KeyKind::X25519 => {
+                    let pair = crate::keys::X25519KeyPair { secret, public };
+                    keys::write_x25519_secret(&secret_path, &pair)?;
+                    keys::write_x25519_public(&public_path, &pair)?;
+                }
+            }
         }
 
         Ok(Report::new(&self.manifest.id)
             .with_summary(format!(
-                "{} ed25519 key '{}' in {}",
+                "{} {kind} key '{}' in {}",
                 if ctx.dry_run { "would generate" } else { "generated" },
                 label,
                 dir.display()
             ))
             .with_data(json!({
-                "algorithm": keys::ALGORITHM,
+                "algorithm": kind,
+                "kind": kind,
                 "label": label,
+                "id": Value::Null,
+                "public_key": keys::hex_encode(&public),
+                "stored": "files",
                 "secret_path": if ctx.dry_run { Value::Null } else { Value::String(secret_path.display().to_string()) },
                 "public_path": if ctx.dry_run { Value::Null } else { Value::String(public_path.display().to_string()) },
-                "public_key": keys::public_hex(&pair),
                 "dry_run": ctx.dry_run,
             }))
             .with_duration(started.elapsed())
