@@ -66,9 +66,12 @@ while (my $line = <STDIN>) {
     }
 
     if ($method eq 'run_tool') {
-        my ($result, $error) = run_tool(ref $params eq 'HASH' ? $params : {});
+        # The code matters: -32001 means "no such tool" and everything else is an
+        # execution failure. Collapsing them sent a caller looking at its own
+        # arguments when the real problem was a stale tool id.
+        my ($result, $error, $code) = run_tool(ref $params eq 'HASH' ? $params : {});
         if (defined $error) {
-            print_error($id, -32003, $error);
+            print_error($id, $code // -32003, $error);
         } else {
             print_result($id, $result);
         }
@@ -157,7 +160,7 @@ sub run_tool {
     my $tool_id = $params->{tool} // '';
     my $entry   = $BY_ID->{$tool_id};
 
-    return (undef, "unknown tool '$tool_id'") unless $entry;
+    return (undef, "unknown tool '$tool_id'", -32001) unless $entry;
 
     my $args = $params->{args};
     $args = {} unless ref $args eq 'HASH';

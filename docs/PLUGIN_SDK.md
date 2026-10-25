@@ -276,25 +276,68 @@ Packs are discovered up to three levels deep in:
 ```bash
 mellivora plugins list       # loaded packs, tool counts, failures
 mellivora plugins doctor     # start each pack and list its tools
+mellivora plugins conformance <dir>   # run the checklist in §8
+mellivora plugins pin <dir>  # print the digest to pin in [trust]
 mellivora doctor             # installation checks, including pack failures
 mellivora -v run mypack.greet name=Ada   # debug logging to stderr
 ```
+
+### Pinning a pack
+
+Discovery trusts whatever is on disk, which is the right default for a pack
+checked out next to the toolkit and the wrong one for a pack from anywhere else.
+Pin it and the host verifies the whole directory — every file's path, size, and
+content hash — before starting it:
+
+```bash
+mellivora plugins pin ~/packs/my-pack
+#   pack   my-pack
+#   digest sha256:1f3a…
+```
+
+```toml
+[trust]
+"my-pack" = "sha256:1f3a…"
+```
+
+A pinned pack whose digest does not match is **not loaded**: it appears as a
+failure in `plugins list` and `doctor`, with both digests and a note to update
+`[trust]` if the change was intended. Unpinned packs keep loading as before, so
+pinning one pack does not disable the others. A pin for a pack that is not
+installed is also reported — an uninstalled pack is worth knowing about.
+
+This is evidence, not a sandbox: it answers "is this the pack I reviewed", not
+"is this pack safe".
 
 A broken pack never prevents startup: it is recorded as a failure with the
 manifest path and the underlying error.
 
 ## 8. Conformance checklist
 
+Run it first:
+
+```bash
+mellivora plugins conformance ~/packs/my-pack
+```
+
+The runner checks the mechanical items below — manifest, handshake, tool ids,
+capability subset, unknown-tool handling, clean shutdown, and the pack's own
+language syntax — and reports the rest as `manual`, because they need a human to
+read a real report. It exits non-zero when anything mechanical fails, so a
+publish pipeline can gate on it. It never dispatches a tool: a conformance run
+must not touch the user's files.
+
 Before publishing a pack:
 
-- [ ] `initialize` returns the same `protocol_version` it received.
-- [ ] `list_tools` ids are stable, namespaced (`pack.tool`), and unique.
-- [ ] Every capability a tool lists is also declared in `mellivora-pack.toml` —
-      a tool that widens the manifest is refused at load time.
-- [ ] Every manifest id is actually runnable.
-- [ ] Findings drive `status` (a `high` finding with `ok` status is a bug).
-- [ ] `--dry-run` is honoured for anything that writes.
-- [ ] No secret values appear in any report field.
-- [ ] Pack exits cleanly on `shutdown` and on stdin EOF.
-- [ ] Pack works when `cwd` is its own directory.
-- [ ] `perl -c` / `tsc` / `python -m py_compile` passes in CI.
+| Check | How |
+|---|---|
+| `initialize` returns the same `protocol_version` it received | `conformance` |
+| `list_tools` ids are stable, namespaced (`pack.tool`), and unique | `conformance` |
+| Every capability a tool lists is also declared in `mellivora-pack.toml` | `conformance` (and refused at load time) |
+| An unknown tool id is refused with `-32001`, not a generic failure | `conformance` |
+| Pack exits cleanly on `shutdown` | `conformance` |
+| `perl -c` / `node --check` / `python -m py_compile` passes | `conformance` |
+| Pack works when `cwd` is its own directory | `conformance` (it always runs there) |
+| Findings drive `status` (a `high` finding with `ok` status is a bug) | manual |
+| `--dry-run` is honoured for anything that writes | manual |
+| No secret values appear in any report field | manual |

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::plugin_trust;
 use mellivora_core::{
     token, AppPaths, AuditLog, Capability, CapabilitySet, Config, PackFailure, PackSummary,
     PluginHost, Registry, Result, Tool, ToolContext,
@@ -82,10 +83,20 @@ impl Runtime {
 
         let host = if with_plugins {
             let dirs = config.effective_plugin_dirs(&paths);
-            let host = PluginHost::load(
-                &dirs,
+            // Trust is checked here rather than in the host: a digest needs a
+            // hash function, and core stays free of crypto.
+            let (found, discovered_failures) = mellivora_core::plugin::discover(&dirs);
+            let (trusted, trust_failures) = plugin_trust::filter(found, &config.trust);
+            for failure in &trust_failures {
+                tracing::warn!(path = %failure.manifest_path.display(), %failure.error, "pack refused");
+            }
+            let mut failures = discovered_failures;
+            failures.extend(trust_failures);
+            let host = PluginHost::start(
+                trusted,
                 &config.plugins.disabled,
                 Duration::from_millis(config.plugins.timeout_ms),
+                failures,
             );
             for tool in host.tools() {
                 // A pack that collides with a built-in id is skipped rather

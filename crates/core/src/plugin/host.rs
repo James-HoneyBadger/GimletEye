@@ -240,6 +240,29 @@ impl RunningPack {
     pub fn shutdown(&mut self) {
         let _ = self.request(METHOD_SHUTDOWN, Value::Null);
     }
+
+    /// Wait for the child to exit on its own, killing it only if it will not.
+    ///
+    /// `shutdown()` deliberately ignores the outcome, which is right for a
+    /// long-lived host and wrong for a conformance run: there, "the pack left a
+    /// process behind" is the finding.
+    pub fn wait_for_exit(&mut self, grace: Duration) -> bool {
+        let deadline = Instant::now() + grace;
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(_)) => return true,
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                Ok(None) => {
+                    let _ = self.child.kill();
+                    let _ = self.child.wait();
+                    return false;
+                }
+                Err(_) => return false,
+            }
+        }
+    }
 }
 
 impl Drop for RunningPack {
@@ -387,7 +410,21 @@ impl PluginHost {
     /// Discover and start every enabled pack. A broken pack never prevents the
     /// toolkit from running; it is recorded in [`PluginHost::failures`].
     pub fn load(dirs: &[PathBuf], disabled: &[String], timeout: Duration) -> Self {
-        let (found, mut failures) = discover(dirs);
+        let (found, failures) = discover(dirs);
+        Self::start(found, disabled, timeout, failures)
+    }
+
+    /// Start an already-discovered set of packs.
+    ///
+    /// The caller supplies the list, which is what lets a layer above decide
+    /// what is allowed to run — pack trust is checked there, so this file stays
+    /// a mechanism rather than a policy.
+    pub fn start(
+        found: Vec<(PathBuf, PackManifest)>,
+        disabled: &[String],
+        timeout: Duration,
+        mut failures: Vec<PackFailure>,
+    ) -> Self {
         let mut packs = Vec::new();
 
         for (dir, manifest) in found {

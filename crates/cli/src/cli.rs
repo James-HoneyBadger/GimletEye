@@ -138,6 +138,16 @@ pub enum PluginsCommand {
     List,
     /// Start every pack and report its tools
     Doctor,
+    /// Run the SDK conformance checklist against a pack directory
+    Conformance {
+        /// Pack directory (or a directory containing packs)
+        dir: PathBuf,
+    },
+    /// Print the digest to pin in [trust]
+    Pin {
+        /// Pack directory (or a directory containing packs)
+        dir: PathBuf,
+    },
 }
 
 #[derive(Debug, Subcommand)]

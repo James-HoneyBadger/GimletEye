@@ -8,6 +8,19 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **`mellivora plugins conformance <dir>`** runs the SDK checklist instead of
+  leaving it as a list in a document: manifest, handshake, tool ids, capability
+  subset, unknown-tool handling (`-32001`), clean shutdown, and the pack's own
+  language syntax. It reports the three items only a human can judge as
+  `manual` rather than claiming they passed, and it never dispatches a tool.
+  Writing it found a real deviation in the reference pack: it answered an
+  unknown tool with `-32003` (execution failed), so a caller looked at its own
+  arguments instead of at a stale tool id.
+- **Pack trust pinning.** `mellivora plugins pin <dir>` prints a digest over
+  every file in the pack (path, size, content), and `[trust]` in the config
+  refuses a pack whose digest does not match, listing it as a failure with both
+  values. Unpinned packs load as before, so pinning one does not disable the
+  others, and a pin for a pack that is not installed is reported too.
 - **A sealed keystore, and encryption to recipients.** `crypto.keygen
   kind=x25519 label=alice keystore=true` writes a key into
   `$MELLIVORA_HOME/keystore.melv` — one `.melv` container (Argon2id → AEAD, mode

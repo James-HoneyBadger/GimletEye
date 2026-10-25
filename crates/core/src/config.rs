@@ -20,6 +20,10 @@ pub struct Config {
     pub plugins: PluginSettings,
     pub audit: AuditSettings,
     pub api: ApiSettings,
+    /// Pinned pack digests: pack name → `sha256:<hex>`. Empty means nothing is
+    /// pinned, which is the pre-0.6 behaviour; a pinned pack that does not match
+    /// is refused instead of loaded.
+    pub trust: BTreeMap<String, String>,
     /// Module-scoped settings keyed by namespace (`sysadmin`, `privacy`, ...).
     pub modules: BTreeMap<String, toml::Value>,
 }
@@ -68,6 +72,7 @@ impl Default for Config {
             plugins: PluginSettings::default(),
             audit: AuditSettings::default(),
             api: ApiSettings::default(),
+            trust: BTreeMap::new(),
             modules: BTreeMap::new(),
         }
     }

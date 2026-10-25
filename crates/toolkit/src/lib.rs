@@ -4,6 +4,7 @@
 //! the desktop shell all build their runtime from here, so adding a module is a
 //! single line in [`builtin_tools`] and every surface gains it.
 
+pub mod plugin_trust;
 mod runtime;
 mod serve;
 

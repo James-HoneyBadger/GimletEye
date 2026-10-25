@@ -240,6 +240,9 @@ fn no_policy_can_reach_structure_or_colour() {
         let untouched = handler
             .strip_with(&bytes, &RemovalPolicy::none())
             .unwrap_or_else(|error| panic!("{name}: {error}"));
-        assert_eq!(untouched, bytes, "{name}: a keep-everything policy changed the file");
+        assert_eq!(
+            untouched, bytes,
+            "{name}: a keep-everything policy changed the file"
+        );
     }
 }

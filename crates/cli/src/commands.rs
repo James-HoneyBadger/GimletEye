@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Duration;
 
 use mellivora_core::{
-    Args, AuditEntry, Category, MellivoraError, OutputFormat, Report, Result, Status, Tool,
+    plugin::PackManifest, Args, AuditEntry, Category, MellivoraError, OutputFormat, Report, Result,
+    Status, Tool,
 };
 
 use crate::batch;
@@ -63,6 +65,8 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
         Command::Plugins { command } => match command {
             PluginsCommand::List => list_plugins(&globals),
             PluginsCommand::Doctor => doctor_plugins(&globals),
+            PluginsCommand::Conformance { dir } => conformance_plugins(&globals, &dir),
+            PluginsCommand::Pin { dir } => pin_plugin(&globals, &dir),
         },
         Command::Config { command } => match command {
             ConfigCommand::Show => show_config(&globals),
@@ -259,6 +263,75 @@ fn list_plugins(globals: &Globals) -> Result<ExitCode> {
     }
 
     report_pack_failures(&failures);
+    Ok(ExitCode::SUCCESS)
+}
+
+/// Run the mechanical half of the SDK checklist against one pack.
+fn conformance_plugins(globals: &Globals, dir: &Path) -> Result<ExitCode> {
+    let _ = globals;
+    let timeout = Duration::from_secs(30);
+    let report = mellivora_core::plugin::conformance::check_first_below(dir, timeout)?;
+
+    crate::outln!(
+        "{} {}",
+        report.pack.clone().unwrap_or_else(|| "?".to_string()),
+        report.version.clone().unwrap_or_default()
+    );
+    for check in &report.checks {
+        let mark = match check.outcome {
+            mellivora_core::plugin::Outcome::Pass => "pass",
+            mellivora_core::plugin::Outcome::Fail => "FAIL",
+            mellivora_core::plugin::Outcome::Manual => "manual",
+        };
+        crate::outln!("  {:<7} {:<44} {}", mark, check.title, check.detail);
+    }
+    crate::outln!(
+        "\n{} passed, {} failed, {} manual",
+        report.passed(),
+        report.failed(),
+        report.manual()
+    );
+    if report.is_conformant() {
+        Ok(ExitCode::SUCCESS)
+    } else {
+        eprintln!(
+            "{}: this pack is not conformant",
+            report.pack.clone().unwrap_or_default()
+        );
+        Ok(ExitCode::from(1))
+    }
+}
+
+/// Print the digest a user can paste into `[trust]`.
+fn pin_plugin(globals: &Globals, dir: &Path) -> Result<ExitCode> {
+    let _ = globals;
+    let pack_dir = if dir
+        .join(mellivora_core::plugin::MANIFEST_FILENAME)
+        .is_file()
+    {
+        dir.to_path_buf()
+    } else {
+        let (found, _) = mellivora_core::plugin::discover(&[dir.to_path_buf()]);
+        match found.first() {
+            Some((pack_dir, _)) => pack_dir.clone(),
+            None => {
+                return Err(MellivoraError::NotFound(format!(
+                    "no pack found under {}",
+                    dir.display()
+                )))
+            }
+        }
+    };
+    let manifest = PackManifest::load(&pack_dir.join(mellivora_core::plugin::MANIFEST_FILENAME))?;
+    let digest = mellivora_toolkit::plugin_trust::digest(&pack_dir)?;
+
+    crate::outln!("pack   {}", manifest.name);
+    crate::outln!("dir    {}", pack_dir.display());
+    crate::outln!("digest {digest}");
+    crate::outln!(
+        "\nPin it in config.toml:\n\n[trust]\n\"{}\" = \"{digest}\"",
+        manifest.name
+    );
     Ok(ExitCode::SUCCESS)
 }
 
