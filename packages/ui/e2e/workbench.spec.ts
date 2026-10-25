@@ -29,9 +29,12 @@ test.describe('a live engine', () => {
     await page.getByLabel('API token').fill(token());
     await page.getByRole('button', { name: 'Unlock' }).click();
 
-    // And the catalogue appears without a reload.
+    // And the catalogue appears without a reload. Assert a tool that ships with
+    // the toolkit rather than a count: a pack adds twenty more, and a test that
+    // expects them fails wherever no pack is installed.
     await expect(page.locator('[data-tool]').first()).toBeVisible();
-    expect(await page.locator('[data-tool]').count()).toBeGreaterThan(20);
+    await expect(page.locator('[data-tool="crypto.sha256"]')).toHaveCount(1);
+    expect(await page.locator('[data-tool]').count()).toBeGreaterThan(10);
   });
 
   test('browses, validates, runs, and reads the report', async ({ page }) => {
