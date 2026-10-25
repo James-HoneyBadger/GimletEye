@@ -122,7 +122,7 @@ surfaces a shape. Surface changes are allowed and expected here.
   pre-formatted prose) — and record the decision in COMPATIBILITY.md.
   *Acceptance:* a test walks a sample report per native tool and rejects a shape
   that breaks the convention.
-- [ ] **Fuzzing infrastructure.** `cargo-fuzz` targets for JPEG, PNG, WebP, and
+- [x] **Fuzzing infrastructure.** `cargo-fuzz` targets for JPEG, PNG, WebP, and
   EXIF/TIFF, seeded from the golden corpus, on a scheduled CI job.
   *Acceptance:* every target runs clean for ten minutes locally; the CI job
   exists and starts green.

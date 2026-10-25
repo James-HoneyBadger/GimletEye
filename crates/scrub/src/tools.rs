@@ -485,8 +485,13 @@ fn write_atomic(target: &Path, bytes: &[u8]) -> Result<()> {
 /// Re-scan the output before it is written: a strip that fails to strip is a
 /// privacy bug, so it must surface as an error rather than a warning.
 fn verify_clean(cleaned: &[u8], policy: &RemovalPolicy) -> Result<()> {
-    let handler = handler_for(cleaned)?;
-    let after = handler.scan(cleaned)?;
+    // The input scanned, so a failure here is about what the strip produced —
+    // say that rather than reporting the caller's file as malformed.
+    let handler = handler_for(cleaned)
+        .map_err(|err| MellivoraError::Tool(format!("strip left no readable container: {err}")))?;
+    let after = handler
+        .scan(cleaned)
+        .map_err(|err| MellivoraError::Tool(format!("strip left no readable container: {err}")))?;
     let remaining = after.removable_bytes(policy);
     if remaining > 0 {
         return Err(MellivoraError::Tool(format!(

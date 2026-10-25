@@ -20,6 +20,19 @@ make ui-test                              # UI unit and DOM tests (vitest)
 make doctor                               # installation report, including packs
 ```
 
+Parsers are fuzzed. The soak harness needs nightly, so it is not part of
+`make check`, but running it before touching JPEG/PNG/WebP/EXIF parsing is
+expected:
+
+```bash
+rustup toolchain install nightly && cargo install cargo-fuzz
+cd crates/scrub/fuzz && cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg
+```
+
+`cargo test` already runs the same entry points deterministically over the
+committed seeds and a mutation sweep, so a regression cannot pass CI unnoticed.
+See [crates/scrub/fuzz/README.md](crates/scrub/fuzz/README.md).
+
 ## Ground rules
 
 1. **Respect the dependency direction.** `mellivora-core` must not depend on a

@@ -66,6 +66,11 @@ There is no telemetry, no auto-update check, and no remote logging.
    only the desktop window, the local dev server, and loopback origins, so a page
    the user visits can neither read nor drive the API.
 8. **Path traversal defence** in static file serving.
+9. **Fuzzed parsers.** JPEG, PNG, WebP, and EXIF/TIFF have libFuzzer targets
+   seeded from a committed corpus (`crates/scrub/fuzz`), soaked nightly in CI, and
+   a deterministic mutation sweep runs on every commit. A strip that succeeds must
+   leave nothing for the policy to remove — an invariant the fuzzers assert, not
+   just the unit tests.
 
 ## Cryptographic posture
 

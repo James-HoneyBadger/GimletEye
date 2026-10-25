@@ -12,6 +12,11 @@ dist/
 # Local checkout of the source projects (see scripts/link-sources.sh)
 /external/
 
+# Fuzz working state: crash reproducers and the corpus libFuzzer grows during a
+# run. The committed starting points live in crates/scrub/fuzz/seeds/.
+crates/scrub/fuzz/artifacts/
+crates/scrub/fuzz/corpus/
+
 # Runtime state
 /.mellivora/
 *.hbzf

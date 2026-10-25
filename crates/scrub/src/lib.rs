@@ -10,7 +10,9 @@ mod formats;
 mod tools;
 
 pub use exif::{exif_ranges, redact_gps_payload, GpsPrecision, GpsRedaction};
-pub use format::{Format, FormatHandler, RemovalPolicy, ScanResult, Segment, SegmentCategory};
+pub use format::{
+    handler_for, Format, FormatHandler, RemovalPolicy, ScanResult, Segment, SegmentCategory,
+};
 pub use formats::png::{chunk as png_chunk, SIGNATURE as PNG_SIGNATURE};
 pub use tools::{MetadataScan, MetadataStrip, MetadataVerify};
 

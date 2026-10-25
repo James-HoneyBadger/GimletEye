@@ -8,6 +8,12 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **The parsers are fuzzed.** `crates/scrub/fuzz` holds libFuzzer targets for
+  JPEG, PNG, WebP, and EXIF/TIFF, seeded from a committed corpus and soaked
+  nightly in `fuzz.yml`; `crates/scrub/tests/parsers_never_panic.rs` runs the same
+  entry points over the seeds plus a structural mutation sweep on every
+  `cargo test`. Both assert the promise `metadata-strip` makes: a strip that
+  succeeds leaves nothing for the policy to remove.
 - **`Report.data` has a documented shape.** An object or an array of objects,
   `snake_case` keys, at most two levels of nesting, and strings that carry a
   value rather than a document — enforced by a test that runs every native tool

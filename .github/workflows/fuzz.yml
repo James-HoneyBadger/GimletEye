@@ -1,0 +1,67 @@
+name: fuzz
+
+# The parsers delete bytes from irreplaceable files, so they are fuzzed rather
+# than trusted. A nightly soak keeps `crates/scrub/fuzz` honest; the same entry
+# points also run deterministically in `cargo test` via
+# `crates/scrub/tests/parsers_never_panic.rs`, so a regression is caught on the
+# commit that causes it and a deep one within a day.
+#
+# Release gate (ADR 0006): the last seven nightly runs must be green.
+
+on:
+  schedule:
+    - cron: '17 3 * * *' # nightly, off the hour
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to fuzz each target
+        required: false
+        default: '600'
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  soak:
+    name: soak (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [jpeg, png, webp, exif]
+    steps:
+      - uses: actions/checkout@v4
+
+      # libFuzzer needs nightly; the fuzz crate is detached from the workspace,
+      # which stays on stable.
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'crates/scrub/fuzz -> target'
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Fuzz ${{ matrix.target }}
+        working-directory: crates/scrub/fuzz
+        env:
+          SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}
+        run: |
+          mkdir -p "corpus/${{ matrix.target }}"
+          cargo fuzz run "${{ matrix.target }}" \
+            "corpus/${{ matrix.target }}" "seeds/${{ matrix.target }}" \
+            -- -max_total_time="$SECONDS_PER_TARGET" -print_final_stats=1
+
+      - name: Keep a crashing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-${{ matrix.target }}
+          path: crates/scrub/fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: ignore
+          retention-days: 30

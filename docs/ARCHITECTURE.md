@@ -371,6 +371,7 @@ The full protocol is in [PLUGIN_SDK.md](PLUGIN_SDK.md).
 | Layer | What is tested | How |
 |---|---|---|
 | Parsers | `/proc`, `df`, JPEG/PNG/WebP structures | pure functions over fixtures — no I/O |
+| Parser robustness | malformed and mutated containers | `crates/scrub/fuzz` (libFuzzer, nightly, scheduled) plus a deterministic mutation sweep in `parsers_never_panic.rs` on every `cargo test` |
 | Tools | behaviour, findings, status, dry-run | `ToolContext` with a temp `AppPaths` |
 | Contracts | report round-trip, status derivation, registry resolution, capability denial | unit tests in `core` |
 | Protocol | manifest validation, discovery, broken packs, encoding | unit tests + live pack run |

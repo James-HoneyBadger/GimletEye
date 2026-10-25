@@ -1,0 +1,43 @@
+[package]
+name = "mellivora-scrub-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+mellivora-scrub = { path = ".." }
+
+# Detached from the workspace on purpose: these targets need nightly and
+# libFuzzer, and the workspace itself has to build on stable.
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "jpeg"
+path = "fuzz_targets/jpeg.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "png"
+path = "fuzz_targets/png.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "webp"
+path = "fuzz_targets/webp.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "exif"
+path = "fuzz_targets/exif.rs"
+test = false
+doc = false
