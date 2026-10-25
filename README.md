@@ -235,12 +235,13 @@ configure.
 ## Development
 
 ```bash
-make check      # fmt, clippy, tests — everything CI runs
-make msrv       # build every target on the declared MSRV (1.85)
-make test       # cargo test --workspace
-make ui         # type-check + build the shared UI
-make ui-test    # UI unit and DOM tests (vitest)
-make smoke      # end-to-end: CLI, API, packs
+make check         # fmt, clippy, tests — everything CI runs
+make msrv          # build every target on the declared MSRV (1.85)
+make quiet-period  # verify no frozen surface moved since the last release
+make test          # cargo test --workspace
+make ui            # type-check + build the shared UI
+make ui-test       # UI unit and DOM tests (vitest)
+make smoke         # end-to-end: CLI, API, packs
 make doctor
 ```
 

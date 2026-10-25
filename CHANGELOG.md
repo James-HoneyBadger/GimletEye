@@ -8,6 +8,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **The quiet period is enforced, not remembered.** `scripts/check-quiet-period.sh`
+  runs in CI and fails when `Report`, the plugin protocol, the config schema, or
+  the container format moves after the last release — continuously, not just at
+  audit time — plus the release-to-release stretches ADR 0006 counts. It is
+  dormant until v0.5.0, since 0.4 and 0.5 are the releases that move surfaces.
 - **A job builds the declared MSRV.** `msrv` in CI compiles every target on the
   `rust-version` from `[workspace.package]`, `--locked`, and
   `scripts/check-msrv.sh` fails when the manifest and the job disagree — so the

@@ -70,6 +70,23 @@ jobs:
       - name: Check every target on the declared MSRV
         run: cargo check --workspace --all-targets --locked
 
+  quiet-period:
+    name: quiet period (frozen surfaces)
+    runs-on: ubuntu-latest
+    env:
+      # ADR 0006: once v0.5.0 ships, `Report`, the plugin protocol, the config
+      # schema, and the container format must not move again before 1.0. Set
+      # this to a reason to accept a change anyway - it restarts the counter,
+      # so the reason belongs in review - and record it in CHANGELOG.md.
+      ALLOW_SURFACE_CHANGE: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the check diffs tags and history
+
+      - name: Versioned surfaces have not moved
+        run: ./scripts/check-quiet-period.sh
+
   integration:
     name: integration (CLI, API, Perl pack)
     runs-on: ubuntu-latest

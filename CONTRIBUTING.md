@@ -16,6 +16,7 @@ Verify:
 ```bash
 make check                                # fmt check, clippy, tests
 make msrv                                 # builds on the declared rust-version
+make quiet-period                         # frozen surfaces unchanged since the last tag
 make ui                                   # UI type-check + build
 make ui-test                              # UI unit and DOM tests (vitest)
 make doctor                               # installation report, including packs

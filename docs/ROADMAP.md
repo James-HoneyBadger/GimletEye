@@ -134,10 +134,16 @@ surfaces a shape. Surface changes are allowed and expected here.
   now 1.85, `scripts/check-msrv.sh` fails when the manifest and the job
   disagree, and the job compiles every target `--locked`. The desktop shell, a
   separate workspace, follows Tauri and declares 1.90.
-- [ ] **Quiet-period enforcement.** ADR 0006 defines the rule; add a CI check
+- [x] **Quiet-period enforcement.** ADR 0006 defines the rule; add a CI check
   that diffs the versioned files (`report.rs`, `protocol.rs`, the config schema,
   the container constants) between the last two tags, so a stray change during
   0.6 or 0.7 fails the build instead of being noticed at audit time.
+  `scripts/check-quiet-period.sh` does that and a little more: it diffs the last
+  tag against `HEAD` continuously (so a stray commit fails the same day, not at
+  release time) *and* the two release-to-release stretches the ADR actually
+  counts. It stays dormant until v0.5.0 ships, because 0.4/0.5 are precisely the
+  releases that move surfaces; `ALLOW_SURFACE_CHANGE` in the workflow is the
+  reviewed way to accept a change and restart the counter.
 
 Risk: the token touches every surface (CLI, server, UI, desktop, tests). Land it
 first so the rest of the release builds on it.

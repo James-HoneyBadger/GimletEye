@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check msrv ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check msrv quiet-period ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -27,6 +27,9 @@ check: fmt-check clippy test ## Everything CI runs for Rust
 msrv: ## Build every target on the declared MSRV (what CI's msrv job runs)
 	./scripts/check-msrv.sh "$${MSRV:-1.85}"
 	$(CARGO) +"$${MSRV:-1.85}" check --workspace --all-targets --locked
+
+quiet-period: ## Verify no frozen surface moved since the last release
+	./scripts/check-quiet-period.sh
 
 ui-install: ## Install UI dependencies
 	cd $(UI_DIR) && npm install
