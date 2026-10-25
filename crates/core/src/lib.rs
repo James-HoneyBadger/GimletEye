@@ -12,6 +12,7 @@ pub mod paths;
 pub mod plugin;
 pub mod registry;
 pub mod report;
+pub mod token;
 pub mod tool;
 pub mod util;
 

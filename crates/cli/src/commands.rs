@@ -444,16 +444,40 @@ fn serve(
         }
     }
 
+    // Created on first run, so the caller can be told the credential before the
+    // listener exists.
+    let api_token = runtime.api_token()?;
+
     crate::outln!(
         "Mellivora ToolKit {} → http://{address}",
         mellivora_core::VERSION
     );
     crate::outln!("  API   http://{address}/api/v1/health");
-    if ui_dir.is_some() {
-        crate::outln!("  UI    http://{address}/");
+    match &api_token {
+        Some(token) => {
+            crate::outln!("  token {token}");
+            crate::outln!("        curl -H \"Authorization: Bearer <token>\" …");
+            crate::outln!(
+                "        stored in {} (mode 0600)",
+                runtime.paths.api_token_file.display()
+            );
+            if ui_dir.is_some() {
+                // The fragment is never sent to the server, so the token stays
+                // out of request logs while still signing the workbench in.
+                crate::outln!("  UI    http://{address}/#token={token}");
+            }
+        }
+        None => {
+            if ui_dir.is_some() {
+                crate::outln!("  UI    http://{address}/");
+            }
+            eprintln!(
+                "mellivora: warning: [api] require_token = false — any local page can drive this API"
+            );
+        }
     }
 
-    mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run)?;
+    mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run, api_token)?;
     Ok(ExitCode::SUCCESS)
 }
 

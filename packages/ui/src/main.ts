@@ -199,6 +199,17 @@ root.addEventListener('click', (event) => {
   }
 });
 
+root.addEventListener('submit', (event) => {
+  // Nothing posts anywhere: runs go through fetch, so a stray Enter in a field
+  // must not reload the page.
+  event.preventDefault();
+  const form = event.target;
+  if (form instanceof HTMLFormElement && form.id === 'token-form') {
+    const input = root.querySelector<HTMLInputElement>('#api-token-input');
+    void actions.submitToken(input?.value ?? '');
+  }
+});
+
 root.addEventListener('input', (event) => {
   const target = event.target as HTMLElement;
   if (target.id === 'search' && target instanceof HTMLInputElement) {

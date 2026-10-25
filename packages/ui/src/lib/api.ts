@@ -72,6 +72,54 @@ export interface AuditTrail {
 declare global {
   interface Window {
     __MELLIVORA_API__?: string;
+    __MELLIVORA_TOKEN__?: string;
+  }
+}
+
+const TOKEN_KEY = 'mellivora.api.token';
+
+/**
+ * The token arrives from the desktop shell (injected), from the fragment of the
+ * URL `mellivora serve` prints, or from a previous session.
+ */
+function bootToken(): string {
+  if (window.__MELLIVORA_TOKEN__) return window.__MELLIVORA_TOKEN__;
+
+  const fromHash = /(?:^#|&)token=([^&]*)/.exec(location.hash);
+  if (fromHash) {
+    const token = decodeURIComponent(fromHash[1]);
+    // Drop it from the address bar and the history entry before the first call.
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    return token;
+  }
+
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+let apiToken = bootToken();
+
+export const hasApiToken = (): boolean => apiToken.length > 0;
+
+export function setApiToken(value: string): void {
+  apiToken = value.trim();
+  try {
+    if (apiToken) localStorage.setItem(TOKEN_KEY, apiToken);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Private browsing: the token still works for this session.
+  }
+}
+
+/** A 401 from the engine: the token is missing, stale, or wrong. */
+export class UnauthorizedError extends Error {
+  constructor() {
+    super('The API token is missing or wrong.');
+    this.name = 'UnauthorizedError';
   }
 }
 
@@ -85,15 +133,18 @@ export const API_BASE: string =
   window.__MELLIVORA_API__ ?? (import.meta.env.VITE_API_BASE as string | undefined) ?? defaultApiBase();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set('content-type', 'application/json');
+  if (apiToken) headers.set('authorization', `Bearer ${apiToken}`);
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
-    });
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   } catch {
     throw new Error(`Cannot reach the toolkit API at ${API_BASE || location.origin}. Is "mellivora serve" running?`);
   }
+
+  if (response.status === 401) throw new UnauthorizedError();
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {

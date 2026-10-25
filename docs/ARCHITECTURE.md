@@ -232,10 +232,15 @@ GET  /api/v1/audit?limit=N   → { enabled, path, entries } from the audit trail
 GET  /api/v1/config          → effective config (no secrets)
 ```
 
+Every `/api/` route requires `Authorization: Bearer <token>`. The token lives in
+`<home>/api-token` (0600) and is issued here rather than in `core`, because the
+platform RNG does; `serve` prints a URL whose fragment carries it so the
+workbench signs itself in, and the desktop shell injects it into the window.
+
 Blocking work runs on `spawn_blocking`; the API binds to loopback by default and
 answers CORS only for the desktop window, the Vite dev server, and loopback
-origins. A non-loopback bind requires `--allow-remote`, because there is no
-authentication yet — see [Security](#7-security-model).
+origins. A non-loopback bind requires `--allow-remote` and warns — see
+[Security](#7-security-model).
 
 The UI renders forms from `ToolManifest.args`, so a new tool appears in the UI
 with no frontend change. That is the payoff of the manifest contract — and the

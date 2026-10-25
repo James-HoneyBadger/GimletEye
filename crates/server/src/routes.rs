@@ -16,6 +16,7 @@ use mellivora_core::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::auth::{bearer, AuthPolicy};
 use crate::error::ApiError;
 
 /// Everything a request needs. Built once by the CLI and cloned per request.
@@ -27,6 +28,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub audit: Option<Arc<AuditLog>>,
     pub ui_dir: Option<Arc<PathBuf>>,
+    pub auth: AuthPolicy,
 }
 
 impl AppState {
@@ -38,7 +40,14 @@ impl AppState {
             config: Arc::new(config),
             audit: None,
             ui_dir: None,
+            auth: AuthPolicy::disabled(),
         }
+    }
+
+    /// Require `Authorization: Bearer <token>` on `/api/` routes.
+    pub fn with_token(mut self, token: impl Into<String>) -> Self {
+        self.auth = AuthPolicy::required(token);
+        self
     }
 
     pub fn with_packs(mut self, packs: Vec<PackSummary>) -> Self {
@@ -85,6 +94,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/audit", get(list_audit))
         .route("/api/v1/config", get(show_config))
         .fallback(get(static_file))
+        .layer(middleware::from_fn_with_state(state.clone(), authorize))
+        // Outermost, so a preflight is answered before authentication: browsers
+        // do not send credentials on an OPTIONS request.
         .layer(middleware::from_fn(cors))
         .with_state(state)
 }
@@ -107,6 +119,29 @@ pub async fn serve_listener(
     axum::serve(listener, router(state))
         .await
         .map_err(|err| MellivoraError::Internal(err.to_string()))
+}
+
+/// Every `/api/` request needs the token when one is configured.
+///
+/// The UI bundle and the static fallback stay open: they carry no data, and the
+/// shell is what asks the user for the credential.
+async fn authorize(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    if state.auth.is_enabled() && request.uri().path().starts_with("/api/") {
+        let presented = bearer(request.headers()).map(str::to_owned);
+        if !state.auth.allows(presented.as_deref()) {
+            return (
+                StatusCode::UNAUTHORIZED,
+                [(header::WWW_AUTHENTICATE, "Bearer realm=\"mellivora\"")],
+                "missing or invalid API token\n",
+            )
+                .into_response();
+        }
+    }
+    next.run(request).await
 }
 
 async fn health(State(state): State<AppState>) -> Json<Value> {

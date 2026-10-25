@@ -23,7 +23,8 @@ These are ordered by value per unit of risk. Everything else can wait.
 
 Shipped since this list was written: **batch execution** (`mellivora batch`,
 below), **manifest `mutates`**, **`GET /api/v1/audit`** with a recent-runs view,
-and a **UI test suite**.
+a **UI test suite**, and **API authentication** (a bearer token on every
+`/api/` route plus a bind guard, both landed in 0.3.x).
 
 ---
 
@@ -187,7 +188,6 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | WASM target | Metadata scan/strip, hashing, and password generation all work on `&[u8]` and would run in a browser with no upload. High privacy value. | M |
-| API authentication | Loopback-only today. A bearer token plus a bind guard is the minimum before any remote use. | S |
 | TUI | A terminal browser makes the toolkit usable over SSH, which is where sysadmin work happens. | M |
 | Shell completions + man pages | `clap_complete` and `clap_mangen`; near-zero cost, real ergonomics. | S |
 | `--output <file>` and `--quiet` | CI wants a report artifact, not stdout parsing. | S |

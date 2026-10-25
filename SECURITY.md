@@ -18,6 +18,7 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Tool input files | Read locally; written only to the path you specify |
 | Passwords, keys | Never logged, never audited, never placed in `summary` |
 | Audit entries | `$MELLIVORA_HOME/audit.jsonl` — tool, status, duration, argument **names** |
+| API token | `$MELLIVORA_HOME/api-token`, mode 0600, printed once by `serve` so it can be pasted |
 | Network | Only tools that declare `network` may use it |
 | Plugins | Separate processes; see below |
 
@@ -57,11 +58,13 @@ There is no telemetry, no auto-update check, and no remote logging.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel
    data is never re-encoded (which would both degrade quality and risk new
    metadata).
-7. **Loopback-only API.** `mellivora serve` binds `127.0.0.1` and has no
-   authentication; a non-loopback bind is refused unless `--allow-remote` is
-   passed, and the warning it prints is not decoration. CORS answers only the
-   desktop window, the local dev server, and loopback origins, so a page the
-   user visits cannot drive tools through the browser.
+7. **Authenticated, loopback-only API.** `mellivora serve` binds `127.0.0.1`,
+   requires `Authorization: Bearer <token>` on every `/api/` route, and refuses a
+   non-loopback bind unless `--allow-remote` is passed. The token is generated on
+   first run into `$MELLIVORA_HOME/api-token` (0600), compared in constant time,
+   and never written to a report, a log line, or the audit trail. CORS answers
+   only the desktop window, the local dev server, and loopback origins, so a page
+   the user visits can neither read nor drive the API.
 8. **Path traversal defence** in static file serving.
 
 ## Cryptographic posture

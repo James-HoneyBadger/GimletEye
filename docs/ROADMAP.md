@@ -106,7 +106,7 @@ shippable and none of them adds a feature users have to learn.
 Theme: make the local API and the parsers defensible, and give the two shapeless
 surfaces a shape. Surface changes are allowed and expected here.
 
-- [ ] **Bearer token on `/api/v1`.** Generated on first `serve` into
+- [x] **Bearer token on `/api/v1`.** Generated on first `serve` into
   `<home>/api-token` (mode 0600); `[api] require_token` in config (additive,
   default `true`); the desktop shell injects the token into the webview; the UI
   sends it on every call.

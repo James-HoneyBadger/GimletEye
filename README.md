@@ -190,6 +190,20 @@ Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
 `--strict` turns warnings into exit code `1`, so CI can gate on findings rather
 than only on failures.
 
+`serve` generates an API token on first run — owner-only at
+`$MELLIVORA_HOME/api-token` — prints it, and answers `401` to any `/api/` request
+that does not carry it. The URL it prints carries the token in its fragment, so
+the workbench signs itself in; for `curl`, send the header:
+
+```bash
+curl -X POST http://127.0.0.1:7878/api/v1/run \
+     -H "Authorization: Bearer $(cat "$MELLIVORA_HOME/api-token")" \
+     -d '{"tool":"sha256","args":{"text":"abc"}}'
+```
+
+Set `[api] require_token = false` only for a scratch instance you are willing to
+have any local page drive; `serve` warns when you do.
+
 `batch` expands directories (recursively unless `--no-recursive`), runs the tool
 once per file with the path bound to `--input-arg` (default `input`), and prints
 one aggregate report with a per-file entry:

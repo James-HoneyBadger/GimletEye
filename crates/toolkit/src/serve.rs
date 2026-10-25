@@ -18,8 +18,9 @@ pub fn serve_blocking(
     address: SocketAddr,
     ui_dir: Option<PathBuf>,
     dry_run: bool,
+    api_token: Option<String>,
 ) -> Result<()> {
-    let (state, _packs) = runtime.into_app_state(dry_run, ui_dir);
+    let (state, _packs) = runtime.into_app_state(dry_run, ui_dir, api_token);
     engine()?.block_on(mellivora_server::serve(state, address))
 }
 
@@ -30,8 +31,9 @@ pub fn serve_on_listener(
     listener: std::net::TcpListener,
     ui_dir: Option<PathBuf>,
     dry_run: bool,
+    api_token: Option<String>,
 ) -> Result<()> {
-    let (state, _packs) = runtime.into_app_state(dry_run, ui_dir);
+    let (state, _packs) = runtime.into_app_state(dry_run, ui_dir, api_token);
     let engine = engine()?;
     engine.block_on(async move {
         listener

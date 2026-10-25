@@ -232,17 +232,34 @@ fi
 step "http api"
 ./target/debug/mellivora serve --port "$port" >"$MELLIVORA_HOME/server.log" 2>&1 &
 server_pid=$!
+
+token_file="$MELLIVORA_HOME/api-token"
 for _ in $(seq 1 40); do
-    curl -sf "http://127.0.0.1:$port/api/v1/health" >/dev/null 2>&1 && break
+    [ -s "$token_file" ] && curl -sf -H "authorization: Bearer $(cat "$token_file")" \
+        "http://127.0.0.1:$port/api/v1/health" >/dev/null 2>&1 && break
     sleep 0.25
 done
-curl -sf "http://127.0.0.1:$port/api/v1/health" >/dev/null || fail "API did not start"
-curl -sf -X POST "http://127.0.0.1:$port/api/v1/run" \
+[ -s "$token_file" ] || fail "serve created no API token"
+token=$(cat "$token_file")
+
+mode=$(python3 -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode))[2:])' "$token_file")
+[ "$mode" = "600" ] || fail "API token file mode is $mode, expected 600"
+
+# The token is the boundary: no credential, no answer.
+code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/api/v1/health")
+[ "$code" = "401" ] || fail "expected 401 without a token, got $code"
+code=$(curl -s -o /dev/null -w '%{http_code}' -H 'authorization: Bearer nope' \
+    "http://127.0.0.1:$port/api/v1/health")
+[ "$code" = "401" ] || fail "expected 401 for a wrong token, got $code"
+
+auth=(-H "authorization: Bearer $token")
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/health" >/dev/null || fail "API did not start"
+curl -sf -X POST "${auth[@]}" "http://127.0.0.1:$port/api/v1/run" \
     -H 'content-type: application/json' \
     -d '{"tool":"disk-usage","args":{}}' \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["tool"]=="sysadmin.disk-usage", d'
-curl -sf "http://127.0.0.1:$port/api/v1/audit?limit=5" \
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/audit?limit=5" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["enabled"] and d["entries"], d'
-echo "API ok"
+echo "API ok (token required, mode 0600, 401 without it)"
 
 printf '\n\033[32msmoke test passed\033[0m\n'

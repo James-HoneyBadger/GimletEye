@@ -19,13 +19,33 @@ fn main() {
             let port = listener.local_addr()?.port();
 
             discover_pack_dirs();
-            eprintln!("mellivora: embedded engine on http://127.0.0.1:{port}");
 
+            // Issued here rather than in the engine thread so the window can be
+            // told the credential in the same breath as the port.
+            let api_token = mellivora_toolkit::api_token_for_home(None)?;
+            let token_literal = match api_token.as_deref() {
+                Some(token) => serde_json::to_string(token)?,
+                None => "null".to_string(),
+            };
+            eprintln!(
+                "mellivora: embedded engine on http://127.0.0.1:{port}{}",
+                if api_token.is_some() {
+                    " (API token required)"
+                } else {
+                    " ([api] require_token = false)"
+                }
+            );
+
+            let token_for_engine = api_token.clone();
             std::thread::spawn(move || match mellivora_toolkit::Runtime::load(None, true) {
                 Ok(runtime) => {
-                    if let Err(error) =
-                        mellivora_toolkit::serve_on_listener(runtime, listener, None, false)
-                    {
+                    if let Err(error) = mellivora_toolkit::serve_on_listener(
+                        runtime,
+                        listener,
+                        None,
+                        false,
+                        token_for_engine,
+                    ) {
                         eprintln!("mellivora: embedded engine stopped: {error}");
                     }
                 }
@@ -37,7 +57,8 @@ fn main() {
                 .inner_size(1240.0, 860.0)
                 .min_inner_size(880.0, 600.0)
                 .initialization_script(format!(
-                    "window.__MELLIVORA_API__ = 'http://127.0.0.1:{port}';"
+                    "window.__MELLIVORA_API__ = 'http://127.0.0.1:{port}';\n\
+                     window.__MELLIVORA_TOKEN__ = {token_literal};"
                 ))
                 .build()?;
 

@@ -2061,6 +2061,7 @@ name = "mellivora-desktop"
 version = "0.3.0"
 dependencies = [
  "mellivora-toolkit",
+ "serde_json",
  "tauri",
  "tauri-build",
 ]

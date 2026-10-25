@@ -19,6 +19,7 @@ pub struct Config {
     pub defaults: Defaults,
     pub plugins: PluginSettings,
     pub audit: AuditSettings,
+    pub api: ApiSettings,
     /// Module-scoped settings keyed by namespace (`sysadmin`, `privacy`, ...).
     pub modules: BTreeMap<String, toml::Value>,
 }
@@ -44,6 +45,14 @@ pub struct PluginSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+pub struct ApiSettings {
+    /// Require a token on `/api/v1`. Disabling it means any page the user
+    /// visits can drive the local tools, so it is on unless turned off.
+    pub require_token: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AuditSettings {
     pub enabled: bool,
     /// Overrides the default `<root>/audit.jsonl`.
@@ -58,6 +67,7 @@ impl Default for Config {
             defaults: Defaults::default(),
             plugins: PluginSettings::default(),
             audit: AuditSettings::default(),
+            api: ApiSettings::default(),
             modules: BTreeMap::new(),
         }
     }
@@ -79,6 +89,14 @@ impl Default for PluginSettings {
             disabled: Vec::new(),
             timeout_ms: 30_000,
             allow: Vec::new(),
+        }
+    }
+}
+
+impl Default for ApiSettings {
+    fn default() -> Self {
+        Self {
+            require_token: true,
         }
     }
 }
@@ -164,6 +182,13 @@ mod tests {
         assert_eq!(config.defaults.output, OutputFormat::Text);
         assert!(config.audit.enabled);
         assert_eq!(config.plugins.timeout_ms, 30_000);
+        assert!(config.api.require_token, "the API is protected by default");
+    }
+
+    #[test]
+    fn the_api_token_can_be_switched_off_explicitly() {
+        let config = Config::parse("[api]\nrequire_token = false\n").expect("parse");
+        assert!(!config.api.require_token);
     }
 
     #[test]

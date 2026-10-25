@@ -21,6 +21,8 @@ export interface AppState {
   /** In-progress form values per tool, so switching tools is not destructive. */
   drafts: Map<string, RawValues>;
   error: string | null;
+  /** The engine asked for a token we do not have yet. */
+  tokenRequired: boolean;
   /** Per-field validation messages for the selected tool. */
   errors: Record<string, string>;
   running: boolean;
@@ -63,6 +65,7 @@ export const state: AppState = {
   runs: new Map(),
   drafts: new Map(),
   error: null,
+  tokenRequired: false,
   errors: {},
   running: false,
   dryRun: saved.dryRun ?? false,

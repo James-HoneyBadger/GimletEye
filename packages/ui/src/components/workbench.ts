@@ -79,7 +79,26 @@ function dryRunControls(tool: ToolManifest, state: AppState): string {
     </label>`;
 }
 
+function tokenGate(): string {
+  return `
+    <section class="panel result--idle token-gate">
+      <h1 class="tool-name">API token required</h1>
+      <p class="muted">This engine was started with <code>[api] require_token</code> on.
+        Paste the token printed by <code>mellivora serve</code>, or the contents of
+        <code>api-token</code> in the toolkit home.</p>
+      <form id="token-form" class="token-form" autocomplete="off">
+        <input class="input input--mono" id="api-token-input" name="token" type="password"
+               placeholder="64 hex characters" spellcheck="false" aria-label="API token" />
+        <button class="button button--primary" type="submit">Unlock</button>
+      </form>
+    </section>`;
+}
+
 export function renderWorkbench(state: AppState): string {
+  if (state.tokenRequired) {
+    return `<main class="main">${tokenGate()}</main>`;
+  }
+
   const tool = selectedTool();
   if (!tool) {
     return `<main class="main">${emptyState()}</main>`;

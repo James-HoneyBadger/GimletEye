@@ -16,6 +16,8 @@ pub struct AppPaths {
     pub data_dir: PathBuf,
     pub cache_dir: PathBuf,
     pub audit_file: PathBuf,
+    /// Credential for `/api/v1`, created on first `serve` with mode 0600.
+    pub api_token_file: PathBuf,
     pub plugin_dirs: Vec<PathBuf>,
 }
 
@@ -76,6 +78,7 @@ impl AppPaths {
             data_dir: root.join("data"),
             cache_dir: root.join("cache"),
             audit_file: root.join("audit.jsonl"),
+            api_token_file: root.join("api-token"),
             root,
             plugin_dirs,
         }
@@ -122,6 +125,10 @@ mod tests {
         assert_eq!(
             paths.audit_file,
             PathBuf::from("/tmp/mellivora-test/audit.jsonl")
+        );
+        assert_eq!(
+            paths.api_token_file,
+            PathBuf::from("/tmp/mellivora-test/api-token")
         );
         assert!(paths
             .plugin_dirs

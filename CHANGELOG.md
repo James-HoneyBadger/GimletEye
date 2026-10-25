@@ -6,6 +6,15 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The local API requires a token.** `mellivora serve` generates one on first
+  run (`$MELLIVORA_HOME/api-token`, mode 0600), prints it, and answers `401` to
+  any `/api/` request without `Authorization: Bearer <token>`. The printed URL
+  carries the token in its fragment so the workbench signs itself in; the desktop
+  shell injects it into the window. `[api] require_token = false` turns it off and
+  says so at startup.
+
 ### Fixed
 
 - **CLI `key=value` text is no longer rewritten.** Only canonical numbers and

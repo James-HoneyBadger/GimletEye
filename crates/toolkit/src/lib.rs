@@ -7,7 +7,7 @@
 mod runtime;
 mod serve;
 
-pub use runtime::{builtin_tools, Runtime};
+pub use runtime::{api_token_for_home, builtin_tools, issue_api_token, Runtime};
 pub use serve::{serve_blocking, serve_on_listener};
 
 use std::sync::Arc;

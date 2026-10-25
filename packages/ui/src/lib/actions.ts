@@ -1,4 +1,13 @@
-import { fetchAudit, fetchHealth, fetchPacks, fetchTools, runTool, type Report } from './api';
+import {
+  fetchAudit,
+  fetchHealth,
+  fetchPacks,
+  fetchTools,
+  runTool,
+  setApiToken,
+  UnauthorizedError,
+  type Report,
+} from './api';
 import { readForm, toPayload, validateArgs } from './args';
 import { cliCommand, matchesQuery } from './format';
 import { icons } from '../components/icons';
@@ -24,6 +33,8 @@ export interface Renderer {
 
 export interface Actions {
   boot(): Promise<void>;
+  /** Store a token the user pasted and retry the boot. */
+  submitToken(value: string): Promise<void>;
   /** `fromKeyboard` keeps focus in the list; a pointer selection moves to the form. */
   selectTool(id: string, fromKeyboard?: boolean): void;
   moveSelection(delta: number): void;
@@ -113,11 +124,26 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
           state.selectedId = tools[0]?.id ?? null;
         }
         state.error = null;
+        state.tokenRequired = false;
       } catch (error) {
-        state.error = error instanceof Error ? error.message : String(error);
+        if (error instanceof UnauthorizedError) {
+          state.tokenRequired = true;
+          state.error = null;
+        } else {
+          state.tokenRequired = false;
+          state.error = error instanceof Error ? error.message : String(error);
+        }
       }
       render.all();
-      void this.refreshHistory();
+      if (!state.tokenRequired) void this.refreshHistory();
+    },
+
+    async submitToken(value: string): Promise<void> {
+      setApiToken(value);
+      state.tokenRequired = false;
+      state.error = null;
+      await this.boot();
+      if (state.tokenRequired) toast('That token was not accepted', 'error');
     },
 
     selectTool(id: string, fromKeyboard = false): void {
@@ -187,7 +213,12 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
         rememberReport(tool.id, report, command);
         state.historyLoaded = false;
       } catch (error) {
-        state.error = error instanceof Error ? error.message : String(error);
+        if (error instanceof UnauthorizedError) {
+          state.tokenRequired = true;
+          await this.boot();
+        } else {
+          state.error = error instanceof Error ? error.message : String(error);
+        }
       } finally {
         state.running = false;
         setRunning(false);
