@@ -5,9 +5,21 @@ import type { RawValues } from './store';
 export function readForm(root: ParentNode): RawValues {
   const values: RawValues = {};
   for (const input of root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-type]')) {
-    values[input.name] = input instanceof HTMLInputElement && input.type === 'checkbox'
-      ? input.checked
-      : input.value;
+    if (input instanceof HTMLInputElement) {
+      if (input.type === 'checkbox') {
+        values[input.name] = input.checked;
+        continue;
+      }
+      // A radio group contributes its *checked* option only: the unchecked ones
+      // carry values too, and reading them would report whichever came last.
+      if (input.type === 'radio') {
+        if (input.checked) values[input.name] = input.value;
+        continue;
+      }
+      values[input.name] = input.value;
+      continue;
+    }
+    values[input.name] = input.value;
   }
   return values;
 }

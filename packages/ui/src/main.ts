@@ -235,6 +235,21 @@ root.addEventListener('change', (event) => {
     return;
   }
 
+  // A segmented control is a radio group: `change` is what fires when the
+  // selection moves, and the choice has to reach the draft from here.
+  if (target.type === 'radio' && target.dataset.type) {
+    // Move the selected styling with the choice: doing it here rather than with
+    // `:has()` keeps it correct in every webview, old ones included.
+    const group = target.closest('.choice-group');
+    if (group) {
+      for (const choice of group.querySelectorAll('.choice')) choice.classList.remove('is-active');
+      target.closest('.choice')?.classList.add('is-active');
+    }
+    actions.rememberDraft();
+    actions.clearFieldError(target.name);
+    return;
+  }
+
   if (target.dataset.type === 'boolean') {
     const text = target.closest('.switch')?.querySelector('.switch-text');
     if (text) text.textContent = target.checked ? 'Enabled' : 'Disabled';

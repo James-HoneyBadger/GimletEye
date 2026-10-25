@@ -1424,6 +1424,67 @@ select[aria-invalid='true'] {
   box-shadow: 0 0 0 3px var(--error-soft);
 }
 
+/* A short enum is a set of buttons: one click per option, no native popup. */
+
+.choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.choice:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* The radio stays in the DOM for keyboard and screen-reader semantics. */
+.choice-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.choice-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choice.is-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+  font-weight: 550;
+}
+
+.choice:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.choice-group--invalid .choice {
+  border-color: var(--error);
+}
+
 .readonly {
   display: inline-flex;
   align-items: center;

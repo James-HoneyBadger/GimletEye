@@ -22,6 +22,18 @@ const tools = [
     mutates: true,
     args: [],
   },
+  {
+    id: 'demo.enum',
+    title: 'Choices',
+    summary: 'pick a profile and a level',
+    category: 'crypto',
+    origin: 'builtin',
+    mutates: false,
+    args: [
+      { name: 'profile', type: 'enum', values: ['sharing', 'archive'], default: 'sharing', help: 'Removal profile' },
+      { name: 'level', type: 'enum', values: ['a', 'b', 'c', 'd', 'e', 'f'], default: 'a' },
+    ],
+  },
 ];
 
 const report = {
@@ -33,6 +45,7 @@ const report = {
 };
 
 const calls: string[] = [];
+const runBodies: { tool: string; args: Record<string, unknown> }[] = [];
 
 function json(body: unknown): Response {
   return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
@@ -41,6 +54,7 @@ function json(body: unknown): Response {
 beforeEach(() => {
   vi.resetModules();
   calls.length = 0;
+  runBodies.length = 0;
   document.body.innerHTML = '<div id="app"></div>';
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -63,6 +77,7 @@ beforeEach(() => {
     }
     if (url.includes('/run')) {
       const body = JSON.parse(String(init?.body ?? '{}'));
+      runBodies.push(body);
       return json({
         ...report,
         tool: body.tool,
@@ -75,7 +90,7 @@ beforeEach(() => {
 
 async function boot() {
   await import('./main');
-  await vi.waitFor(() => expect(document.querySelectorAll('[data-tool]').length).toBe(2));
+  await vi.waitFor(() => expect(document.querySelectorAll('[data-tool]').length).toBe(3));
 }
 
 describe('workbench shell', () => {
@@ -167,6 +182,64 @@ describe('workbench shell', () => {
       expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.echo'),
     );
     expect(document.activeElement).toBe(document.querySelector('.tool--active'));
+  });
+
+  it('renders a short enum as buttons, not a dropdown', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('[data-tool="demo.enum"]')!.click();
+    await vi.waitFor(() => expect(document.querySelector('#arg-profile-label')).not.toBeNull());
+
+    // No native popup to open: every option is a button you can click once.
+    expect(document.querySelector('#arg-profile')).toBeNull();
+    const group = document.querySelector<HTMLElement>('.choice-group')!;
+    expect(group.getAttribute('role')).toBe('radiogroup');
+    const choices = [...group.querySelectorAll<HTMLElement>('.choice')];
+    expect(choices.map((choice) => choice.textContent?.trim())).toEqual(['sharing', 'archive']);
+    expect(choices[0].classList.contains('is-active')).toBe(true);
+    expect(group.querySelectorAll<HTMLInputElement>('input[type="radio"]').length).toBe(2);
+  });
+
+  it('keeps a long enum a dropdown', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('[data-tool="demo.enum"]')!.click();
+    await vi.waitFor(() => expect(document.querySelector('#arg-level')).not.toBeNull());
+    expect(document.querySelector<HTMLElement>('#arg-level')?.tagName).toBe('SELECT');
+  });
+
+  it('sends the option chosen with a button', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('[data-tool="demo.enum"]')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.choice-group')).not.toBeNull());
+
+    const archive = [...document.querySelectorAll<HTMLElement>('.choice')].find(
+      (choice) => choice.textContent?.trim() === 'archive',
+    )!;
+    archive.querySelector<HTMLInputElement>('input')!.click();
+
+    expect(archive.classList.contains('is-active')).toBe(true);
+    expect(document.querySelectorAll('.choice.is-active').length).toBe(1);
+
+    document.querySelector<HTMLButtonElement>('#run')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.status--ok')).not.toBeNull());
+    expect(runBodies.at(-1)?.args).toMatchObject({ profile: 'archive', level: 'a' });
+  });
+
+  it('remembers a chosen option when the tool is re-selected', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('[data-tool="demo.enum"]')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.choice-group')).not.toBeNull());
+
+    const archive = [...document.querySelectorAll<HTMLElement>('.choice')].find(
+      (choice) => choice.textContent?.trim() === 'archive',
+    )!;
+    archive.querySelector<HTMLInputElement>('input')!.click();
+
+    document.querySelector<HTMLElement>('[data-tool="demo.write"]')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.write'));
+    document.querySelector<HTMLElement>('[data-tool="demo.enum"]')!.click();
+
+    await vi.waitFor(() => expect(document.querySelectorAll('.choice.is-active').length).toBe(1));
+    expect(document.querySelector('.choice.is-active')?.textContent?.trim()).toBe('archive');
   });
 
   it('opens and closes the packs sheet', async () => {

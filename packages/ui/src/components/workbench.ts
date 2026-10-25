@@ -4,10 +4,41 @@ import { draftFor, selectedTool, type AppState, type RawValues } from '../lib/st
 import { icons } from './icons';
 import { renderResult } from './result';
 
+/** Above this many values an enum stays a dropdown. */
+const SEGMENT_LIMIT = 4;
+
+/**
+ * A radio group styled as buttons. Real radios, so arrow keys, the label click
+ * target, and screen readers all behave; the styling is what makes it a
+ * segmented control.
+ */
+function segmented(
+  spec: ArgSpec,
+  values: string[],
+  id: string,
+  raw: string,
+  error: string | undefined,
+): string {
+  const describedBy = error ? ` aria-describedby="${id}-error"` : '';
+  return `<div class="choice-group${error ? ' choice-group--invalid' : ''}" role="radiogroup"
+      aria-labelledby="${id}-label"${describedBy}>
+    ${values
+      .map(
+        (value, index) => `
+      <label class="choice${value === raw ? ' is-active' : ''}">
+        <input type="radio" class="choice-input" name="${escapeHtml(spec.name)}" value="${escapeHtml(value)}"
+               data-type="string" id="${id}-${index}" ${value === raw ? 'checked' : ''} />
+        <span class="choice-label">${escapeHtml(value)}</span>
+      </label>`,
+      )
+      .join('')}
+  </div>`;
+}
+
 function field(spec: ArgSpec, draft: RawValues, error: string | undefined): string {
   const id = `arg-${spec.name}`;
   const invalid = error ? ' input--invalid' : '';
-  const label = `<label for="${id}">${escapeHtml(titleCase(spec.name))}${spec.required ? '<span class="required" title="Required">*</span>' : ''}</label>`;
+  const label = `<label for="${id}" id="${id}-label">${escapeHtml(titleCase(spec.name))}${spec.required ? '<span class="required" title="Required">*</span>' : ''}</label>`;
   const help = spec.help ? `<p class="field-help">${escapeHtml(spec.help)}</p>` : '';
   const message = error
     ? `<p class="field-error" id="${id}-error">${escapeHtml(error)}</p>`
@@ -29,7 +60,14 @@ function field(spec: ArgSpec, draft: RawValues, error: string | undefined): stri
         <span class="switch-text">${checked ? 'Enabled' : 'Disabled'}</span>
       </label>`;
   } else if (type === 'enum' && spec.values?.length) {
-    control = `<select id="${id}" name="${escapeHtml(spec.name)}" data-type="string"${describedBy}>
+    // A short list is a set of buttons, not a dropdown: every option is
+    // reachable in one click, and the native popup a `<select>` needs is exactly
+    // what WebKitGTK refuses to show reliably inside a Tauri window. Longer
+    // lists keep the select so a field cannot turn into a wall of chips.
+    control =
+      spec.values.length <= SEGMENT_LIMIT
+        ? segmented(spec, spec.values, id, raw, error)
+        : `<select id="${id}" name="${escapeHtml(spec.name)}" data-type="string"${describedBy}>
       ${spec.values
         .map(
           (value) =>

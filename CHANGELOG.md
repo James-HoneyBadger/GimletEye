@@ -90,6 +90,15 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Fixed
 
+- **A short list of choices is a row of buttons, not a dropdown.** The `kind`,
+  `algorithm`, `profile`, and `redact_gps` arguments were `<select>` elements,
+  which depend on a native popup the WebKitGTK webview does not open reliably
+  inside the desktop window — so picking a type could do nothing at all. Up to
+  four values now render as a radio group styled as buttons (one click per
+  option, real radios so arrow keys and screen readers still work); longer lists
+  keep the dropdown. Choosing one also persists in the form draft, which the old
+  control did not do on every platform.
+
 - **CLI `key=value` text is no longer rewritten.** Only canonical numbers and
   `true`/`false` are coerced; `passphrase=0123`, `input=-0`, and any other value
   that merely looks numeric stays exactly as typed, so a passphrase can no

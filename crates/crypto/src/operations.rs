@@ -556,8 +556,8 @@ impl KeyGen {
         Self {
             manifest: ToolManifest::new(
                 "crypto.keygen",
-                "Generate a signing key",
-                "Create an Ed25519 keypair; the secret file is written owner-only",
+                "Generate a key",
+                "Create an Ed25519 signing key or an X25519 recipient key, in files or in the sealed keystore",
                 Category::Crypto,
             )
             .with_capabilities([Capability::FsWrite, Capability::Secrets])
