@@ -210,7 +210,16 @@ impl RunningPack {
                     continue;
                 }
             };
-            if response.id.is_some() && response.id != Some(id) {
+            // A reply must echo *this* request's id. Notifications (no id) and
+            // answers to an earlier request are skipped rather than mistaken for
+            // the reply — taking one would leave every later call reading a
+            // stale answer.
+            if response.id != Some(id) {
+                tracing::debug!(
+                    pack = %self.manifest.name,
+                    id = ?response.id,
+                    "ignoring a message that does not answer this request"
+                );
                 continue;
             }
             if let Some(error) = response.error {
@@ -520,6 +529,52 @@ mod tests {
             timeout_ms: None,
             env: BTreeMap::new(),
         }
+    }
+
+    /// A pack that emits a notification before its reply. The host must skip the
+    /// notification rather than treat it as the answer to the request.
+    const NOISY_PACK: &str = r#"
+while IFS= read -r line; do
+    case "$line" in
+        *'"initialize"'*)
+            printf '%s\n' '{"jsonrpc":"2.0","method":"log","params":{"note":"progress"}}'
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"protocol_version":1,"name":"noisy","version":"0.1.0","capabilities":["run","list_tools"]}}'
+            ;;
+        *'"list_tools"'*)
+            printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[]}}'
+            ;;
+        *'"shutdown"'*)
+            printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{}}'
+            exit 0
+            ;;
+    esac
+done
+"#;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_notification_before_the_reply_does_not_consume_it() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = temp_dir("noisy");
+        let pack_dir = dir.join("noisy");
+        fs::create_dir_all(&pack_dir).expect("pack dir");
+        let script = pack_dir.join("pack.sh");
+        fs::write(&script, NOISY_PACK).expect("write script");
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).expect("chmod");
+
+        let mut manifest = pack_manifest(Vec::new());
+        manifest.name = "noisy".into();
+        manifest.command = vec!["sh".into(), "pack.sh".into()];
+
+        let mut pack =
+            RunningPack::start(&pack_dir, manifest, Duration::from_secs(5)).expect("start pack");
+        pack.handshake()
+            .expect("the handshake must skip the notification and use the reply");
+        assert!(pack.tools.is_empty());
+        pack.shutdown();
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

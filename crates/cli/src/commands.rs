@@ -12,7 +12,8 @@ use mellivora_toolkit::Runtime;
 
 struct Globals {
     home: Option<PathBuf>,
-    format: OutputFormat,
+    /// `None` means the caller did not choose, so the configuration decides.
+    format: Option<OutputFormat>,
     dry_run: bool,
     strict: bool,
     with_plugins: bool,
@@ -22,9 +23,9 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
     let globals = Globals {
         home: cli.home.clone(),
         format: if cli.json {
-            OutputFormat::Json
+            Some(OutputFormat::Json)
         } else {
-            cli.format.into()
+            cli.format.map(OutputFormat::from)
         },
         dry_run: cli.dry_run,
         strict: cli.strict,
@@ -92,10 +93,16 @@ fn run(globals: &Globals, tool_name: &str, raw_args: &[String]) -> Result<ExitCo
 
     let context = runtime.context(globals.dry_run);
     let report = tool.run(&context, &args)?;
-    crate::out!("{}", report.render(globals.format));
+    crate::out!("{}", report.render(format_for(globals, &runtime)));
     record_audit(&runtime, &report, arg_keys);
 
     Ok(exit_code(report.status, globals.strict))
+}
+
+/// The format a report is rendered in: an explicit `--json`/`--format` wins,
+/// otherwise `[defaults] output` from the configuration decides.
+fn format_for(globals: &Globals, runtime: &Runtime) -> OutputFormat {
+    globals.format.unwrap_or(runtime.config.defaults.output)
 }
 
 /// Parse `key=value` arguments from the CLI into a typed bag.
@@ -122,7 +129,7 @@ fn run_batch(globals: &Globals, options: batch::BatchOptions) -> Result<ExitCode
     arg_keys.push(options.input_arg.clone());
 
     let context = runtime.context(globals.dry_run);
-    let summary = batch::execute(tool, &context, &options, globals.format)?;
+    let summary = batch::execute(tool, &context, &options, format_for(globals, &runtime))?;
 
     if let Some(log) = runtime.audit_log() {
         let entry = AuditEntry::new(options.tool.clone(), summary.status, summary.duration_ms)
@@ -182,7 +189,7 @@ fn list_tools(globals: &Globals, category: Option<&str>) -> Result<ExitCode> {
         manifests.retain(|manifest| manifest.category == category);
     }
 
-    if globals.format == OutputFormat::Json {
+    if format_for(globals, &runtime) == OutputFormat::Json {
         crate::outln!("{}", serde_json::to_string_pretty(&manifests)?);
         return Ok(ExitCode::SUCCESS);
     }
@@ -325,7 +332,7 @@ fn show_audit(globals: &Globals, limit: usize) -> Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
-    if globals.format == OutputFormat::Json {
+    if format_for(globals, &runtime) == OutputFormat::Json {
         crate::outln!("{}", serde_json::to_string_pretty(&entries)?);
         return Ok(ExitCode::SUCCESS);
     }

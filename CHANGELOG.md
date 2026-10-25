@@ -28,6 +28,30 @@ All notable changes to Mellivora ToolKit. Format follows
   a capability its manifest omits now fails to load, and `plugins.allow` gates
   every tool of a pack whose declared capabilities were not granted — previously
   a tool that declared nothing ran regardless of what its pack declared.
+- **`[defaults] output` in the configuration is honoured.** It was parsed,
+  serialized and documented but never applied, so `output = "json"` did
+  nothing. `--format` and `--json` still win, because a per-run choice must not
+  be overridden by a file someone else wrote.
+- **`sysadmin.disk-usage path=<relative>` resolves the path first.** `df`
+  reports absolute mount points, so `path=.` could never match one and the tool
+  answered "no mounted filesystem contains .".
+- **`container::open` reads chunked containers.** Handing a version 2 file to the
+  in-memory helper fed the chunk stream to a whole-file AEAD and surfaced as
+  "wrong passphrase or corrupted file"; it now delegates to the streaming
+  reader, so the two entry points cannot disagree.
+- **Pack replies must echo the request id.** A notification (a line with no `id`)
+  was accepted as the answer to the request in flight, which left the next call
+  reading a stale reply and everything after it off by one.
+- **Audit pruning is atomic and serialised.** The trim rewrote `audit.jsonl` in
+  place, so a concurrent recorder could lose a record or a reader could see a
+  half-written trail. It now goes through a temporary file and a rename, under
+  a lock shared by every clone of the log.
+- **`mellivora batch` reports wall-clock duration** instead of the sum of the
+  per-file times, which overstated a `--concurrency 4` run by about 4x in both
+  the report and the audit entry.
+- **GPS redaction reports below-sea-level altitude as negative.** EXIF stores
+  altitude as a magnitude and keeps the sign in `GPSAltitudeRef`; the report
+  ignored that tag, so a redacted altitude below sea level read as positive.
 
 ## [0.3.0] — 2026-10-24
 

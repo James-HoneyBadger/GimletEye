@@ -128,6 +128,11 @@ severity is `info | low | medium | high | critical`.
 The host also kills the process on drop. Respond to `shutdown` with any result
 and exit 0.
 
+Every reply must echo the `id` it is answering. Notifications — lines with no
+`id`, useful for progress logging — are allowed and skipped, but a reply that
+carries a different `id` is ignored rather than taken as the answer to whatever
+is in flight.
+
 ### Errors
 
 ```json

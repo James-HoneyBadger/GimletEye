@@ -20,9 +20,9 @@ pub struct Cli {
     #[arg(long, global = true, env = "MELLIVORA_HOME", value_name = "DIR")]
     pub home: Option<PathBuf>,
 
-    /// Output format for tool reports
-    #[arg(long, global = true, value_enum, default_value_t = FormatArg::Text)]
-    pub format: FormatArg,
+    /// Output format for tool reports (default: the configured [defaults] output, then text)
+    #[arg(long, global = true, value_enum)]
+    pub format: Option<FormatArg>,
 
     /// Shorthand for --format json
     #[arg(long, global = true)]

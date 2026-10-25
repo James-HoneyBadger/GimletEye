@@ -162,8 +162,14 @@ pub fn redact_gps_payload(
         } else {
             altitude
         };
+        // The stored value stays a magnitude; the reference tag carries the
+        // sign, so only the report needs it applied.
         write_rational(payload, base + offset, rounded as u32, 1, plan.little)?;
-        altitude_out = Some(rounded);
+        altitude_out = Some(if plan.altitude_ref == Some(1) {
+            -rounded
+        } else {
+            rounded
+        });
     }
 
     let (lat_deg, lat_min, lat_sec) = plan
@@ -262,6 +268,9 @@ struct Plan {
     altitude: Option<f64>,
     latitude_ref: Option<char>,
     longitude_ref: Option<char>,
+    /// `GPSAltitudeRef`: 0 (or absent) is above sea level, 1 is below. EXIF
+    /// stores altitude as an unsigned magnitude, so this is where the sign lives.
+    altitude_ref: Option<u8>,
 }
 
 const TAG_GPS_IFD: u16 = 0x8825;
@@ -269,6 +278,7 @@ const TAG_GPS_LATITUDE_REF: u16 = 1;
 const TAG_GPS_LATITUDE: u16 = 2;
 const TAG_GPS_LONGITUDE_REF: u16 = 3;
 const TAG_GPS_LONGITUDE: u16 = 4;
+const TAG_GPS_ALTITUDE_REF: u16 = 5;
 const TAG_GPS_ALTITUDE: u16 = 6;
 
 const TYPE_LONG: u16 = 4;
@@ -300,6 +310,7 @@ fn build_plan(tiff: &Tiff<'_>) -> Result<Option<Plan>> {
         altitude: None,
         latitude_ref: None,
         longitude_ref: None,
+        altitude_ref: None,
     };
 
     let count = tiff.ifd_count(gps_ifd)?;
@@ -327,6 +338,10 @@ fn build_plan(tiff: &Tiff<'_>) -> Result<Option<Plan>> {
                     plan.longitude = Some(decimal);
                     plan.longitude_offset = Some(offset);
                 }
+            }
+            TAG_GPS_ALTITUDE_REF if entry.count >= 1 => {
+                let offset = tiff.value_offset(&entry)?;
+                plan.altitude_ref = tiff.slice(offset, 1)?.first().copied();
             }
             TAG_GPS_ALTITUDE if entry.field_type == TYPE_RATIONAL && entry.count == 1 => {
                 let offset = tiff.value_offset(&entry)?;
@@ -520,6 +535,36 @@ mod tests {
     }
 
     #[test]
+    fn a_below_sea_level_altitude_is_reported_as_negative() {
+        use crate::exif::fixtures::build_exif_full;
+
+        let mut payload = build_exif_full(
+            (51.0, 30.0, 26.46),
+            (0.0, 7.0, 39.93),
+            Some(35.0),
+            "N",
+            "W",
+            Some(1), // GPSAltitudeRef: below sea level
+        );
+        let redaction = redact_gps_payload(&mut payload, GpsPrecision::City)
+            .expect("redact")
+            .expect("gps present");
+
+        assert_eq!(redaction.altitude_metres, Some(-30.0));
+
+        // On disk the value stays a magnitude (35 m truncated onto the 10 m
+        // grid); the reference tag is what says "below sea level".
+        let altitude_entry = 6 + (26 + 2 + 6 * 12 + 4) + 48;
+        let numerator = u32::from_be_bytes([
+            payload[altitude_entry],
+            payload[altitude_entry + 1],
+            payload[altitude_entry + 2],
+            payload[altitude_entry + 3],
+        ]);
+        assert_eq!(numerator, 30);
+    }
+
+    #[test]
     fn region_and_country_are_coarser() {
         let mut region = build_exif((51.0, 30.0, 26.46), (0.0, 7.0, 39.93), None, "N", "W");
         let redaction = redact_gps_payload(&mut region, GpsPrecision::Region)
@@ -651,6 +696,20 @@ pub(crate) mod fixtures {
         lat_ref: &str,
         lon_ref: &str,
     ) -> Vec<u8> {
+        build_exif_full(lat, lon, altitude, lat_ref, lon_ref, None)
+    }
+
+    /// The same block, optionally carrying a `GPSAltitudeRef` (0 = above sea
+    /// level, 1 = below) — the tag EXIF uses to keep the sign out of the value.
+    pub(crate) fn build_exif_full(
+        lat: (f64, f64, f64),
+        lon: (f64, f64, f64),
+        altitude: Option<f64>,
+        lat_ref: &str,
+        lon_ref: &str,
+        altitude_ref: Option<u8>,
+    ) -> Vec<u8> {
+        let entries: u32 = if altitude_ref.is_some() { 6 } else { 5 };
         let mut tiff: Vec<u8> = Vec::new();
         tiff.extend_from_slice(b"MM");
         tiff.extend_from_slice(&42u16.to_be_bytes());
@@ -658,7 +717,7 @@ pub(crate) mod fixtures {
 
         // IFD0: one entry (GPS IFD pointer), then next-IFD offset.
         let gps_offset: u32 = 26;
-        let data_start: u32 = 26 + 2 + 5 * 12 + 4; // 92
+        let data_start: u32 = 26 + 2 + entries * 12 + 4;
         tiff.extend_from_slice(&1u16.to_be_bytes());
         tiff.extend_from_slice(&TAG_GPS_IFD.to_be_bytes());
         tiff.extend_from_slice(&TYPE_LONG.to_be_bytes());
@@ -666,8 +725,8 @@ pub(crate) mod fixtures {
         tiff.extend_from_slice(&gps_offset.to_be_bytes());
         tiff.extend_from_slice(&0u32.to_be_bytes());
 
-        // GPS IFD: 5 entries, sorted by tag.
-        tiff.extend_from_slice(&5u16.to_be_bytes());
+        // GPS IFD: entries, sorted by tag.
+        tiff.extend_from_slice(&(entries as u16).to_be_bytes());
         // 1: latitude ref (ASCII, inline)
         tiff.extend_from_slice(&TAG_GPS_LATITUDE_REF.to_be_bytes());
         tiff.extend_from_slice(&2u16.to_be_bytes());
@@ -692,6 +751,13 @@ pub(crate) mod fixtures {
         tiff.extend_from_slice(&TYPE_RATIONAL.to_be_bytes());
         tiff.extend_from_slice(&3u32.to_be_bytes());
         tiff.extend_from_slice(&(data_start + 24).to_be_bytes());
+        if let Some(reference) = altitude_ref {
+            // 5: altitude reference (BYTE, count 1, inline)
+            tiff.extend_from_slice(&TAG_GPS_ALTITUDE_REF.to_be_bytes());
+            tiff.extend_from_slice(&1u16.to_be_bytes());
+            tiff.extend_from_slice(&1u32.to_be_bytes());
+            tiff.extend_from_slice(&[reference, 0, 0, 0]);
+        }
         // 6: altitude (1 RATIONAL)
         tiff.extend_from_slice(&TAG_GPS_ALTITUDE.to_be_bytes());
         tiff.extend_from_slice(&TYPE_RATIONAL.to_be_bytes());

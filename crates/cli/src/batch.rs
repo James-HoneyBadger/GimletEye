@@ -67,8 +67,13 @@ pub fn execute(
         )));
     }
 
+    let started = Instant::now();
     let outcomes = run_all(&tool, context, options, &files);
-    let report = aggregate(options, context.dry_run, &files, &outcomes);
+    // Wall time, not the sum of per-file times: with `--concurrency 4` the two
+    // differ by a factor of four, and the report's `duration_ms` is what the
+    // audit trail records.
+    let elapsed = started.elapsed();
+    let report = aggregate(options, context.dry_run, &files, &outcomes, elapsed);
     let status = report.status;
 
     if format == OutputFormat::Text {
@@ -264,14 +269,13 @@ fn aggregate(
     dry_run: bool,
     files: &[PathBuf],
     outcomes: &[Outcome],
+    duration: Duration,
 ) -> Report {
     let mut report = Report::new(&options.tool);
     let (mut ok, mut warnings, mut errors) = (0usize, 0usize, 0usize);
     let mut entries = Vec::with_capacity(outcomes.len());
-    let mut total_ms = 0u64;
 
     for outcome in outcomes {
-        total_ms += outcome.duration_ms;
         let input = outcome.path.display().to_string();
         match &outcome.result {
             Ok(result) => {
@@ -344,7 +348,7 @@ fn aggregate(
             "error": errors,
             "files": entries,
         }))
-        .with_duration(Duration::from_millis(total_ms))
+        .with_duration(duration)
         .sealed()
 }
 
@@ -545,8 +549,11 @@ mod tests {
         let tool: Arc<dyn Tool> = Arc::new(Echo);
         let context = ToolContext::new(AppPaths::under(&dir));
         let outcomes = run_all(&tool, &context, &opts, &files);
-        let report = aggregate(&opts, false, &files, &outcomes);
+        let report = aggregate(&opts, false, &files, &outcomes, Duration::from_millis(7));
 
+        // The report carries the wall-clock duration it was given, not the sum
+        // of the per-file times (which would be 7 * 3 here).
+        assert_eq!(report.duration_ms, 7);
         assert_eq!(outcomes.len(), 3, "concurrency must not drop work");
         assert_eq!(report.data["total"], 3);
         assert_eq!(report.data["ok"], 2);
@@ -577,7 +584,7 @@ mod tests {
         let outcomes = run_all(&tool, &context, &opts, &files);
 
         assert_eq!(outcomes.len(), 1, "single worker stops after the failure");
-        let report = aggregate(&opts, false, &files, &outcomes);
+        let report = aggregate(&opts, false, &files, &outcomes, Duration::from_millis(1));
         assert_eq!(report.data["skipped"], 2);
         assert!(report.summary.contains("stopped after the first failure"));
 

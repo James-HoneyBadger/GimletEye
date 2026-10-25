@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
@@ -83,7 +83,10 @@ impl Tool for DiskUsage {
                     path.display()
                 )));
             }
-            rows.retain(|row| contains_path(&row.mount, path));
+            // `df` reports absolute mount points, so a relative `path=.` would
+            // never match one until it is resolved.
+            let path = absolute(path);
+            rows.retain(|row| contains_path(&row.mount, &path));
             if rows.is_empty() {
                 return Err(MellivoraError::NotFound(format!(
                     "no mounted filesystem contains {}",
@@ -152,6 +155,11 @@ fn contains_path(mount: &str, path: &Path) -> bool {
     path.starts_with(mount)
 }
 
+/// Resolve a user-supplied path so it can be compared with `df`'s mounts.
+fn absolute(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
 fn setting(ctx: &ToolContext, key: &str, default: f64) -> f64 {
     ctx.config
         .module("sysadmin")
@@ -182,6 +190,35 @@ mod tests {
         assert!(contains_path("/", Path::new("/home/user")));
         assert!(contains_path("/home", Path::new("/home/user")));
         assert!(!contains_path("/home", Path::new("/var/log")));
+    }
+
+    #[test]
+    fn relative_paths_are_resolved_before_matching() {
+        let resolved = absolute(Path::new("."));
+        assert!(resolved.is_absolute());
+        assert_eq!(
+            resolved,
+            std::env::current_dir()
+                .expect("cwd")
+                .canonicalize()
+                .expect("canonical cwd")
+        );
+    }
+
+    #[test]
+    fn a_relative_path_selects_its_filesystem() {
+        if Command::new("df").arg("-kP").output().is_err() {
+            return;
+        }
+        let ctx = ToolContext::new(AppPaths::under(
+            std::env::temp_dir().join("mellivora-disk-relative"),
+        ));
+        let mut args = Args::new();
+        args.insert("path", ".");
+        let report = DiskUsage::new()
+            .run(&ctx, &args)
+            .expect("a relative path must resolve to its mount");
+        assert_eq!(report.data.as_array().map(Vec::len), Some(1));
     }
 
     #[test]

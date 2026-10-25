@@ -78,13 +78,22 @@ pub fn seal(
     Ok(out)
 }
 
-/// Decrypt a complete container.
+/// Decrypt a complete container held in memory.
+///
+/// Both layouts are accepted: a version 2 file is handed to the chunked reader,
+/// so `open` can never disagree with `crypto.decrypt` about what a file is and
+/// report a chunked container as a wrong passphrase.
 pub fn open(
     backend: &dyn CryptoBackend,
     passphrase: &[u8],
     bytes: &[u8],
 ) -> Result<Zeroizing<Vec<u8>>> {
     let header = parse_header(bytes)?;
+    if header.version == VERSION_STREAMING {
+        let mut plaintext = Vec::new();
+        open_stream(backend, passphrase, bytes, &mut plaintext)?;
+        return Ok(Zeroizing::new(plaintext));
+    }
     let key = backend.derive_key(passphrase, &header_salt(bytes)?, header.kdf)?;
     backend.aead_decrypt(
         header.algorithm,
@@ -647,6 +656,18 @@ mod tests {
         open_stream(&NativeBackend, b"hunter2", sealed.as_slice(), &mut opened).expect("open");
         assert_eq!(opened.len(), total);
         assert!(opened.iter().all(|byte| *byte == 0x5a));
+    }
+
+    #[test]
+    fn open_accepts_a_chunked_container() {
+        let data: Vec<u8> = (0..(CHUNK_SIZE + 7))
+            .map(|index| (index % 253) as u8)
+            .collect();
+        let sealed = seal_to_vec(&NativeBackend, &data, AeadAlgorithm::ChaCha20Poly1305);
+        assert_eq!(sealed[4], VERSION_STREAMING);
+
+        let opened = open(&NativeBackend, b"hunter2", &sealed).expect("open v2");
+        assert_eq!(opened.as_slice(), data.as_slice());
     }
 
     #[test]

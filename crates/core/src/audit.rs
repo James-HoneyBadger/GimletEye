@@ -1,6 +1,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +43,10 @@ impl AuditEntry {
 pub struct AuditLog {
     path: PathBuf,
     max_entries: usize,
+    /// Serialises append-and-prune between clones of this log. The HTTP server
+    /// records from several worker threads at once, and a rewrite that raced an
+    /// append would drop the record that append had already reported as written.
+    lock: Arc<Mutex<()>>,
 }
 
 impl AuditLog {
@@ -49,6 +54,7 @@ impl AuditLog {
         Self {
             path: path.into(),
             max_entries,
+            lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -57,6 +63,13 @@ impl AuditLog {
     }
 
     pub fn record(&self, entry: &AuditEntry) -> Result<()> {
+        // A poisoned lock means an earlier recorder panicked; the trail is still
+        // usable, so carry on instead of failing every later run.
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -98,6 +111,12 @@ impl AuditLog {
         Ok(entries)
     }
 
+    /// Trim the trail to `max_entries` through a sibling temporary file and a
+    /// rename, so a reader never observes a half-rewritten trail.
+    ///
+    /// A writer in *another* process can still lose an entry if it appends
+    /// between the read and the rename; the in-process lock covers the case that
+    /// actually happens (the server recording from several threads).
     fn prune(&self) -> Result<()> {
         if self.max_entries == 0 {
             return Ok(());
@@ -112,7 +131,17 @@ impl AuditLog {
             body.push_str(&serde_json::to_string(entry)?);
             body.push('\n');
         }
-        fs::write(&self.path, body)?;
+
+        let name = self
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let temp = self.path.with_file_name(format!("{name}.tmp"));
+        if let Err(err) = fs::write(&temp, body).and_then(|()| fs::rename(&temp, &self.path)) {
+            let _ = fs::remove_file(&temp);
+            return Err(err.into());
+        }
         Ok(())
     }
 }
@@ -157,6 +186,40 @@ mod tests {
         let entries = log.read_all().expect("read");
         assert_eq!(entries.len(), 3);
         assert_eq!(entries[2].tool, "tool-9");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_records_keep_the_trail_capped_and_parseable() {
+        let dir = temp_dir("concurrent");
+        let log = AuditLog::new(dir.join("audit.jsonl"), 20);
+
+        std::thread::scope(|scope| {
+            for worker in 0..8 {
+                let log = log.clone();
+                scope.spawn(move || {
+                    for index in 0..25 {
+                        let entry =
+                            AuditEntry::new(format!("worker-{worker}-{index}"), Status::Ok, 1);
+                        log.record(&entry).expect("record");
+                    }
+                });
+            }
+        });
+
+        let entries = log.read_all().expect("read");
+        assert!(entries.len() <= 20, "cap exceeded: {}", entries.len());
+        assert!(!entries.is_empty());
+
+        // A single further append trims back to exactly the cap.
+        log.record(&AuditEntry::new("final", Status::Ok, 1))
+            .expect("record");
+        assert_eq!(log.read_all().expect("read").len(), 20);
+        assert!(
+            !dir.join("audit.jsonl.tmp").exists(),
+            "the temporary file must not outlive the rewrite"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
