@@ -26,8 +26,9 @@ mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or deskto
 
 Everything runs locally: nothing here opens a network connection, and there is
 no telemetry, no auto-update, and no remote logging. A pack declares the
-`network` capability, and the host refuses to dispatch its tools unless that
-capability is granted.
+`network` capability in its manifest, and the host refuses to dispatch any of
+its tools unless that capability is granted — a tool cannot ask for more than
+its manifest declared.
 
 ## Design
 
@@ -182,7 +183,7 @@ mellivora plugins list|doctor
 mellivora config show|init|path
 mellivora audit [--limit N]
 mellivora doctor
-mellivora serve [--host 127.0.0.1] [--port 7878] [--ui-dir DIR]
+mellivora serve [--host 127.0.0.1] [--port 7878] [--ui-dir DIR] [--allow-remote]
 ```
 
 Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.

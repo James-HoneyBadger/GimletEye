@@ -232,11 +232,10 @@ GET  /api/v1/audit?limit=N   → { enabled, path, entries } from the audit trail
 GET  /api/v1/config          → effective config (no secrets)
 ```
 
-Blocking work runs on `spawn_blocking`; the API binds to loopback by default
-and allows any origin because the desktop window, the Vite dev server, and the
-`file://`-style webview origin are all different origins. If it is ever exposed
-beyond loopback, add authentication *before* changing the bind address — see
-[Security](#7-security-model).
+Blocking work runs on `spawn_blocking`; the API binds to loopback by default and
+answers CORS only for the desktop window, the Vite dev server, and loopback
+origins. A non-loopback bind requires `--allow-remote`, because there is no
+authentication yet — see [Security](#7-security-model).
 
 The UI renders forms from `ToolManifest.args`, so a new tool appears in the UI
 with no frontend change. That is the payoff of the manifest contract — and the
@@ -319,8 +318,9 @@ The toolkit runs everything locally and holds secrets. Four structural choices:
 
 1. **Capabilities are declared and checked.** Tools declare `fs:read`,
    `fs:write`, `process:exec`, `network`, `secrets`, `system`. Built-ins check
-   their own required capability at entry; the plugin host refuses to dispatch a
-   pack tool whose declared capabilities were not granted.
+   their own required capability at entry; the plugin host refuses to dispatch
+   any tool from a pack whose declared capabilities were not granted, and
+   rejects a pack whose tools request more than its manifest declares.
 2. **Packs are separate processes.** No shared address space, no link-time
    access to the crypto code. A pack can be killed on timeout.
 3. **Audit never stores values** (see above).

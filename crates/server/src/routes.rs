@@ -240,27 +240,105 @@ fn content_type(path: &std::path::Path) -> &'static str {
     }
 }
 
-/// The desktop shell and the browser dev server run on different origins, so
-/// the local API allows any origin. It binds to loopback by default.
+/// Origins the local API answers: the desktop webview, the browser dev server,
+/// and anything served from this machine. Any other origin gets no grant, so a
+/// page the user happens to visit cannot drive local tools through the browser.
+fn origin_allowed(origin: &str) -> bool {
+    let origin = origin.trim().to_ascii_lowercase();
+    if matches!(
+        origin.as_str(),
+        "tauri://localhost" | "http://tauri.localhost" | "https://tauri.localhost"
+    ) {
+        return true;
+    }
+    let Some(rest) = origin
+        .strip_prefix("http://")
+        .or_else(|| origin.strip_prefix("https://"))
+    else {
+        return false;
+    };
+    let authority = rest.split('/').next().unwrap_or_default();
+    let host = match authority.strip_prefix('[') {
+        Some(bracketed) => bracketed.split(']').next().unwrap_or_default(),
+        None => authority.split(':').next().unwrap_or_default(),
+    };
+    matches!(host, "localhost" | "127.0.0.1" | "::1")
+}
+
+/// The desktop shell and the browser dev server run on different origins, so the
+/// local API answers a small allowlist rather than every origin. Requests with
+/// no `Origin` at all (curl, the CLI, a same-origin navigation) are unaffected.
 async fn cors(request: axum::extract::Request, next: Next) -> Response {
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     let preflight = request.method() == Method::OPTIONS;
+    let granted = origin
+        .as_deref()
+        .filter(|value| origin_allowed(value))
+        .map(str::to_owned);
+
+    if preflight && granted.is_none() && origin.is_some() {
+        return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
+    }
+
     let mut response = if preflight {
         StatusCode::NO_CONTENT.into_response()
     } else {
         next.run(request).await
     };
-    let headers = response.headers_mut();
-    headers.insert(
-        header::ACCESS_CONTROL_ALLOW_ORIGIN,
-        HeaderValue::from_static("*"),
-    );
-    headers.insert(
-        header::ACCESS_CONTROL_ALLOW_METHODS,
-        HeaderValue::from_static("GET, POST, OPTIONS"),
-    );
-    headers.insert(
-        header::ACCESS_CONTROL_ALLOW_HEADERS,
-        HeaderValue::from_static("content-type"),
-    );
+
+    if let Some(origin) = granted {
+        if let Ok(value) = HeaderValue::from_str(&origin) {
+            let headers = response.headers_mut();
+            headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+            headers.insert(header::VARY, HeaderValue::from_static("origin"));
+            headers.insert(
+                header::ACCESS_CONTROL_ALLOW_METHODS,
+                HeaderValue::from_static("GET, POST, OPTIONS"),
+            );
+            headers.insert(
+                header::ACCESS_CONTROL_ALLOW_HEADERS,
+                HeaderValue::from_static("content-type"),
+            );
+        }
+    }
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::origin_allowed;
+
+    #[test]
+    fn allows_the_local_ui_the_dev_server_and_the_desktop_shell() {
+        for origin in [
+            "http://127.0.0.1:7878",
+            "http://localhost:5173",
+            "https://localhost",
+            "http://[::1]:7878",
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+        ] {
+            assert!(origin_allowed(origin), "{origin} should be allowed");
+        }
+    }
+
+    #[test]
+    fn refuses_remote_and_opaque_origins() {
+        for origin in [
+            "https://evil.example",
+            "http://127.0.0.1.evil.example",
+            "http://localhost.evil.example",
+            "http://192.168.1.5:7878",
+            "null",
+            "file://",
+            "ftp://localhost",
+        ] {
+            assert!(!origin_allowed(origin), "{origin} should be refused");
+        }
+    }
 }

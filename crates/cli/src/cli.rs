@@ -115,6 +115,9 @@ pub enum Command {
         /// Directory containing the built UI
         #[arg(long, value_name = "DIR")]
         ui_dir: Option<PathBuf>,
+        /// Allow a non-loopback bind; the API has no authentication
+        #[arg(long)]
+        allow_remote: bool,
     },
 }
 

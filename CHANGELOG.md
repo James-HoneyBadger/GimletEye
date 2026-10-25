@@ -4,6 +4,31 @@ All notable changes to Mellivora ToolKit. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **CLI `key=value` text is no longer rewritten.** Only canonical numbers and
+  `true`/`false` are coerced; `passphrase=0123`, `input=-0`, and any other value
+  that merely looks numeric stays exactly as typed, so a passphrase can no
+  longer be silently changed to `123`.
+- **`crypto.sign` refuses to write over its input and no longer replaces an
+  existing signature silently.** It gains `overwrite`, matching `crypto.encrypt`
+  and `crypto.decrypt`.
+- **`privacy.metadata-strip` writes through a temporary file and renames into
+  place**, so an interrupted run cannot leave a truncated photo — which matters
+  most with `in_place=true`, where the destination is the only copy. It refuses
+  an `output` that is the input (use `in_place=true`, which is explicit), gains
+  `overwrite`, and preserves the original file's permissions when rewriting.
+- **The local API answers CORS only for the desktop window, the Vite dev
+  server, and loopback origins** instead of `*`, so a page the user visits can
+  no longer drive local tools through the browser. A non-loopback bind is
+  refused unless `serve --allow-remote` is passed.
+- **Pack capabilities are enforced as documented.** A pack whose tools request
+  a capability its manifest omits now fails to load, and `plugins.allow` gates
+  every tool of a pack whose declared capabilities were not granted — previously
+  a tool that declared nothing ran regardless of what its pack declared.
+
 ## [0.3.0] — 2026-10-24
 
 Encryption no longer depends on how big the file is. Containers written from

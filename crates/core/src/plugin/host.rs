@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -156,6 +156,19 @@ impl RunningPack {
                 tool.version = Some(self.manifest.version.clone());
             }
         }
+
+        // The manifest is the contract the operator granted, so a tool may
+        // narrow it but never widen it: a pack that hides `network` from its
+        // manifest cannot smuggle it in through `list_tools`.
+        if let Some((tool, capability)) =
+            undeclared_capabilities(&self.manifest, &tools.tools).first()
+        {
+            return Err(MellivoraError::Plugin(format!(
+                "pack '{}' exposes '{tool}' which requests {capability} that its manifest does not declare",
+                self.manifest.name
+            )));
+        }
+
         self.tools = tools.tools;
         Ok(())
     }
@@ -227,6 +240,26 @@ impl Drop for RunningPack {
     }
 }
 
+/// Capabilities a pack's tools request that its manifest never declared.
+///
+/// Checked once at handshake time, so the grant an operator configures always
+/// covers the whole pack rather than only the tool that happens to be called.
+fn undeclared_capabilities(
+    manifest: &PackManifest,
+    tools: &[ToolManifest],
+) -> Vec<(String, Capability)> {
+    let declared: BTreeSet<Capability> = manifest.capabilities.iter().copied().collect();
+    let mut problems = Vec::new();
+    for tool in tools {
+        for capability in &tool.capabilities {
+            if !declared.contains(capability) {
+                problems.push((tool.id.clone(), *capability));
+            }
+        }
+    }
+    problems
+}
+
 /// A pack-provided tool, adapted so the registry cannot tell it apart from a
 /// built-in. This is the whole point of the plugin layer: one contract.
 #[derive(Debug, Clone)]
@@ -251,24 +284,32 @@ impl Tool for PluginTool {
         &self.manifest
     }
 
-    fn run(&self, _ctx: &ToolContext, args: &Args) -> Result<Report> {
+    fn run(&self, ctx: &ToolContext, args: &Args) -> Result<Report> {
         let mut pack = self
             .pack
             .lock()
             .map_err(|_| MellivoraError::Internal("plugin host lock poisoned".to_string()))?;
 
-        let denied: Vec<Capability> = self
+        // Dispatch needs the pack's own declaration *and* the tool's narrower
+        // one to be granted, so `plugins.allow` constrains what the pack as a
+        // whole may do rather than only what a single tool admits to.
+        let mut missing: Vec<Capability> = pack
             .manifest
             .capabilities
             .iter()
             .copied()
-            .filter(|cap| !_ctx.granted.contains(*cap))
+            .filter(|capability| !ctx.granted.contains(*capability))
             .collect();
-        if !denied.is_empty() {
+        for capability in &self.manifest.capabilities {
+            if !ctx.granted.contains(*capability) && !missing.contains(capability) {
+                missing.push(*capability);
+            }
+        }
+        if !missing.is_empty() {
             return Err(MellivoraError::CapabilityDenied(format!(
                 "pack '{}' needs {}",
                 pack.manifest.name,
-                denied
+                missing
                     .iter()
                     .map(|c| c.to_string())
                     .collect::<Vec<_>>()
@@ -465,5 +506,36 @@ mod tests {
         let (found, failures) = discover(&[PathBuf::from("/nonexistent/mellivora/packs")]);
         assert!(found.is_empty());
         assert!(failures.is_empty());
+    }
+
+    fn pack_manifest(capabilities: Vec<Capability>) -> PackManifest {
+        PackManifest {
+            name: "demo".into(),
+            version: "0.0.0".into(),
+            protocol_version: PROTOCOL_VERSION,
+            description: None,
+            command: vec!["true".into()],
+            enabled: true,
+            capabilities,
+            timeout_ms: None,
+            env: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn a_tool_may_not_request_capabilities_the_manifest_omits() {
+        use crate::tool::Category;
+
+        let manifest = pack_manifest(vec![Capability::FsRead]);
+        let honest = ToolManifest::new("demo.read", "Read", "reads", Category::Sysadmin)
+            .with_capabilities([Capability::FsRead]);
+        assert!(undeclared_capabilities(&manifest, &[honest]).is_empty());
+
+        let widened = ToolManifest::new("demo.sneaky", "Sneaky", "calls home", Category::Sysadmin)
+            .with_capabilities([Capability::FsRead, Capability::Network]);
+        assert_eq!(
+            undeclared_capabilities(&manifest, &[widened]),
+            vec![("demo.sneaky".to_string(), Capability::Network)]
+        );
     }
 }

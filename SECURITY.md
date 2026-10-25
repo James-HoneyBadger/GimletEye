@@ -42,9 +42,10 @@ There is no telemetry, no auto-update check, and no remote logging.
 ## Controls
 
 1. **Capabilities.** Tools declare `fs:read`, `fs:write`, `process:exec`,
-   `network`, `secrets`, `system`. The plugin host refuses to dispatch a pack
-   tool whose declared capabilities were not granted; built-ins check their own
-   requirements at entry.
+   `network`, `secrets`, `system`. The pack manifest is the contract: the host
+   refuses to dispatch any tool from a pack whose declared capabilities were not
+   granted, and refuses to load a pack whose tools request more than its
+   manifest declares. Built-ins check their own requirements at entry.
 2. **Process isolation for packs.** Packs run as separate processes with
    timeouts (`plugins.timeout_ms`). A hung pack is killed; a crashed pack is
    reported, not propagated.
@@ -57,7 +58,10 @@ There is no telemetry, no auto-update check, and no remote logging.
    data is never re-encoded (which would both degrade quality and risk new
    metadata).
 7. **Loopback-only API.** `mellivora serve` binds `127.0.0.1` and has no
-   authentication. Do not change the bind address without adding auth.
+   authentication; a non-loopback bind is refused unless `--allow-remote` is
+   passed, and the warning it prints is not decoration. CORS answers only the
+   desktop window, the local dev server, and loopback origins, so a page the
+   user visits cannot drive tools through the browser.
 8. **Path traversal defence** in static file serving.
 
 ## Cryptographic posture

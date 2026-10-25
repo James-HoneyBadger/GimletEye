@@ -254,8 +254,13 @@ impl Args {
         self.0.is_empty()
     }
 
-    /// Parse `key=value` pairs from a CLI. `true`/`false` and integers are
-    /// coerced so tools get typed values without a JSON detour.
+    /// Parse `key=value` pairs from a CLI.
+    ///
+    /// Only text that survives a round trip is coerced: `true`/`false` and
+    /// canonical integers (`32`, `-5`) become typed values, so tools and packs
+    /// get numbers without a JSON detour. Everything else stays a string —
+    /// `0123`, `+5`, and `-0` are what the user typed, and rewriting them would
+    /// silently change a passphrase, a PIN, or a file name.
     pub fn from_pairs<I, K, V>(pairs: I) -> Result<Self>
     where
         I: IntoIterator<Item = (K, V)>,
@@ -273,8 +278,8 @@ impl Args {
                 "true" => Value::Bool(true),
                 "false" => Value::Bool(false),
                 other => match other.parse::<i64>() {
-                    Ok(number) => Value::from(number),
-                    Err(_) => Value::String(other.to_string()),
+                    Ok(number) if number.to_string() == other => Value::from(number),
+                    _ => Value::String(other.to_string()),
                 },
             };
             args.0.insert(key, value);
@@ -530,6 +535,32 @@ mod tests {
             serde_json::from_value(serde_json::json!({ "id": "pack.tool", "title": "T", "summary": "S", "category": "sysadmin" }))
                 .expect("legacy manifest deserializes");
         assert!(!legacy.mutates);
+    }
+
+    #[test]
+    fn cli_pairs_keep_text_that_only_looks_numeric() {
+        let args = Args::from_pairs([
+            ("passphrase", "0123"),
+            ("text", "+5"),
+            ("input", "-0"),
+            ("length", "32"),
+            ("negative", "-5"),
+            ("flag", "true"),
+        ])
+        .expect("parse");
+
+        // Text the user typed survives verbatim.
+        assert_eq!(args.get("passphrase"), Some(&Value::from("0123")));
+        assert_eq!(args.get("text"), Some(&Value::from("+5")));
+        assert_eq!(args.get("input"), Some(&Value::from("-0")));
+        assert_eq!(args.require_str("input").expect("input"), "-0");
+
+        // Canonical numbers still arrive typed.
+        assert_eq!(args.get("length"), Some(&Value::from(32)));
+        assert_eq!(args.get("negative"), Some(&Value::from(-5)));
+        assert_eq!(args.u64_or("length", 0).expect("length"), 32);
+        assert_eq!(args.get("flag"), Some(&Value::Bool(true)));
+        assert!(args.bool_or("flag", false).expect("flag"));
     }
 
     #[test]

@@ -238,6 +238,9 @@ impl MetadataStrip {
                 ArgSpec::new("in_place", ArgKind::Boolean)
                     .default_value(Value::Bool(false))
                     .help("Overwrite the input file"),
+                ArgSpec::new("overwrite", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help("Replace the output file if it exists"),
                 profile_arg(),
                 remove_arg(),
                 keep_arg(),
@@ -270,8 +273,21 @@ impl Tool for MetadataStrip {
         let started = Instant::now();
         let (input, bytes) = read_input(args)?;
         let target = target_path(&input, args)?;
+        let in_place = args.bool_or("in_place", false)?;
+        let overwrite = args.bool_or("overwrite", false)?;
         let policy = policy_from_args(args)?;
         let precision = gps_from_args(args)?;
+
+        // Rewriting the source in place is a decision the caller makes explicitly
+        // with `in_place`; an `output` that happens to be the input would destroy
+        // it by accident, since the byte-level rewrite starts from the file we
+        // just read.
+        if !in_place && same_file(&input, &target) {
+            return Err(MellivoraError::InvalidArgs(format!(
+                "output {} is the input file; use in_place=true to rewrite it",
+                target.display()
+            )));
+        }
 
         let handler = handler_for(&bytes)?;
         let before = handler.scan(&bytes)?;
@@ -334,12 +350,20 @@ impl Tool for MetadataStrip {
 
         if !ctx.dry_run && changed {
             ctx.require(Capability::FsWrite)?;
+            // `in_place` is the explicit permission to replace the input; every
+            // other destination is only replaceable on request.
+            if !in_place && target.exists() && !overwrite {
+                return Err(MellivoraError::Config(format!(
+                    "{} already exists (use overwrite=true to replace it)",
+                    target.display()
+                )));
+            }
             if let Some(parent) = target.parent() {
                 if !parent.as_os_str().is_empty() {
                     fs::create_dir_all(parent)?;
                 }
             }
-            fs::write(&target, &cleaned)?;
+            write_atomic(&target, &cleaned)?;
         }
 
         let mut report = Report::new(&self.manifest.id)
@@ -420,6 +444,42 @@ fn default_output(input: &Path) -> PathBuf {
         }
         None => input.with_file_name(format!("{stem}.clean")),
     }
+}
+
+/// Do two paths name the same file? Compared after canonicalisation so a
+/// relative spelling of the input is still recognised as the input.
+fn same_file(left: &Path, right: &Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => left == right,
+    }
+}
+
+/// Write beside the destination and rename into place.
+///
+/// A strip that stops halfway — a full disk, a signal, a bug — must not leave a
+/// truncated photo at the destination, and with `in_place` the destination is
+/// the only copy. The temporary file inherits the original's permissions, so
+/// rewriting a `0600` file does not widen it.
+fn write_atomic(target: &Path, bytes: &[u8]) -> Result<()> {
+    let name = target
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let temp = target.with_file_name(format!("{name}.tmp"));
+    let existing = fs::metadata(target).ok();
+
+    let outcome = fs::write(&temp, bytes).and_then(|()| {
+        if let Some(metadata) = &existing {
+            fs::set_permissions(&temp, metadata.permissions())?;
+        }
+        fs::rename(&temp, target)
+    });
+    if let Err(err) = outcome {
+        let _ = fs::remove_file(&temp);
+        return Err(err.into());
+    }
+    Ok(())
 }
 
 /// Re-scan the output before it is written: a strip that fails to strip is a
@@ -661,6 +721,75 @@ mod tests {
             .run(&context(), &args)
             .expect_err("must fail");
         assert_eq!(err.code(), "invalid_args");
+    }
+
+    #[test]
+    fn an_output_that_is_the_input_is_refused() {
+        let dir = workspace();
+        let path = write(&dir, "alias.jpg", &jpeg_with_exif());
+        let original = fs::read(&path).expect("read");
+
+        let mut args = args_for(&path);
+        args.insert("output", path.display().to_string());
+        let err = MetadataStrip::new()
+            .run(&context(), &args)
+            .expect_err("must refuse");
+        assert_eq!(err.code(), "invalid_args");
+        assert!(err.to_string().contains("in_place"), "{err}");
+        assert_eq!(fs::read(&path).expect("intact"), original);
+    }
+
+    #[test]
+    fn strip_refuses_to_replace_an_existing_output() {
+        let dir = workspace();
+        let path = write(&dir, "guard.jpg", &jpeg_with_exif());
+        let output = write(&dir, "existing.jpg", b"do not touch");
+
+        let mut args = args_for(&path);
+        args.insert("output", output.display().to_string());
+        let err = MetadataStrip::new()
+            .run(&context(), &args)
+            .expect_err("must refuse");
+        assert_eq!(err.code(), "config");
+        assert_eq!(fs::read(&output).expect("unchanged"), b"do not touch");
+
+        args.insert("overwrite", true);
+        MetadataStrip::new()
+            .run(&context(), &args)
+            .expect("overwrite");
+        assert!(!fs::read(&output)
+            .expect("read")
+            .windows(4)
+            .any(|w| w == b"Exif"));
+    }
+
+    #[test]
+    fn a_rewrite_leaves_no_temporary_file_behind() {
+        let dir = workspace();
+        let path = write(&dir, "tidy.jpg", &jpeg_with_exif());
+
+        let mut args = args_for(&path);
+        args.insert("in_place", true);
+        MetadataStrip::new().run(&context(), &args).expect("strip");
+
+        assert!(!dir.join("tidy.jpg.tmp").exists(), "temp file removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn in_place_rewrite_keeps_the_original_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = workspace();
+        let path = write(&dir, "private.jpg", &jpeg_with_exif());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("chmod");
+
+        let mut args = args_for(&path);
+        args.insert("in_place", true);
+        MetadataStrip::new().run(&context(), &args).expect("strip");
+
+        let mode = fs::metadata(&path).expect("metadata").permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 
     #[test]

@@ -34,7 +34,9 @@ MY_PACK_DATA = "/usr/share/my-pack"
 ```
 
 `command` is split as argv and executed directly: manifests cannot inject shell
-syntax. The child's working directory is the pack directory, and the host sets:
+syntax. `capabilities` is a ceiling: the pack's tools may declare a subset of
+these, never more (see [Capabilities](#6-capabilities)). The child's working
+directory is the pack directory, and the host sets:
 
 | Variable | Meaning |
 |---|---|
@@ -234,8 +236,11 @@ for the exact request shapes.
 
 ## 6. Capabilities
 
-Packs declare `capabilities` in the manifest. The host refuses to dispatch a
-tool whose declared capabilities are not granted:
+Packs declare `capabilities` in the manifest, and the manifest is the contract:
+a tool may use a subset of what the pack declared, never more. A pack whose
+`list_tools` response asks for a capability the manifest omits fails to load
+rather than being dispatched. The host refuses to dispatch any tool from a pack
+whose declared capabilities are not granted:
 
 ```toml
 [plugins]
@@ -273,6 +278,8 @@ Before publishing a pack:
 
 - [ ] `initialize` returns the same `protocol_version` it received.
 - [ ] `list_tools` ids are stable, namespaced (`pack.tool`), and unique.
+- [ ] Every capability a tool lists is also declared in `mellivora-pack.toml` —
+      a tool that widens the manifest is refused at load time.
 - [ ] Every manifest id is actually runnable.
 - [ ] Findings drive `status` (a `high` finding with `ok` status is a bug).
 - [ ] `--dry-run` is honoured for anything that writes.

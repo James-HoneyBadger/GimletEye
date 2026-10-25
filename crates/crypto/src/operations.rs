@@ -559,6 +559,9 @@ impl Sign {
                     .required()
                     .help("Secret key file (<label>.key)"),
                 ArgSpec::new("output", ArgKind::Path).help("Signature path (default: <input>.sig)"),
+                ArgSpec::new("overwrite", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help("Replace the signature file if it exists"),
             ])
             .with_tags(["signature", "ed25519", "integrity"])
             .mutating(),
@@ -589,6 +592,12 @@ impl Tool for Sign {
             let name = input.file_name().unwrap_or_default().to_string_lossy();
             input.with_file_name(format!("{name}.sig"))
         });
+
+        // The signature replaces whatever is at `target`, so the same two guards
+        // as encrypt and decrypt apply: never write over the input, and never
+        // replace an existing file the caller did not ask to replace.
+        ensure_distinct(&input, &target)?;
+        ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
 
         let signature = self.backend.ed25519_sign(&secret, &bytes)?;
         write_file(ctx, &target, &signature)?;
@@ -946,6 +955,68 @@ mod tests {
             .run(&context(), &args)
             .expect_err("second");
         assert_eq!(err.code(), "config");
+    }
+
+    #[test]
+    fn sign_refuses_to_overwrite_its_input() {
+        let dir = workspace();
+        let key_dir = dir.join("keys-sign-input");
+        let mut keygen_args = Args::new();
+        keygen_args.insert("label", "signer");
+        keygen_args.insert("dir", key_dir.display().to_string());
+        tool(KeyGen::new)
+            .run(&context(), &keygen_args)
+            .expect("keygen");
+
+        let input = dir.join("keep-me.txt");
+        fs::write(&input, b"precious").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("key", key_dir.join("signer.key").display().to_string());
+        args.insert("output", input.display().to_string());
+
+        let err = tool(Sign::new)
+            .run(&context(), &args)
+            .expect_err("must refuse");
+        assert_eq!(err.code(), "invalid_args");
+        assert_eq!(fs::read(&input).expect("input intact"), b"precious");
+    }
+
+    #[test]
+    fn sign_refuses_to_replace_an_existing_signature() {
+        let dir = workspace();
+        let key_dir = dir.join("keys-sign-existing");
+        let mut keygen_args = Args::new();
+        keygen_args.insert("label", "signer");
+        keygen_args.insert("dir", key_dir.display().to_string());
+        tool(KeyGen::new)
+            .run(&context(), &keygen_args)
+            .expect("keygen");
+
+        let input = dir.join("doc.txt");
+        fs::write(&input, b"agreed").expect("write");
+        let signature = dir.join("doc.sig");
+        fs::write(&signature, b"older signature").expect("write");
+
+        let mut args = Args::new();
+        args.insert("input", input.display().to_string());
+        args.insert("key", key_dir.join("signer.key").display().to_string());
+        args.insert("output", signature.display().to_string());
+
+        let err = tool(Sign::new)
+            .run(&context(), &args)
+            .expect_err("must refuse");
+        assert_eq!(err.code(), "config");
+        assert_eq!(
+            fs::read(&signature).expect("unchanged"),
+            b"older signature",
+            "the existing signature must survive a refused run"
+        );
+
+        args.insert("overwrite", true);
+        tool(Sign::new).run(&context(), &args).expect("overwrite");
+        assert_eq!(fs::read(&signature).expect("read").len(), 64);
     }
 
     #[test]

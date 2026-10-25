@@ -74,7 +74,12 @@ pub fn dispatch(cli: Cli) -> Result<ExitCode> {
         },
         Command::Audit { limit } => show_audit(&globals, limit),
         Command::Doctor => doctor(&globals),
-        Command::Serve { host, port, ui_dir } => serve(&globals, host, port, ui_dir),
+        Command::Serve {
+            host,
+            port,
+            ui_dir,
+            allow_remote,
+        } => serve(&globals, host, port, ui_dir, allow_remote),
     }
 }
 
@@ -407,7 +412,13 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
     })
 }
 
-fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) -> Result<ExitCode> {
+fn serve(
+    globals: &Globals,
+    host: String,
+    port: u16,
+    ui_dir: Option<PathBuf>,
+    allow_remote: bool,
+) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), true)?;
     runtime.paths.ensure()?;
 
@@ -415,6 +426,7 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
     let addr: std::net::SocketAddr = address.parse().map_err(|err| {
         MellivoraError::InvalidArgs(format!("invalid host/port '{address}': {err}"))
     })?;
+    guard_bind_address(addr, allow_remote)?;
 
     if let Some(dir) = &ui_dir {
         if !dir.is_dir() {
@@ -436,6 +448,22 @@ fn serve(globals: &Globals, host: String, port: u16, ui_dir: Option<PathBuf>) ->
 
     mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run)?;
     Ok(ExitCode::SUCCESS)
+}
+
+/// The API has no authentication, so anything beyond loopback is an explicit
+/// decision rather than a typo: `--allow-remote` says so out loud.
+fn guard_bind_address(addr: std::net::SocketAddr, allow_remote: bool) -> Result<()> {
+    if addr.ip().is_loopback() {
+        return Ok(());
+    }
+    if !allow_remote {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "refusing to bind {addr}: this API has no authentication \
+             (pass --allow-remote to serve the network anyway)"
+        )));
+    }
+    eprintln!("mellivora: warning: serving on {addr} without authentication");
+    Ok(())
 }
 
 /// `mellivora system-info` is rewritten to `mellivora run system-info` before
@@ -520,6 +548,18 @@ mod tests {
         assert_eq!(exit_code(Status::Warning, true), ExitCode::from(1));
         assert_eq!(exit_code(Status::Error, false), ExitCode::from(1));
         assert_eq!(exit_code(Status::Error, true), ExitCode::from(1));
+    }
+
+    #[test]
+    fn a_non_loopback_bind_needs_an_explicit_opt_in() {
+        let loopback: std::net::SocketAddr = "127.0.0.1:7878".parse().expect("addr");
+        assert!(guard_bind_address(loopback, false).is_ok());
+
+        let any: std::net::SocketAddr = "0.0.0.0:7878".parse().expect("addr");
+        let err = guard_bind_address(any, false).expect_err("must refuse");
+        assert_eq!(err.code(), "invalid_args");
+        assert!(err.to_string().contains("--allow-remote"), "{err}");
+        assert!(guard_bind_address(any, true).is_ok());
     }
 
     #[test]
