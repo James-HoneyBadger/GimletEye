@@ -8,6 +8,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **`Report.data` has a documented shape.** An object or an array of objects,
+  `snake_case` keys, at most two levels of nesting, and strings that carry a
+  value rather than a document — enforced by a test that runs every native tool
+  and fails when a tool is added without a sample. See
+  [COMPATIBILITY.md](docs/COMPATIBILITY.md#the-shape-of-reportdata).
 - **Tools declare the platforms they run on.** `ToolManifest.platforms` is
   enforced by the registry, so `sysadmin.system-info` and `sysadmin.disk-usage` —
   which read `/proc` and parse `df` — return an `unsupported` error naming both
@@ -19,6 +24,12 @@ All notable changes to Mellivora ToolKit. Format follows
   carries the token in its fragment so the workbench signs itself in; the desktop
   shell injects it into the window. `[api] require_token = false` turns it off and
   says so at startup.
+
+### Changed
+
+- **`sysadmin.system-info` reports `load.avg_1m` / `avg_5m` / `avg_15m`** instead
+  of `load.1m` / `5m` / `15m`, so its keys satisfy the `Report.data` convention.
+  This is the kind of rename the 1.0 freeze will make expensive; better now.
 
 ### Fixed
 

@@ -117,7 +117,7 @@ surfaces a shape. Surface changes are allowed and expected here.
   `unsupported` naming the platform.
   *Acceptance:* a test flips the declaration and asserts the error; `tools list`
   shows the platform.
-- [ ] **`Report.data` shape.** Decide it — a per-tool schema in the manifest, or
+- [x] **`Report.data` shape.** Decide it — a per-tool schema in the manifest, or
   a written convention (object or array of objects, snake_case keys, no
   pre-formatted prose) — and record the decision in COMPATIBILITY.md.
   *Acceptance:* a test walks a sample report per native tool and rejects a shape

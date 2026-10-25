@@ -731,6 +731,7 @@ dependencies = [
  "mellivora-scrub",
  "mellivora-server",
  "mellivora-sysadmin",
+ "serde_json",
  "tokio",
  "tracing",
 ]

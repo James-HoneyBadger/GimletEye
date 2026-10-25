@@ -87,9 +87,11 @@ impl Tool for SystemInfo {
             data.insert(
                 "load".into(),
                 json!({
-                    "1m": load.load_1,
-                    "5m": load.load_5,
-                    "15m": load.load_15,
+                    // `avg_` keeps the keys snake_case, which `Report.data`
+                    // requires of every tool.
+                    "avg_1m": load.load_1,
+                    "avg_5m": load.load_5,
+                    "avg_15m": load.load_15,
                     "running": load.running,
                     "total": load.total,
                 }),

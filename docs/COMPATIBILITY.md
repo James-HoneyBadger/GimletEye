@@ -20,6 +20,29 @@ policy. This document states it.
 Anything not in this table — internal module layout, parser helpers, the UI's
 DOM — can change at any time.
 
+## The shape of `Report.data`
+
+`data` is public API, so it follows five rules. Without them a consumer has to
+reverse-engineer each tool; with them, one parser handles every report.
+
+1. **It is an object, or an array of objects that share their keys.** A tool with
+   a single value reports `{ "value": … }`, not a bare scalar.
+2. **Keys are `snake_case` and stable.** A rename follows the deprecation policy
+   below — which is why `system-info` reports `load.avg_1m`, not `load.1m`.
+3. **Nesting stops at two levels** — `data.a.b` and `data.a[].b`. Anything deeper
+   is a second report, not data.
+4. **A string carries a value, not a document.** No newlines, no ANSI escapes, no
+   HTML. Prose belongs in `body`; a one-line verdict in `summary`.
+5. **Units live in the key**: `_bytes`, `_kb`, `_ms`, `_percent`, `_hex`.
+
+There is deliberately no per-tool schema at 1.0. One can be added additively
+later; a schema *language* is a much larger promise than the shape itself.
+
+The rules are enforced, not remembered: `crates/toolkit/tests/data_shape.rs` runs
+every native tool against a sample invocation, checks rules 1–4, and fails when a
+tool is added without a sample. Packs are expected to follow the same rules — the
+host cannot check them today, which is what `plugins conformance` is for.
+
 ## Versioning
 
 - **One workspace version.** Modules version together until something outside
