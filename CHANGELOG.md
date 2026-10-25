@@ -8,6 +8,12 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **A job builds the declared MSRV.** `msrv` in CI compiles every target on the
+  `rust-version` from `[workspace.package]`, `--locked`, and
+  `scripts/check-msrv.sh` fails when the manifest and the job disagree — so the
+  number can no longer describe a toolchain nobody tested. The first run paid
+  for itself immediately: it found the declaration was already wrong (see
+  *Changed*).
 - **The parsers are fuzzed.** `crates/scrub/fuzz` holds libFuzzer targets for
   JPEG, PNG, WebP, and EXIF/TIFF, seeded from a committed corpus and soaked
   nightly in `fuzz.yml`; `crates/scrub/tests/parsers_never_panic.rs` runs the same
@@ -33,6 +39,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Changed
 
+- **The declared MSRV is 1.85, not 1.82.** 1.82 was never true: `zeroize`,
+  `tokio`, `clap`, and `hashbrown` all require 1.85, and Cargo 1.82 cannot even
+  parse `zeroize_derive`'s edition-2024 manifest. Nothing this project writes
+  needs 1.85 — the dependency graph does. The desktop shell, which is a separate
+  workspace, now declares the 1.90 that Tauri 2.12 imposes.
 - **`sysadmin.system-info` reports `load.avg_1m` / `avg_5m` / `avg_15m`** instead
   of `load.1m` / `5m` / `15m`, so its keys satisfy the `Report.data` convention.
   This is the kind of rename the 1.0 freeze will make expensive; better now.

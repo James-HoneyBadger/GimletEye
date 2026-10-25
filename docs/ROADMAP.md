@@ -126,8 +126,14 @@ surfaces a shape. Surface changes are allowed and expected here.
   EXIF/TIFF, seeded from the golden corpus, on a scheduled CI job.
   *Acceptance:* every target runs clean for ten minutes locally; the CI job
   exists and starts green.
-- [ ] **MSRV job.** CI builds the workspace on the declared `rust-version`.
+- [x] **MSRV job.** CI builds the workspace on the declared `rust-version`.
   *Acceptance:* it goes red when `rust-version` is raised without the toolchain.
+  The first run of the check found the declaration was already wrong: it claimed
+  1.82 while `zeroize`, `tokio`, `clap` and `hashbrown` all need 1.85 (Cargo
+  1.82 cannot even parse `zeroize_derive`'s edition-2024 manifest). The floor is
+  now 1.85, `scripts/check-msrv.sh` fails when the manifest and the job
+  disagree, and the job compiles every target `--locked`. The desktop shell, a
+  separate workspace, follows Tauri and declares 1.90.
 - [ ] **Quiet-period enforcement.** ADR 0006 defines the rule; add a CI check
   that diffs the versioned files (`report.rs`, `protocol.rs`, the config schema,
   the container constants) between the last two tags, so a stray change during

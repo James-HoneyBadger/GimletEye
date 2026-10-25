@@ -43,6 +43,33 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --workspace
 
+  msrv:
+    name: msrv (declared rust-version)
+    runs-on: ubuntu-latest
+    env:
+      # Must equal `rust-version` in [workspace.package]; the guard below fails
+      # otherwise, so raising the MSRV is a deliberate, tested act.
+      MSRV: '1.85'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Declared rust-version matches the tested one
+        run: ./scripts/check-msrv.sh "$MSRV"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          key: msrv
+
+      # `--locked` proves the shipped dependency set builds on the floor, so a
+      # fresh resolution cannot quietly pull in a newer-MSRV crate.
+      - name: Check every target on the declared MSRV
+        run: cargo check --workspace --all-targets --locked
+
   integration:
     name: integration (CLI, API, Perl pack)
     runs-on: ubuntu-latest

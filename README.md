@@ -236,6 +236,7 @@ configure.
 
 ```bash
 make check      # fmt, clippy, tests — everything CI runs
+make msrv       # build every target on the declared MSRV (1.85)
 make test       # cargo test --workspace
 make ui         # type-check + build the shared UI
 make ui-test    # UI unit and DOM tests (vitest)
@@ -243,7 +244,7 @@ make smoke      # end-to-end: CLI, API, packs
 make doctor
 ```
 
-Requirements: Rust 1.82+, Node 20+ (UI only), and Perl 5.28+ only if you install
+Requirements: Rust 1.85+, Node 20+ (UI only), and Perl 5.28+ only if you install
 the Perl compatibility pack.
 
 ## Documentation

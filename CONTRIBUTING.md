@@ -6,7 +6,7 @@
 git clone https://github.com/James-HoneyBadger/Mellivora_ToolKit.git
 cd Mellivora_ToolKit
 
-rustup component add rustfmt clippy       # Rust 1.82+
+rustup component add rustfmt clippy       # Rust 1.85+
 ./scripts/link-sources.sh                 # optional pack sources (warns if upstream is gone)
 (cd packages/ui && npm install)           # UI only
 ```
@@ -15,10 +15,15 @@ Verify:
 
 ```bash
 make check                                # fmt check, clippy, tests
+make msrv                                 # builds on the declared rust-version
 make ui                                   # UI type-check + build
 make ui-test                              # UI unit and DOM tests (vitest)
 make doctor                               # installation report, including packs
 ```
+
+`rust-version` is tested, not aspirational: `scripts/check-msrv.sh` fails when
+the manifest and the `msrv` CI job disagree, so raising the floor means changing
+both, in the same commit.
 
 Parsers are fuzzed. The soak harness needs nightly, so it is not part of
 `make check`, but running it before touching JPEG/PNG/WebP/EXIF parsing is

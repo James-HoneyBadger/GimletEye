@@ -56,6 +56,15 @@ host cannot check them today, which is what `plugins conformance` is for.
 - **What 1.0 freezes, and what has to be true before it does,** is decided in
   [ADR 0006](adr/0006-what-1.0-promises.md). Until then this policy is a
   guideline; afterwards it is binding, with a one-minor deprecation rule.
+- **The MSRV is a promise too.** The workspace declares `rust-version` in one
+  place and CI compiles every target on exactly that version, `--locked`, so the
+  number cannot drift away from what is actually tested. The current floor is
+  1.85, set by the dependency graph (`zeroize`, `tokio`, `clap`, `hashbrown`),
+  not by anything this project asks of the compiler. Raising it is a normal
+  minor-release change; lowering it is not: once a release requires a version,
+  older toolchains stay unsupported, because the lockfile keeps the crates that
+  forced the raise. The desktop shell is a separate workspace and follows Tauri,
+  which currently needs 1.90.
 
 ## Deprecating something
 

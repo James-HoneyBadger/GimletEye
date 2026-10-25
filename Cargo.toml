@@ -14,7 +14,7 @@ resolver = "2"
 [workspace.package]
 version = "0.3.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.85"
 license = "MIT"
 authors = ["James Temple <james@honey-badger.org>"]
 repository = "https://github.com/James-HoneyBadger/Mellivora_ToolKit"

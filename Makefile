@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check msrv ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -23,6 +23,10 @@ clippy: ## Lint with clippy, warnings as errors
 	$(CARGO) clippy --workspace --all-targets -- -D warnings
 
 check: fmt-check clippy test ## Everything CI runs for Rust
+
+msrv: ## Build every target on the declared MSRV (what CI's msrv job runs)
+	./scripts/check-msrv.sh "$${MSRV:-1.85}"
+	$(CARGO) +"$${MSRV:-1.85}" check --workspace --all-targets --locked
 
 ui-install: ## Install UI dependencies
 	cd $(UI_DIR) && npm install

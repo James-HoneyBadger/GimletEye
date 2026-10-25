@@ -116,7 +116,7 @@ build_ui() {
 }
 
 build_desktop() {
-    have cargo || fail "cargo is required (install Rust 1.82+)"
+    have cargo || fail "cargo is required (install Rust 1.85+)"
     build_ui
     if [ "$force" -eq 1 ] || desktop_stale; then
         step "building the desktop app"
@@ -128,7 +128,7 @@ build_desktop() {
 }
 
 build_cli() {
-    have cargo || fail "cargo is required (install Rust 1.82+)"
+    have cargo || fail "cargo is required (install Rust 1.85+)"
     if [ "$force" -eq 1 ] || cli_stale; then
         step "building the CLI"
         cargo build --release -p mellivora-cli

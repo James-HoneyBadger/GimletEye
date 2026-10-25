@@ -3,7 +3,7 @@ name = "mellivora-desktop"
 version = "0.3.0"
 description = "Mellivora ToolKit desktop shell"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.90"
 license = "MIT"
 publish = false
 

@@ -393,16 +393,19 @@ Rules that keep this cheap:
 
 ## 10. Build, CI, and release
 
-- **Toolchain pinned** in `rust-toolchain.toml`; MSRV 1.82 in
-  `[workspace.package]`.
+- **Toolchain pinned** in `rust-toolchain.toml`; MSRV 1.85 in
+  `[workspace.package]`, tested by the `msrv` job. The number follows the
+  dependency graph, not the other way round: `zeroize`, `tokio`, `clap` and
+  `hashbrown` all require 1.85, and `cargo +1.85 check --locked` is what proves
+  it. The desktop shell is a separate workspace (Tauri 2.12 pins it at 1.90).
 - **Workspace lints** deny `unsafe_code` and warn on `dbg!`/`todo!`, so those
   cannot pass review silently.
-- **CI** (`.github/workflows/ci.yml`) runs five jobs: rust (`fmt --check`,
-  `clippy -D warnings`, `test --workspace`, release build), ui (`npm ci`,
-  `npm test`, build), integration (pack syntax check, source linking, smoke),
-  desktop (`cargo check` for the Tauri shell), and dependency policy
-  (`cargo deny`). The integration job exercises a pack only when its optional
-  upstream sources can be fetched.
+- **CI** (`.github/workflows/ci.yml`) runs six jobs: rust (`fmt --check`,
+  `clippy -D warnings`, `test --workspace`, release build), msrv (the declared
+  `rust-version` builds every target), ui (`npm ci`, `npm test`, build),
+  integration (pack syntax check, source linking, smoke), desktop (`cargo check`
+  for the Tauri shell), and dependency policy (`cargo deny`). The integration
+  job exercises a pack only when its optional upstream sources can be fetched.
 - **Versioning**: workspace version in one place; modules are versioned
   together until they have independent consumers. `Report` and the plugin
   protocol carry explicit versions because they are the public API.
