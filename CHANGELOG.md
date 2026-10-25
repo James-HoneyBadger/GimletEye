@@ -8,6 +8,11 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **A live-engine UI test.** `packages/ui/e2e` drives a real `mellivora serve`
+  with Playwright: the token gate, browsing, validation that blocks a run,
+  a known-answer run, and the token surviving a reload. `vitest` mocks the API,
+  so this is the only check that would notice wire drift between the UI and the
+  engine — which is what a 1.0 freeze makes expensive. New `e2e` CI job.
 - **`mellivora plugins conformance <dir>`** runs the SDK checklist instead of
   leaving it as a list in a document: manifest, handshake, tool ids, capability
   subset, unknown-tool handling (`-32001`), clean shutdown, and the pack's own

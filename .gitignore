@@ -9,6 +9,10 @@ dist/
 .vite/
 *.tsbuildinfo
 
+# Playwright: traces, videos, and the HTML report from a failed run
+packages/ui/test-results/
+packages/ui/playwright-report/
+
 # Local checkout of the source projects (see scripts/link-sources.sh)
 /external/
 

@@ -40,6 +40,9 @@ ui: ## Type-check and build the shared UI
 ui-test: ## Run the UI unit tests
 	cd $(UI_DIR) && npm test
 
+e2e: ## Drive the UI against a real engine (needs a built bundle)
+	cd $(UI_DIR) && npm run e2e
+
 ui-dev: ## Run the UI dev server (needs `make serve` in another terminal)
 	cd $(UI_DIR) && npm run dev
 

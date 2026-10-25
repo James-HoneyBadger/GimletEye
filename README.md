@@ -245,6 +245,7 @@ make quiet-period  # verify no frozen surface moved since the last release
 make test          # cargo test --workspace
 make ui            # type-check + build the shared UI
 make ui-test       # UI unit and DOM tests (vitest)
+make e2e           # UI against a live engine (Playwright)
 make smoke         # end-to-end: CLI, API, packs
 make doctor
 ```
