@@ -75,15 +75,31 @@ criterion so "done" is not a matter of opinion.
 
 ## v1.0 — Distribution
 
+What 1.0 freezes — and what must therefore be true first — is decided in
+[ADR 0006](adr/0006-what-1.0-promises.md): five gates plus a two-release quiet
+period, so 1.0 is cut only after the contracts have already been stable in
+practice rather than because the checkboxes below are ticked.
+
 - [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
   (x86_64, aarch64), and Windows (x86_64); `.deb`/`.AppImage`, `.dmg`, and NSIS
   installers for the desktop app; checksums. `.github/workflows/release.yml`
   builds and attaches them from a tag, and publishes nothing unless every build
   succeeds.
+- [ ] Gate 1 — finish the pillars already claimed: keystore and key exchange
+  (v0.3), the advertised format list (v0.2), and an explicit platform contract
+  for the `/proc`- and `df`-based tools.
+- [ ] Gate 2 — safety evidence: fuzz targets green for seven days, a golden
+  corpus for the scrub parsers, a bearer token on `/api/v1`, pack `sha256`
+  pinning with `plugins conformance`, MSRV and `cargo deny` jobs, and a
+  live-engine UI test.
 - [ ] Signed artifacts and reproducible builds.
 - [ ] Distro packaging (Arch, Debian, Fedora) and `cargo install`.
 - [ ] Stable `Report` and plugin protocol v1 with a written compatibility policy.
+- [ ] A documented shape for `Report.data`, so a consumer is not parsing a
+  free-form object per tool.
 - [ ] Documentation set complete: user guide, admin guide, pack gallery.
+- [ ] Support window: the previous two minors for twelve months, replacing
+  "the newest release is the supported one".
 - [ ] Retire legacy compatibility surfaces once their users have a replacement
   (see [COMPATIBILITY.md](COMPATIBILITY.md)).
 

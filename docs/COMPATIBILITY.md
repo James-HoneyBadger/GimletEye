@@ -30,6 +30,9 @@ DOM — can change at any time.
 - **Older config schemas load, newer ones are refused.** Fields a build does
   not know about take their defaults; a config written by a newer release fails
   with a clear message rather than being silently reinterpreted.
+- **What 1.0 freezes, and what has to be true before it does,** is decided in
+  [ADR 0006](adr/0006-what-1.0-promises.md). Until then this policy is a
+  guideline; afterwards it is binding, with a one-minor deprecation rule.
 
 ## Deprecating something
 

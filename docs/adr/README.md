@@ -10,3 +10,4 @@ context, the decision, and what it costs.
 | [0003](0003-one-ui-for-all-surfaces.md) | One TypeScript UI, rendered by Tauri and by the browser | Accepted |
 | [0004](0004-namespaced-configuration.md) | One TOML config with module-owned namespaces | Accepted |
 | [0005](0005-chunked-container-v2.md) | Chunked `.melv` v2 so memory is bounded by the chunk size, not the file | Accepted |
+| [0006](0006-what-1.0-promises.md) | 1.0 is a contract release: five gates and a two-release quiet period before the freeze | Proposed |
