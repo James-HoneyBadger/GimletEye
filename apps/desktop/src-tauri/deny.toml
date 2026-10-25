@@ -20,9 +20,12 @@ ignore = [
 # tracks it as alert #1 instead:
 #
 #   GHSA-wrw7-89jp-8q8g - unsound Iterator/DoubleEndedIterator impls for
-#   glib::VariantStrIter. Fixed in glib 0.20.0, which requires gtk-rs 0.20.
-#   The GTK3 bindings are unmaintained upstream and stop at 0.19, and Tauri
-#   pins gtk ^0.18, so there is no upgrade path today. This shell's own code
-#   never constructs the type.
+#   glib::VariantStrIter. Fixed in glib 0.20.0; the GTK3 bindings that carry
+#   that fix are gtk 0.19 (glib ^0.22). tauri 2.12 and wry 0.57 still require
+#   gtk ^0.18, and wry pins webkit2gtk =2.0.2, which also requires gtk ^0.18.
+#   gtk 0.18 and 0.19 both link the native gtk-3 library, so only one may be in
+#   the graph: adding gtk 0.19 fails resolution with "gtk-sys links gtk-3".
+#   This shell's own code never constructs the type.
 #
-# Revisit when Tauri moves to gtk-rs 0.20 or to GTK4.
+# Revisit when tauri/wry accept gtk ^0.19, or when tauri 3 builds against GTK4
+# (its gtk4 dependency already sits on glib >= 0.20).

@@ -94,7 +94,7 @@ metadata).
 
 | Finding | Why it is accepted | Revisit when |
 |---|---|---|
-| `GHSA-wrw7-89jp-8q8g` (glib `VariantStrIter` unsoundness, desktop only) | Tauri's GTK3 stack pins glib 0.18; the fix needs gtk-rs 0.20, and the GTK3 bindings are unmaintained and stop at 0.19. The type is not constructed by the desktop shell's own code. Tracked as Dependabot alert #1. | Tauri moves to gtk-rs 0.20 or GTK4 |
+| `GHSA-wrw7-89jp-8q8g` (glib `VariantStrIter` unsoundness, desktop only) | The fix landed in glib 0.20; the GTK3 bindings that carry it are `gtk` 0.19. `tauri` 2.12 and `wry` 0.57 still require `gtk ^0.18`, and `wry` pins `webkit2gtk =2.0.2`, which also requires `gtk ^0.18`. `gtk` 0.18 and 0.19 both link the native `gtk-3`, so they cannot coexist in one binary and the bump is upstream's to make. This shell's own code never constructs the type. Tracked as Dependabot alert #1. | `tauri`/`wry` accept `gtk ^0.19`, or `tauri` 3 builds against GTK4 (glib ≥ 0.20) |
 | `RUSTSEC-2024-0370` (proc-macro-error unmaintained, desktop only) | Build-time dependency of `glib-macros`; no runtime code in the binary. | Same gtk-rs bump |
 
 Both are recorded in `apps/desktop/src-tauri/deny.toml`, which CI checks so a
