@@ -106,6 +106,12 @@ shippable and none of them adds a feature users have to learn.
 Theme: make the local API and the parsers defensible, and give the two shapeless
 surfaces a shape. Surface changes are allowed and expected here.
 
+**Status: complete — all six items are in `main` and in CI** (`c155c5e`,
+`e087217`, `b5e3a8e`, `a805987`, `f0e984a`, `5e72649`). What is left for 0.4 is
+the part a checklist cannot do: let it sit. Every item here is new evidence, and
+evidence found a real defect in three of the six (a latent form-reload bug, the
+`load.1m` key shape, and an MSRV that was never true).
+
 - [x] **Bearer token on `/api/v1`.** Generated on first `serve` into
   `<home>/api-token` (mode 0600); `[api] require_token` in config (additive,
   default `true`); the desktop shell injects the token into the webview; the UI
