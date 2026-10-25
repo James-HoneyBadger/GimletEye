@@ -40,6 +40,9 @@ ui: ## Type-check and build the shared UI
 ui-test: ## Run the UI unit tests
 	cd $(UI_DIR) && npm test
 
+bench: ## Measure scan, strip, and encrypt at 10 MiB and 1 GiB
+	$(CARGO) run --release -p mellivora-toolkit --example bench
+
 e2e: ## Drive the UI against a real engine (needs a built bundle)
 	cd $(UI_DIR) && npm run e2e
 

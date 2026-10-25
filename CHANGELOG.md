@@ -8,6 +8,12 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **Recorded throughput.** `cargo run --release -p mellivora-toolkit --example
+  bench` measures scan, strip, and encrypt at 10 MiB and 1 GiB, prints JSON, and
+  fails under a floor; a CI job runs it and keeps the numbers. On this machine:
+  strip 1 GiB in 1.2 s (832 MiB/s), encrypt 1 GiB in 3.3 s (309 MiB/s). Scan is
+  measured and reported as *header only* — it walks container structure, not
+  pixel data, so a throughput figure for it would be a lie told in MiB.
 - **A live-engine UI test.** `packages/ui/e2e` drives a real `mellivora serve`
   with Playwright: the token gate, browsing, validation that blocks a run,
   a known-answer run, and the token surviving a reload. `vitest` mocks the API,

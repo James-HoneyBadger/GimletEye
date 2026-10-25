@@ -247,6 +247,7 @@ make ui            # type-check + build the shared UI
 make ui-test       # UI unit and DOM tests (vitest)
 make e2e           # UI against a live engine (Playwright)
 make smoke         # end-to-end: CLI, API, packs
+make bench         # throughput: scan, strip, encrypt at 10 MiB and 1 GiB
 make doctor
 ```
 

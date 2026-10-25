@@ -168,6 +168,31 @@ jobs:
           path: packages/ui/playwright-report
           retention-days: 7
 
+  bench:
+    name: bench (scan, strip, encrypt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      # 10 MiB and 1 GiB, printed and uploaded so a regression is a number in a
+      # log rather than an argument. The floor is deliberately generous: it
+      # catches an accidental quadratic, not a slow runner.
+      - name: Measure throughput
+        run: |
+          cargo run --release -p mellivora-toolkit --example bench -- --assert-floor-mib 20 \
+            | tee bench-results.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-results
+          path: bench-results.txt
+          retention-days: 30
+
   desktop:
     name: desktop (tauri typecheck)
     runs-on: ubuntu-latest
