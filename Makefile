@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check msrv quiet-period surface ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check msrv quiet-period surface gates fuzz-nights ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -33,6 +33,12 @@ quiet-period: ## Verify no frozen surface moved since the last release
 
 surface: ## Verify every command, flag, and route is documented as public API
 	./scripts/check-public-surface.sh
+
+gates: ## Report whether 1.0 may be cut: every ADR 0006 gate, verified or open
+	./scripts/check-release-gates.sh
+
+fuzz-nights: ## Prove the fuzz soak has been green for seven scheduled nights
+	./scripts/check-fuzz-nights.sh
 
 ui-install: ## Install UI dependencies
 	cd $(UI_DIR) && npm install

@@ -328,6 +328,14 @@ went live the moment v0.7.0 was tagged — is what proves it.
   v3 fixtures and a multi-chunk file the current build writes, and refuses a
   tampered chunk. `second_implementation.rs` runs it in the `rust` job, where a
   missing interpreter fails instead of skipping.
+- [x] **The gates are one command, not a memory test** —
+  `scripts/check-release-gates.sh` (`make gates`) prints every ADR 0006 gate with
+  three states: `ok` (verified just now), `ci` (verified by the newest green run
+  on main, read through `gh`), and `open` (with the reason — elapsed time, or a
+  human). A `cargo test <filter>` that matches no tests counts as a failure, so a
+  row cannot look green while proving nothing. `scripts/check-fuzz-nights.sh`
+  (`make fuzz-nights`) reads the *scheduled* soak history and refuses to count a
+  dispatched run, a cancellation, or a missing night.
 - [ ] **Gate 1 audit** — every claim in the README and in a manifest is either
   implemented or removed.
 - [ ] **Gate 2 audit** — fuzz soak, corpus, token, pack trust, MSRV, `cargo deny`,
