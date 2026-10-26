@@ -91,7 +91,10 @@ trade-offs behind each decision.
   your last tool and filter.
 
 The desktop app (`apps/desktop`) is the same bundle in a native window, with the
-engine running inside the app: no server to start, no port to configure.
+engine running inside the app: no server to start, no port to configure. The
+window loads that bundle from the engine's own listener, so the page and the API
+share one origin; `MELLIVORA_DESKTOP_UI_DIR` points it at a different build when
+you are working on the UI.
 
 ## Install a release
 
