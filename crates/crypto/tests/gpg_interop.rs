@@ -94,6 +94,36 @@ impl Drop for Keyring {
     }
 }
 
+/// Points `PATH` at an empty directory for as long as it lives.
+///
+/// `PATH` is process-wide, so this is only safe while holding [`serial`] — and it
+/// has to restore on unwind, because a failing assertion here would otherwise
+/// leave every later test in the file looking at a machine with no `gpg`.
+struct EmptyPath {
+    previous: Option<std::ffi::OsString>,
+    dir: PathBuf,
+}
+
+impl EmptyPath {
+    fn new() -> Self {
+        let previous = std::env::var_os("PATH");
+        let dir = std::env::temp_dir().join(format!("mellivora-empty-path-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("mkdir");
+        std::env::set_var("PATH", &dir);
+        Self { previous, dir }
+    }
+}
+
+impl Drop for EmptyPath {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => std::env::set_var("PATH", value),
+            None => std::env::remove_var("PATH"),
+        }
+        let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
 fn context() -> ToolContext {
     let root = std::env::temp_dir().join(format!("mellivora-gpg-work-{}", std::process::id()));
     let _ = fs::create_dir_all(&root);
@@ -238,11 +268,12 @@ fn a_dry_run_writes_nothing() {
 #[test]
 fn a_missing_gpg_is_reported_as_missing_not_as_a_bad_signature() {
     // Point PATH at an empty directory so the lookup fails the same way it would
-    // on a machine without gpg.
-    let previous = std::env::var_os("PATH");
-    let empty = std::env::temp_dir().join(format!("mellivora-empty-path-{}", std::process::id()));
-    fs::create_dir_all(&empty).expect("mkdir");
-    std::env::set_var("PATH", &empty);
+    // on a machine without gpg. The mutex is what keeps the other tests in this
+    // file from seeing that world: without it they read a machine with no `gpg`
+    // and, under `MELLIVORA_REQUIRE_GPG`, fail with a message about an unverified
+    // claim rather than the race that actually happened.
+    let _guard = serial();
+    let _path = EmptyPath::new();
 
     let ctx = context();
     let input = ctx.paths.root.join("anything.txt");
@@ -256,12 +287,6 @@ fn a_missing_gpg_is_reported_as_missing_not_as_a_bad_signature() {
             ]),
         )
         .expect_err("no gpg");
-
-    match previous {
-        Some(value) => std::env::set_var("PATH", value),
-        None => std::env::remove_var("PATH"),
-    }
-    let _ = fs::remove_dir_all(&empty);
 
     assert_eq!(error.code(), "not_found");
     assert!(error.to_string().contains("gpg"), "{error}");
