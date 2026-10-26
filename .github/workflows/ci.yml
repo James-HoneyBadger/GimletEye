@@ -193,6 +193,24 @@ jobs:
           path: bench-results.txt
           retention-days: 30
 
+  claims:
+    name: claims (the README, run as written)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: Build the CLI
+        run: cargo build -p mellivora-cli
+
+      # ADR 0006 Gate 5: every capability statement in the README is backed by a
+      # test, a CI job, or a command. This runs the commands.
+      - name: Run the front-page examples
+        run: ./scripts/check-readme-claims.sh
+
   packaging:
     name: packaging (version agreement, deb build)
     runs-on: ubuntu-22.04

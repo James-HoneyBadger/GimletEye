@@ -64,6 +64,9 @@ doctor: ## Report installation state, including packs
 serve: ## Serve the API and the built UI on loopback
 	$(CLI) serve --ui-dir $(UI_DIR)/dist
 
+claims: ## Run the README examples as written (ADR 0006 Gate 5)
+	./scripts/check-readme-claims.sh
+
 smoke: ## End-to-end check of CLI, API, and the Perl pack
 	./scripts/smoke.sh
 

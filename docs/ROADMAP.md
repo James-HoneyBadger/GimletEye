@@ -310,6 +310,9 @@ above was built in-tree across 0.4–0.7 and shipped as a single **0.7.0**, so:
 commit that changes nothing versioned, and `scripts/check-quiet-period.sh` — which
 went live the moment v0.7.0 was tagged — is what proves it.
 
+- [x] **No unverified claims** — `scripts/check-readme-claims.sh` runs the front
+  page as written (17 commands, all green) and lists the claims a command cannot
+  settle with where their evidence lives. New `claims` CI job.
 - [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
   (x86_64, aarch64), and Windows (x86_64); `.deb`/`.AppImage`, `.dmg`, and NSIS
   installers for the desktop app; checksums. `.github/workflows/release.yml`
