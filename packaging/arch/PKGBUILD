@@ -1,0 +1,35 @@
+# Arch packaging for Mellivora ToolKit.
+#
+# The version here is checked against Cargo.toml by scripts/check-packaging.sh,
+# so a release cannot ship a PKGBUILD that names a different version than the
+# binary it builds.
+pkgname=mellivora-toolkit
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Local workbench for system, crypto, and metadata tasks"
+arch=('x86_64' 'aarch64')
+url="https://github.com/James-HoneyBadger/Mellivora_ToolKit"
+license=('MIT')
+depends=('gcc-libs')
+makedepends=('cargo' 'rust')
+optdepends=('perl: compatibility pack'
+            'gnupg: OpenPGP interop (crypto.gpg-*)')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    export CARGO_INCREMENTAL=0
+    export RUSTFLAGS="--remap-path-prefix=$srcdir/$pkgname-$pkgver=."
+    cargo build --release --locked -p mellivora-cli
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 target/release/mellivora "$pkgdir/usr/bin/mellivora"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 CHANGELOG.md "$pkgdir/usr/share/doc/$pkgname/CHANGELOG.md"
+    install -Dm644 docs/CONTAINER.md "$pkgdir/usr/share/doc/$pkgname/CONTAINER.md"
+    install -Dm644 docs/PLUGIN_SDK.md "$pkgdir/usr/share/doc/$pkgname/PLUGIN_SDK.md"
+}

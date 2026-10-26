@@ -193,6 +193,57 @@ jobs:
           path: bench-results.txt
           retention-days: 30
 
+  packaging:
+    name: packaging (version agreement, deb build)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every packaging file names the workspace version
+        run: ./scripts/check-packaging.sh
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: Install debhelper
+        run: sudo apt-get update && sudo apt-get install -y debhelper
+
+      # `-d` because the runner's packaged rustc is older than the MSRV; the
+      # toolchain above is the one that compiles.
+      - name: Build the .deb
+        run: dpkg-buildpackage -b -uc -us -d
+
+      - name: Check what the package installs
+        run: |
+          deb=$(ls -1 ../mellivora_*.deb | head -1)
+          echo "built $deb"
+          dpkg-deb -c "$deb" | sed -n '1,12p'
+          dpkg-deb -f "$deb" Package Version Depends
+          [ -f "$deb" ] || exit 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: ../mellivora_*.deb
+          if-no-files-found: error
+
+  rehearsal:
+    name: rehearsal (install, upgrade, roll back)
+    runs-on: ubuntu-latest
+    needs: [rust]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Two full builds inside a container: it is the slowest job here, and it is
+      # the only one that proves a user's keystore and audit trail survive a
+      # package upgrade and a rollback.
+      - name: Rehearse in a clean container
+        env:
+          REQUIRE_REHEARSAL: '1'
+        run: ./scripts/rehearse-upgrade.sh
+
   desktop:
     name: desktop (tauri typecheck)
     runs-on: ubuntu-latest

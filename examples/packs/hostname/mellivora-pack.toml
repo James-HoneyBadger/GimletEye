@@ -1,0 +1,8 @@
+name = "hostname"
+version = "1.0.0"
+protocol_version = 1
+description = "The reference pack: two tools, no dependencies, written from an empty directory"
+command = ["python3", "pack.py"]
+enabled = true
+capabilities = ["system"]
+timeout_ms = 10000

@@ -1,0 +1,51 @@
+# Fedora packaging for Mellivora ToolKit.
+#
+# The version is checked against Cargo.toml by scripts/check-packaging.sh.
+Name:           mellivora-toolkit
+Version:        0.3.0
+Release:        1%{?dist}
+Summary:        Local workbench for system, crypto, and metadata tasks
+License:        MIT
+URL:            https://github.com/James-HoneyBadger/Mellivora_ToolKit
+Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+BuildRequires:  cargo
+BuildRequires:  rust
+# The unit suite needs only the toolchain; it runs in CI, not here, so that a
+# package build stays a build.
+%global __cargo_skip_test 1
+Recommends:     perl
+Recommends:     gnupg
+Requires:       glibc
+
+%description
+One tool registry, one report format, one configuration file, one audit trail,
+and one interface for system administration, file encryption and signing, and
+metadata removal.
+
+Everything runs locally: no network calls, no telemetry, no auto-update. The HTTP
+API binds loopback only and requires a per-installation token.
+
+%prep
+%autosetup -n %{name}-%{version}
+
+%build
+export CARGO_INCREMENTAL=0
+export RUSTFLAGS="--remap-path-prefix=%{_builddir}/%{name}-%{version}=."
+cargo build --release --locked -p mellivora-cli
+
+%install
+install -Dm755 target/release/mellivora %{buildroot}%{_bindir}/mellivora
+install -Dm644 LICENSE %{buildroot}%{_licensedir}/%{name}/LICENSE
+install -Dm644 README.md %{buildroot}%{_docdir}/%{name}/README.md
+install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/%{name}/CHANGELOG.md
+install -Dm644 docs/CONTAINER.md %{buildroot}%{_docdir}/%{name}/CONTAINER.md
+install -Dm644 docs/PLUGIN_SDK.md %{buildroot}%{_docdir}/%{name}/PLUGIN_SDK.md
+
+%files
+%{_bindir}/mellivora
+%license LICENSE
+%doc README.md CHANGELOG.md docs/CONTAINER.md docs/PLUGIN_SDK.md
+
+%changelog
+* Sat Oct 25 2026 Mellivora ToolKit maintainers <maintainers@example.invalid> - 0.3.0-1
+- Initial packaging for 0.3.0

@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+# Debhelper builds the binary with cargo, then installs it by hand: this is a
+# Rust project, so the usual "auto_configure/auto_build" machinery has nothing
+# to do.
+
+export CARGO_INCREMENTAL=0
+export RUSTFLAGS=--remap-path-prefix=$(CURDIR)=.
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked -p mellivora-cli
+
+override_dh_auto_test:
+	# The suite is run in CI on every commit; rebuilding it here would double the
+	# package build time for results that are already known.
+	true
+
+override_dh_auto_install:
+	install -Dm755 target/release/mellivora debian/mellivora/usr/bin/mellivora
+	install -Dm644 README.md debian/mellivora/usr/share/doc/mellivora/README.md
+	install -Dm644 CHANGELOG.md debian/mellivora/usr/share/doc/mellivora/CHANGELOG.md
+	install -Dm644 LICENSE debian/mellivora/usr/share/doc/mellivora/copyright
+	install -Dm644 docs/CONTAINER.md debian/mellivora/usr/share/doc/mellivora/CONTAINER.md
+	install -Dm644 docs/PLUGIN_SDK.md debian/mellivora/usr/share/doc/mellivora/PLUGIN_SDK.md
+
+# No separate -dbgsym package: the release archives already ship an unstripped
+# binary, and a debug package doubles the build for a file nobody installs from
+# here.
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_auto_clean:
+	cargo clean || true

@@ -13,6 +13,11 @@ on:
         description: Existing tag to build and attach artifacts to
         required: true
         type: string
+      unsigned:
+        description: Publish without a signature (only when the key is unavailable)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -22,6 +27,12 @@ env:
   RUST_BACKTRACE: 1
   # `inputs.tag` on a manual run, the pushed tag otherwise.
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+  # Reproducibility: absolute paths are the one thing a Rust build embeds that
+  # differs between machines and checkouts. Remapping them to `.` makes the same
+  # source produce the same bytes, so a release can be rebuilt and compared.
+  # Incremental compilation is off for the same reason.
+  CARGO_INCREMENTAL: '0'
+  RUSTFLAGS: '--remap-path-prefix=${{ github.workspace }}=.' 
 
 jobs:
   cli:
@@ -175,9 +186,58 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
+  # A release is only trustworthy if someone else can rebuild it. This builds the
+  # same tag twice, from two different directories, and refuses to publish when
+  # the bytes differ - which is what a leaked absolute path or a changed
+  # dependency resolution looks like.
+  reproducible:
+    name: reproducible (rebuild and compare)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build here
+        run: |
+          cargo build --release --locked -p mellivora-cli
+          sha256sum target/release/mellivora | awk '{print $1}' > /tmp/here.txt
+
+      - name: Build in another directory
+        run: |
+          mkdir -p /tmp/elsewhere
+          git archive HEAD | tar -x -C /tmp/elsewhere
+          cp Cargo.lock /tmp/elsewhere/
+          cd /tmp/elsewhere
+          RUSTFLAGS="--remap-path-prefix=/tmp/elsewhere=." \
+            cargo build --release --locked -p mellivora-cli
+          sha256sum target/release/mellivora | awk '{print $1}' > /tmp/there.txt
+
+      - name: Compare
+        run: |
+          here=$(cat /tmp/here.txt)
+          there=$(cat /tmp/there.txt)
+          echo "here:  $here"
+          echo "there: $there"
+          if [ "$here" != "$there" ]; then
+            echo "::error::the same source produced two different binaries"
+            echo "Something non-reproducible got in: an absolute path, a build"
+            echo "timestamp, or an unlocked dependency."
+            exit 1
+          fi
+          echo "$here" > /tmp/reproducible.sha256
+          echo "reproducible: $here" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducible
+          path: /tmp/reproducible.sha256
+
   publish:
     name: publish
-    needs: [cli, desktop]
+    needs: [cli, desktop, reproducible]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -196,6 +256,40 @@ jobs:
           test -n "$(ls -A release)" || { echo "no artifacts to publish" >&2; exit 1; }
           (cd release && sha256sum * > SHA256SUMS)
           cat release/SHA256SUMS
+
+      - name: Install minisign
+        run: sudo apt-get update && sudo apt-get install -y minisign
+
+      # The checksums are what a user actually trusts, so they are what gets
+      # signed. The key is long-lived and offline; only the secret half reaches
+      # the runner, and only for this step.
+      - name: Sign the checksums
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          ALLOW_UNSIGNED: ${{ inputs.unsigned || 'false' }}
+        run: |
+          if [ -z "${MINISIGN_SECRET_KEY:-}" ]; then
+            if [ "$ALLOW_UNSIGNED" != "true" ]; then
+              cat >&2 <<'EOF'
+          ::error::MINISIGN_SECRET_KEY is not set, so the release cannot be signed.
+
+          Either add the release key as a repository secret (see "Release signing"
+          in SECURITY.md), or re-run this workflow manually with `unsigned: true`
+          when the key is genuinely unavailable. An unsigned release is a
+          deliberate act, not a default.
+          EOF
+              exit 1
+            fi
+            echo "::warning::publishing an unsigned release at the operator's request"
+            exit 0
+          fi
+          printf '%s' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/release.key"
+          chmod 600 "$RUNNER_TEMP/release.key"
+          minisign -S -s "$RUNNER_TEMP/release.key" -m release/SHA256SUMS \
+            -x release/SHA256SUMS.minisig
+          rm -f "$RUNNER_TEMP/release.key"
+          minisign -V -m release/SHA256SUMS -x release/SHA256SUMS.minisig
+          echo "signed SHA256SUMS" >> "$GITHUB_STEP_SUMMARY"
 
       # `gh` uploads the files and leaves the release notes alone; the release
       # itself is written when the tag is cut.

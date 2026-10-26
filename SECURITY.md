@@ -100,8 +100,7 @@ There is no telemetry, no auto-update check, and no remote logging.
   users and in shell history. It never appears in a report or audit record.
 
 The format is specified in [docs/CONTAINER.md](docs/CONTAINER.md), including its
-known limitations (no streaming, no public-key recipients, no embedded
-metadata).
+known limitations.
 
 ## Known accepted risks
 
@@ -113,7 +112,61 @@ metadata).
 Both are recorded in `apps/desktop/src-tauri/deny.toml`, which CI checks so a
 *new* advisory in the desktop graph fails the build rather than going unnoticed.
 
+## Release signing
+
+Release checksums are signed with [minisign](https://jedisct1.github.io/minisign/).
+The public key is published here once the first signed release is cut:
+
+```text
+untrusted comment: minisign public key (not yet published: no signed release exists)
+```
+
+Until that line is replaced with a real key, every release is unsigned, and
+`scripts/verify-release.sh` will say so rather than pretending otherwise.
+
+**Why the delay is deliberate:** a signing key is only worth something if it was
+generated offline and never touched a CI runner. The release workflow refuses to
+publish an unsigned release unless an operator explicitly passes `unsigned: true`,
+so the first signed release requires the key to exist. Creating it is a
+maintainer action, not a code change:
+
+```bash
+minisign -G -p release-key.pub -s release-key.sec
+# store release-key.sec as the MINISIGN_SECRET_KEY repository secret, keep it offline,
+# and commit release-key.pub to this repository
+```
+
+To verify a release:
+
+```bash
+./scripts/verify-release.sh SHA256SUMS SHA256SUMS.minisig
+```
+
+It fails if the signature is missing, if the key does not match, or if any listed
+file does not match its checksum — a partial verification is not a verification.
+
+## Reproducible builds
+
+The same tag produces the same binary bytes: absolute paths are remapped, the
+build is not incremental, and dependencies are locked. The release workflow
+rebuilds the tag from a second directory and refuses to publish when the digests
+differ. That is what makes an independent rebuild a meaningful check rather than
+a ritual.
+
 ## Supported versions
 
-Security fixes land on the latest minor release. Pre-1.0, the newest release is
-the supported one.
+| Version | Supported |
+|---|---|
+| the two most recent minor releases | security fixes |
+| anything older | not supported |
+
+The window is **twelve months from a release**, so a minor released a year ago
+leaves support even if it is still the newest-but-two. Pre-1.0 the same rule
+applies; 1.0 is where it becomes a promise with a published deprecation policy
+([ADR 0006](docs/adr/0006-what-1.0-promises.md)).
+
+A security fix is backported when the fix is small and the release it lands in is
+still inside the window; otherwise the guidance is to upgrade. Fixes are announced
+in `CHANGELOG.md` under "Fixed" with the advisory identifier, and a fix that
+changes a versioned surface follows the normal deprecation rule even when it is
+security-driven.

@@ -2,6 +2,9 @@
 
 | Document | Read it when you want to… |
 |---|---|
+| [USER_GUIDE.md](USER_GUIDE.md) | use the toolkit: every command and tool, with real output |
+| [ADMIN_GUIDE.md](ADMIN_GUIDE.md) | install it, configure it, secure the API, trust packs, back up state |
+| [PACK_GALLERY.md](PACK_GALLERY.md) | write a pack from an empty directory |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand the layers, contracts, and dependency rules |
 | [PLUGIN_SDK.md](PLUGIN_SDK.md) | write a pack in Perl, Python, Node, Go, or Rust |
 | [CONTAINER.md](CONTAINER.md) | read or implement the `.melv` encrypted file format |

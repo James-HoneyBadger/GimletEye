@@ -259,6 +259,11 @@ the Perl compatibility pack.
 
 ## Documentation
 
+Start with the [user guide](docs/USER_GUIDE.md) (every command, with real
+output) or the [admin guide](docs/ADMIN_GUIDE.md) (installing, the local API,
+pack trust, backups). [PACK_GALLERY.md](docs/PACK_GALLERY.md) walks through a
+pack from an empty directory.
+
 - [Architecture](docs/ARCHITECTURE.md) — layers, contracts, dependency rules
 - [Plugin SDK](docs/PLUGIN_SDK.md) — write a pack in any language
 - [Container format](docs/CONTAINER.md) — byte layout of the `.melv` file

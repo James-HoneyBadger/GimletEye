@@ -258,18 +258,37 @@ release whose whole point is not to move.
 
 Theme: make 1.0 installable and explainable. Still no versioned change.
 
-- [ ] **Signed artifacts**: minisign or cosign over `SHA256SUMS`, with the public
-  key in SECURITY.md.
-- [ ] **Reproducible builds**: a CI job rebuilds from the tag on a clean runner
-  and diffs the digests; a mismatch blocks the release.
-- [ ] **Packaging**: Arch PKGBUILD, Debian `debian/`, Fedora spec, `cargo install`
-  — built and attached by CI; inclusion upstream is not a gate.
-- [ ] **Install → upgrade → rollback rehearsal** in a container per platform,
-  carrying a real keystore and audit trail across the rollback.
-- [ ] **User guide** (every command and tool with real output), **admin guide**
-  (config, audit, packs, token, loopback rule), **pack gallery** (one pack
-  written from an empty directory).
-- [ ] **Support policy** in SECURITY.md: previous two minors, twelve months.
+**Status: complete except the signing key**, which is a maintainer action rather
+than a code change. Writing it turned up one real contract gap worth recording:
+the host never told a pack that a run was a dry run, so the SDK rule "honour
+`--dry-run`" was unimplementable. `dry_run` now travels beside `args`.
+
+- [x] **Signed artifacts**: minisign over `SHA256SUMS`, with the public key slot
+  in SECURITY.md. The release workflow refuses to publish an unsigned release
+  unless an operator passes `unsigned: true`, and `scripts/verify-release.sh`
+  verifies signature *and* checksums - tested against a real key: green, tampered
+  file, missing signature, wrong key. **The key itself is a maintainer action**
+  (generate offline, store as a secret, commit the public half), so the first
+  signed release is blocked on that, deliberately: a key that has been through a
+  transcript is worth nothing.
+- [x] **Reproducible builds**: `--remap-path-prefix` and no incremental
+  compilation, verified by building the same tree at two different paths and
+  comparing - identical SHA-256, and no absolute path survives in the binary. A
+  release job rebuilds the tag from a second directory and refuses to publish on
+  a mismatch.
+- [x] **Packaging**: `debian/`, `packaging/arch/PKGBUILD` (parsed by `makepkg
+  --printsrcinfo`), `packaging/fedora/mellivora-toolkit.spec`, and `cargo install`
+  from a tag. `scripts/check-packaging.sh` fails when any of them names a version
+  other than the workspace's, and CI builds the `.deb` on every push.
+- [x] **Install → upgrade → rollback rehearsal** in a container, carrying a real
+  keystore and audit trail: install, create a sealed key, upgrade a patch
+  version, roll back, upgrade again - asserting the key id is unchanged, the
+  keystore is still 0600, and the audit trail only grew.
+- [x] **User guide** (every command with real output), **admin guide** (config,
+  audit, packs, token, loopback rule, upgrades), **pack gallery** (a pack written
+  from an empty directory that passes `plugins conformance`).
+- [x] **Support policy** in SECURITY.md: previous two minors, twelve months from a
+  release.
 
 *Acceptance:* a clean container installs from the package, upgrades, and rolls
 back without losing the keystore or the audit trail; every README claim links to
