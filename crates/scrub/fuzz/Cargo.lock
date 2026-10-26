@@ -140,7 +140,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-core"
-version = "0.3.0"
+version = "0.7.0"
 dependencies = [
  "dirs",
  "serde",
@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "mellivora-scrub"
-version = "0.3.0"
+version = "0.7.0"
 dependencies = [
  "mellivora-core",
  "serde",

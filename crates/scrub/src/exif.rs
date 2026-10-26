@@ -147,6 +147,8 @@ pub fn redact_gps_payload(
         return Ok(None);
     };
 
+    refuse_unsafe_writes(&plan)?;
+
     if let (Some(offset), Some(value)) = (plan.latitude_offset, plan.latitude) {
         write_dms(payload, base + offset, value, grid_seconds, plan.little)?;
     }
@@ -209,14 +211,65 @@ fn round6(value: f64) -> f64 {
 
 /// Truncate toward zero onto a grid so the result never moves *outside* the
 /// cell the original coordinate occupied.
+///
+/// The whole seconds are **rounded**, not truncated: a coordinate read back from
+/// an integer DMS triple is not exact in binary floating point (`1 + 17/60 +
+/// 24/3600` is a hair under 1.29), and truncating that hair lands one whole grid
+/// step lower. Redacting an already-redacted file then moved the coordinate again
+/// — a fuzz target caught it by redacting twice and comparing. Rounding to the
+/// nearest second first makes the function idempotent: a value that is already on
+/// the grid rounds to itself, then divides by itself.
 fn truncate_dms(degrees: f64, grid_seconds: i64) -> (u32, u32, u32) {
-    let total = (degrees.abs() * 3_600.0) as i64;
+    let total = (degrees.abs() * 3_600.0).round() as i64;
     let total = (total / grid_seconds) * grid_seconds;
     (
         (total / 3_600) as u32,
         ((total % 3_600) / 60) as u32,
         (total % 60) as u32,
     )
+}
+
+/// Refuse to write where the write would destroy what the plan was built from.
+///
+/// Two shapes reach this, both found by the fuzz target's double-redaction check:
+///
+/// - two coordinate tags pointing at the same rational array, so writing the
+///   latitude overwrites the longitude that was just read;
+/// - a value pointer aimed at the IFD entry table itself, so the write edits the
+///   entries that describe the coordinates.
+///
+/// Either way a second redaction reads back different bytes and the coordinate
+/// moves on every run — precisely the degradation the tool exists to prevent.
+/// There is no correct value for bytes that two structures share, so this fails
+/// closed rather than guessing.
+fn refuse_unsafe_writes(plan: &Plan) -> Result<()> {
+    let mut regions: Vec<(usize, usize, &str)> = Vec::new();
+    if let (Some(offset), Some(_)) = (plan.latitude_offset, plan.latitude) {
+        regions.push((offset, offset + 24, "latitude"));
+    }
+    if let (Some(offset), Some(_)) = (plan.longitude_offset, plan.longitude) {
+        regions.push((offset, offset + 24, "longitude"));
+    }
+    if let (Some(offset), Some(_)) = (plan.altitude_offset, plan.altitude) {
+        regions.push((offset, offset + 8, "altitude"));
+    }
+    for (index, (start, end, name)) in regions.iter().enumerate() {
+        for (other_start, other_end, other_name) in &regions[index + 1..] {
+            if start < other_end && other_start < end {
+                return Err(malformed(format!(
+                    "the {name} and {other_name} values share bytes ({start}..{end} and {other_start}..{other_end})"
+                )));
+            }
+        }
+        for (structure_start, structure_end) in &plan.structure {
+            if start < structure_end && structure_start < end {
+                return Err(malformed(format!(
+                    "the {name} value lies inside an IFD entry table ({start}..{end} in {structure_start}..{structure_end})"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn write_dms(
@@ -271,6 +324,9 @@ struct Plan {
     /// `GPSAltitudeRef`: 0 (or absent) is above sea level, 1 is below. EXIF
     /// stores altitude as an unsigned magnitude, so this is where the sign lives.
     altitude_ref: Option<u8>,
+    /// The IFD entry tables, in payload coordinates. A value pointer may point
+    /// into one of them; writing there edits the entries that were just read.
+    structure: Vec<(usize, usize)>,
 }
 
 const TAG_GPS_IFD: u16 = 0x8825;
@@ -287,6 +343,9 @@ const TYPE_RATIONAL: u16 = 5;
 fn build_plan(tiff: &Tiff<'_>) -> Result<Option<Plan>> {
     let ifd0 = tiff.u32(4)? as usize;
     let count = tiff.ifd_count(ifd0)?;
+    // Each entry is 12 bytes after a 2-byte count, and the table ends with a
+    // 4-byte next-IFD pointer.
+    let mut structure = vec![(ifd0, ifd0 + 2 + count * 12 + 4)];
 
     let mut gps_ifd = None;
     for index in 0..count {
@@ -311,9 +370,12 @@ fn build_plan(tiff: &Tiff<'_>) -> Result<Option<Plan>> {
         latitude_ref: None,
         longitude_ref: None,
         altitude_ref: None,
+        structure: Vec::new(),
     };
 
     let count = tiff.ifd_count(gps_ifd)?;
+    structure.push((gps_ifd, gps_ifd + 2 + count * 12 + 4));
+    plan.structure = structure;
     for index in 0..count {
         let entry = tiff.entry(gps_ifd, index)?;
         match entry.tag {

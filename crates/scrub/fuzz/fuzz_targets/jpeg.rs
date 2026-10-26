@@ -22,6 +22,12 @@ fuzz_target!(|data: &[u8]| {
     let Ok(stripped) = handler.strip_with(data, &RemovalPolicy::all()) else {
         return;
     };
+    assert!(
+        stripped.len() <= data.len(),
+        "strip grew the file from {} to {} bytes",
+        data.len(),
+        stripped.len()
+    );
     let Ok(next) = handler_for(&stripped) else {
         return;
     };

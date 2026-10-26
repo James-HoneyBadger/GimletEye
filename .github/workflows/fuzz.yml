@@ -74,7 +74,7 @@ jobs:
           # by magic bytes is part of what is under test).
           cargo fuzz run "${{ matrix.target }}" \
             "corpus/${{ matrix.target }}" "seeds/${{ matrix.target }}" \
-            ../tests/golden/fixtures \
+            ../tests/golden/fixtures ../tests/fixtures/gps \
             -- -max_total_time="$SECONDS_PER_TARGET" -print_final_stats=1
 
       - name: Report coverage

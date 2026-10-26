@@ -14,12 +14,14 @@ fuzz_target!(|data: &[u8]| {
             let _ = redact_gps_payload(&mut owned[range], GpsPrecision::City);
         }
 
-        // Redaction is documented as idempotent; a second pass must not move a
-        // coordinate or trip over the rewritten block.
+        // Redaction is documented as idempotent: a second pass must leave the
+        // bytes exactly as the first left them, not merely avoid panicking.
+        let once = owned.clone();
         let again = exif_ranges(&owned).unwrap_or_default();
         for range in again {
             let _ = redact_gps_payload(&mut owned[range], GpsPrecision::City);
         }
+        assert_eq!(owned, once, "GPS redaction is not idempotent");
     }
 
     // And the payload on its own, however a container reaches it.

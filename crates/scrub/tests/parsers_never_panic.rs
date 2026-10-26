@@ -103,6 +103,14 @@ fn exercise(name: &str, bytes: &[u8], expect: Expect) {
         assert!(!strict, "{name}: strip failed on a well-formed seed");
         return;
     };
+    // ADR 0006 Gate 2: strip "never grows a file". Checked here, on every
+    // commit, as well as in the nightly soak.
+    assert!(
+        stripped.len() <= bytes.len(),
+        "{name}: strip grew the file from {} to {} bytes",
+        bytes.len(),
+        stripped.len()
+    );
     let next = match handler_for(&stripped) {
         Ok(next) => next,
         Err(error) if strict => {
