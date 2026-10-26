@@ -365,10 +365,11 @@ went live the moment v0.7.0 was tagged — is what proves it.
 - [ ] **Gate 2 audit** — corpus, token, pack trust, MSRV, `cargo deny`, and the
   live-engine UI test are green in CI; the soak now covers the `.melv` reader as
   well as the four scrub parsers, and a failed night opens an issue instead of
-  waiting to be noticed. **Waiting on elapsed time, and nothing else:** the fuzz
-  soak needs seven consecutive *scheduled* nights. The first was 2026-10-26, so
-  the earliest the row can turn green is **2026-11-01**. `make fuzz-nights` reads
-  the history and refuses to count a dispatched run, a cancellation, or a gap.
+  waiting to be noticed. Per the **2026-10-26 amendment to ADR 0006** the evidence
+  bar is seven consecutive *scheduled* nights **or** 350 target-minutes of green
+  soak; `make fuzz-nights` reports both numbers, never counts a dispatched run as
+  a night, and never counts a cancellation at all. The nightly schedule stays in
+  place either way — it is what notices a soak that stopped building.
 - [x] **Gate 3 audit** (2026-10-26) — the six surfaces are named and versioned in
   [COMPATIBILITY.md](COMPATIBILITY.md) (which now also lists the CLI and HTTP
   routes); `check-quiet-period.sh` proves none moved since v0.7.0; the one-minor

@@ -153,9 +153,9 @@ else
 fi
 fuzz_output="$(./scripts/check-fuzz-nights.sh 2>&1)"
 if [ $? -eq 0 ]; then
-    row 2 ok "fuzz soak: seven green scheduled nights" "$(tail -1 <<<"$fuzz_output")"
+    row 2 ok "fuzz soak: seven nights or 350 target-minutes" "$(tail -1 <<<"$fuzz_output")"
 else
-    row 2 open "fuzz soak: seven green scheduled nights" "$(tail -1 <<<"$fuzz_output")"
+    row 2 open "fuzz soak: seven nights or 350 target-minutes" "$(tail -1 <<<"$fuzz_output")"
 fi
 ci_row 2 "integration (CLI, API, Perl pack)" "API token, pack trust, conformance"
 ci_row 2 "dependency policy" "cargo deny on both graphs"
