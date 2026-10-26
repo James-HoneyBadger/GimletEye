@@ -2,7 +2,8 @@
 
 | Document | Read it when you want to… |
 |---|---|
-| [USER_GUIDE.md](USER_GUIDE.md) | use the toolkit: every command and tool, with real output |
+| [USER_GUIDE.md](USER_GUIDE.md) | use the toolkit: workflows, and the commands worth typing |
+| [TOOL_REFERENCE.md](TOOL_REFERENCE.md) | look up one tool: its arguments, an example, and the output it produced |
 | [ADMIN_GUIDE.md](ADMIN_GUIDE.md) | install it, configure it, secure the API, trust packs, back up state |
 | [PACK_GALLERY.md](PACK_GALLERY.md) | write a pack from an empty directory |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand the layers, contracts, and dependency rules |

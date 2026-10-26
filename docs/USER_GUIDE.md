@@ -3,6 +3,9 @@
 Every command, with the output it actually produces. Run `mellivora --help` for
 the same list without the commentary.
 
+For one tool's arguments and a worked example, see the generated
+[TOOL_REFERENCE.md](TOOL_REFERENCE.md) — it covers all of them.
+
 - [First run](#first-run)
 - [Tools](#tools)
 - [Encryption](#encryption)

@@ -231,6 +231,12 @@ jobs:
       - name: The public surface is documented
         run: ./scripts/check-public-surface.sh
 
+      # ADR 0006 Gate 5: every tool has an example with real output. The output
+      # cannot be diffed (it names this machine), so coverage is what is
+      # enforced: no tool may exist that the reference does not show.
+      - name: Every tool is in the reference
+        run: ./scripts/check-tool-reference.sh
+
   packaging:
     name: packaging (version agreement, deb build)
     runs-on: ubuntu-22.04

@@ -14,6 +14,20 @@ translates its `run(%args)` / `format_report(%result)` pair into a toolkit
 - `JSON::PP` (core)
 - A Perl Den checkout
 
+Everything else the modules use ships with Perl itself (`Digest::SHA`,
+`IO::Socket::INET`, `Archive::Tar`, `Socket`, `Fcntl`) with one exception:
+
+| Module | Needed by | Without it |
+|---|---|---|
+| `IO::Socket::SSL` | `perlden.ssl-checker` | that one tool fails to load with a plugin error naming the module; the other tools are unaffected |
+
+```bash
+cpanm IO::Socket::SSL        # or: pacman -S perl-io-socket-ssl
+```
+
+This is the pack's own dependency, not the toolkit's: the native tools never load
+Perl.
+
 ## Finding the source
 
 The pack resolves a root in this order:

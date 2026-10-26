@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Fail when a tool exists that docs/TOOL_REFERENCE.md does not cover.
+#
+# ADR 0006 Gate 5 asks that every tool have an example with real output. The
+# reference is generated (`scripts/tool-reference.py`), so its output cannot be
+# diffed in CI — every run prints a different hostname. What can be enforced is
+# coverage: the catalogue is the list of tools that exist, and every entry in it
+# must appear in the document. Adding a tool without regenerating fails here.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+doc="docs/TOOL_REFERENCE.md"
+[ -s "$doc" ] || {
+    echo "$doc is missing: run scripts/tool-reference.py" >&2
+    exit 1
+}
+
+binary="${MELLIVORA_BIN:-}"
+if [ -z "$binary" ]; then
+    for candidate in target/release/mellivora target/debug/mellivora; do
+        if [ -x "$candidate" ]; then
+            binary="$candidate"
+            break
+        fi
+    done
+fi
+if [ -z "$binary" ]; then
+    cargo build --quiet -p mellivora-cli --bin mellivora
+    binary="target/debug/mellivora"
+fi
+
+# A tool is covered when its id heads a section, which is what the generator
+# writes; a passing mention somewhere else is not an example.
+ids="$("$binary" tools list --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p')"
+total="$(grep -c . <<<"$ids")"
+
+missing=()
+while read -r id; do
+    [ -z "$id" ] && continue
+    grep -qF "### \`$id\`" "$doc" || missing+=("$id")
+done <<<"$ids"
+
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "tools with no entry in $doc:" >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    echo "regenerate with: scripts/tool-reference.py" >&2
+    exit 1
+fi
+
+unrun="$(sed -n '/^## Examples that did not run here/,$p' "$doc" | grep -c '^- ' || true)"
+echo "ok   $total tool(s) covered, $unrun example(s) reported as not run here"
