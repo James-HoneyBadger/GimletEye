@@ -317,10 +317,10 @@ impl Report {
             for finding in &self.findings {
                 out.push_str(&format!(
                     "| {} | `{}` | {} | {} |\n",
-                    finding.severity,
-                    finding.code,
-                    finding.message,
-                    finding.target.clone().unwrap_or_default()
+                    md_cell(&finding.severity.to_string()),
+                    md_cell(&finding.code),
+                    md_cell(&finding.message),
+                    md_cell(finding.target.as_deref().unwrap_or_default())
                 ));
             }
             out.push('\n');
@@ -388,6 +388,18 @@ impl Report {
     }
 }
 
+/// One Markdown table cell.
+///
+/// Finding messages and targets are built from whatever the tool looked at — a
+/// filename may legally contain a pipe, and a pack may put a newline in its own
+/// text. Either one silently ends the row and shifts every column after it, so
+/// both are escaped here rather than trusted.
+fn md_cell(text: &str) -> String {
+    text.replace('|', "\\|")
+        .replace("\r\n", "<br>")
+        .replace(['\r', '\n'], "<br>")
+}
+
 fn csv_escape(value: &Value) -> String {
     let raw = match value {
         Value::String(text) => text.clone(),
@@ -446,5 +458,39 @@ mod tests {
         let text = report.sealed().render(OutputFormat::Text);
         assert!(text.contains("✖ demo"));
         assert!(text.contains("[high    ] perm: world writable"));
+    }
+}
+
+#[cfg(test)]
+mod markdown_tests {
+    use super::*;
+
+    #[test]
+    fn a_pipe_or_newline_in_a_finding_cannot_break_the_table() {
+        let mut report = Report::new("demo");
+        report.add_finding(
+            Severity::High,
+            "odd|code",
+            "a file named a|b\nand a second line",
+        );
+        let rendered = report.render(OutputFormat::Markdown);
+
+        let row = rendered
+            .lines()
+            .find(|line| line.contains("odd"))
+            .expect("the finding row");
+        assert_eq!(
+            row.matches('|').count() - row.matches("\\|").count(),
+            5,
+            "the row should still have four cells: {row}"
+        );
+        assert!(
+            !rendered.contains("a|b\n"),
+            "the raw pipe and newline should be escaped: {rendered}"
+        );
+        assert!(
+            rendered.contains("a\\|b<br>and a second line"),
+            "{rendered}"
+        );
     }
 }
