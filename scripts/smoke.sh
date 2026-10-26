@@ -309,6 +309,20 @@ curl -sf -X POST "${auth[@]}" "http://127.0.0.1:$port/api/v1/run" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["tool"]=="sysadmin.disk-usage", d'
 curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/audit?limit=5" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["enabled"] and d["entries"], d'
-echo "API ok (token required, mode 0600, 401 without it)"
+
+# The rest of the routes in docs/COMPATIBILITY.md: public API that nothing calls
+# is public API that nothing checks.
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/tools" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert len(d) >= 5 and all("id" in t and "title" in t for t in d) and any("args" in t for t in d), len(d)'
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/tools/sysadmin.disk-usage" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["id"]=="sysadmin.disk-usage", d'
+code=$(curl -s -o /dev/null -w '%{http_code}' "${auth[@]}" \
+    "http://127.0.0.1:$port/api/v1/tools/no.such-tool")
+[ "$code" = "404" ] || fail "unknown tool id should be 404, got $code"
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/packs" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list), d'
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/config" \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["config"]["schema_version"] == 1 and "audit_file" in d["paths"], d'
+echo "API ok (token required, mode 0600, 401 without it, 7 routes)"
 
 printf '\n\033[32msmoke test passed\033[0m\n'
