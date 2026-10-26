@@ -37,12 +37,21 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      # The container's second implementation (`crates/crypto/tests/
+      # second_implementation.rs`) is Python written from docs/CONTAINER.md.
+      # `cryptography` supplies AEAD and X25519; `argon2-cffi` covers the
+      # Argon2id path on distributions whose `cryptography` predates 44.
+      - name: Install the second implementation's dependencies
+        run: python3 -m pip install --break-system-packages cryptography argon2-cffi
+
       # ADR 0006 Gate 1 accepts OpenPGP interop as "an OpenPGP-signed file
-      # verifies". That is only evidence if gpg actually ran, so the test is told
-      # to fail rather than skip when it is missing.
+      # verifies" and a `.melv` as "readable by a documented second
+      # implementation". Both are only evidence if the tools actually ran, so the
+      # tests are told to fail rather than skip when they are missing.
       - name: Test
         env:
           MELLIVORA_REQUIRE_GPG: '1'
+          MELLIVORA_REQUIRE_SECOND_IMPL: '1'
         run: cargo test --workspace
 
       - name: Build release binaries

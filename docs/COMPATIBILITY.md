@@ -13,7 +13,7 @@ policy. This document states it.
 | `Report` fields | Stable | `status` is derived from findings and must stay that way |
 | Plugin protocol v1 | Versioned | A breaking change bumps `PROTOCOL_VERSION`; the host refuses mismatches |
 | Config file | Versioned | `schema_version` is checked on load |
-| `.melv` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open |
+| `.melv` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open, and an independent reader in `crates/crypto/tests/interop/` proves [CONTAINER.md](CONTAINER.md) is enough to implement it |
 | Keystore (`keystore.melv`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
 | HTTP API `/api/v1` | Versioned | Path carries the major version |
 | Environment variables | Stable | `MELLIVORA_*`; new ones are additive |

@@ -220,3 +220,16 @@ of a field, or the derivation inputs requires:
 3. a compatibility test that still decrypts v1 files and, since v3, the
    committed `container-v3.melv` fixture,
 4. an entry in [COMPATIBILITY.md](COMPATIBILITY.md).
+
+## A second implementation
+
+This document is the format's definition, not a description of the Rust code, and
+that is checked rather than asserted: `crates/crypto/tests/interop/read_melv.py`
+is a reader written from this file alone — Python, no Rust, no shared code. It
+opens version 1, version 2, and version 3, and
+`crates/crypto/tests/second_implementation.rs` runs it in CI against both
+committed fixtures and against a multi-chunk file written by the current build,
+then feeds it a tampered chunk and requires a failure.
+
+If a change to the code makes the spec wrong, that suite fails; if the spec
+becomes impossible to implement, it fails too. Both are the point.
