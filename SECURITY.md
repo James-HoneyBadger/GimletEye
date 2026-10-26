@@ -45,6 +45,25 @@ There is no telemetry, no auto-update check, and no remote logging.
 - Compromised upstream dependencies (mitigated by review and `deny.toml`, not
   eliminated).
 
+### A hostile container and what it may cost
+
+A `.melv` header carries its own Argon2id parameters, and the format accepts up
+to 1 GiB of memory and 16 iterations — a peer may legitimately have used strong
+settings, and refusing to open their file would be worse than the wait. The cost
+of honouring those numbers belongs to whoever asks, so `crypto.decrypt` refuses a
+header above 256 MiB and six iterations in about a quarter of a second, names the
+parameters, and takes `allow_expensive=true` when the operator vouches for the
+file. `crypto.inspect` reads the header without deriving anything.
+
+Without that line a 75-byte file could hold a core for 42 seconds. A fuzz target
+found it during the 1.0 soak: a header asking for 595 MiB and nine iterations,
+rejected only after the key had been derived, because the chunk check came last.
+`crates/crypto/tests/decrypt_cost_budget.rs` pins the refusal, the opt-in, and
+that containers written with default parameters still open unasked.
+
+This is a availability control, not a confidentiality one: it does not change
+what a container can say, only how much work a stranger can ask for.
+
 ## Controls
 
 1. **Capabilities.** Tools declare `fs:read`, `fs:write`, `process:exec`,
