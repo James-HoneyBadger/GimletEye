@@ -37,7 +37,12 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      # ADR 0006 Gate 1 accepts OpenPGP interop as "an OpenPGP-signed file
+      # verifies". That is only evidence if gpg actually ran, so the test is told
+      # to fail rather than skip when it is missing.
       - name: Test
+        env:
+          MELLIVORA_REQUIRE_GPG: '1'
         run: cargo test --workspace
 
       - name: Build release binaries

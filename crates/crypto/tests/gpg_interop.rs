@@ -22,12 +22,22 @@ fn serial() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Whether `gpg` runs here.
+///
+/// A missing `gpg` makes this file skip, which on a developer machine is the
+/// right call and in CI is not: a skipped interop test is an unverified claim
+/// dressed as a green one. `MELLIVORA_REQUIRE_GPG` turns the skip into a failure,
+/// and the workflow sets it.
 fn gpg_available() -> bool {
-    Command::new("gpg")
+    let works = Command::new("gpg")
         .arg("--version")
         .output()
         .map(|output| output.status.success())
-        .unwrap_or(false)
+        .unwrap_or(false);
+    if !works && std::env::var_os("MELLIVORA_REQUIRE_GPG").is_some() {
+        panic!("MELLIVORA_REQUIRE_GPG is set but gpg did not run: the interop claim is unverified");
+    }
+    works
 }
 
 struct Keyring {
