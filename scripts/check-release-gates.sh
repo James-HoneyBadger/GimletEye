@@ -90,10 +90,12 @@ load_ci() {
     if [ "$skip_ci" -eq 1 ] || ! command -v gh >/dev/null; then
         return
     fi
+    # The newest run may still be queued, which says nothing about the evidence;
+    # the last *completed* run on main is what the gate is about.
     local run
-    run="$(gh run list --workflow ci.yml --branch main --limit 1 --json databaseId,status,conclusion \
-        --jq '.[0] | "\(.databaseId)\t\(.status)\t\(.conclusion // "-")"' 2>/dev/null)"
-    [ -z "$run" ] && return
+    run="$(gh run list --workflow ci.yml --branch main --limit 8 --json databaseId,status,conclusion \
+        --jq '[.[] | select(.status == "completed")][0] | "\(.databaseId)\t\(.status)\t\(.conclusion // "-")"' 2>/dev/null)"
+    [ -z "$run" ] || [ "$run" = "null" ] && return
     local id status conclusion
     IFS=$'\t' read -r id status conclusion <<<"$run"
     while IFS=$'\t' read -r name result; do
