@@ -96,7 +96,17 @@ fn run(globals: &Globals, tool_name: &str, raw_args: &[String]) -> Result<ExitCo
     let arg_keys: Vec<String> = args.as_map().keys().cloned().collect();
 
     let context = runtime.context(globals.dry_run);
-    let report = tool.run(&context, &args)?;
+    let started = std::time::Instant::now();
+    let report = match tool.run(&context, &args) {
+        Ok(report) => report,
+        Err(error) => {
+            // A run that failed is still a run. Leaving it out of the trail would
+            // make repeated failures — a wrong passphrase being guessed at, for
+            // instance — the one thing the trail does not show.
+            record_failure(&runtime, &tool.manifest().id, started.elapsed(), &arg_keys);
+            return Err(error);
+        }
+    };
     crate::out!("{}", report.render(format_for(globals, &runtime)));
     record_audit(&runtime, &report, arg_keys);
 
@@ -169,6 +179,23 @@ fn resolve(runtime: &Runtime, query: &str) -> Result<std::sync::Arc<dyn Tool>> {
     Err(MellivoraError::NotFound(format!(
         "tool '{query}'.{hint} Run `mellivora tools list` to see everything available."
     )))
+}
+
+/// Record a run that ended in an error, with argument names only.
+fn record_failure(
+    runtime: &Runtime,
+    tool: &str,
+    elapsed: std::time::Duration,
+    arg_keys: &[String],
+) {
+    let Some(log) = runtime.audit_log() else {
+        return;
+    };
+    let entry = AuditEntry::new(tool, Status::Error, elapsed.as_millis() as u64)
+        .with_arg_keys(arg_keys.to_vec());
+    if let Err(err) = log.record(&entry) {
+        tracing::warn!(%err, "failed to write audit record");
+    }
 }
 
 fn record_audit(runtime: &Runtime, report: &Report, arg_keys: Vec<String>) {

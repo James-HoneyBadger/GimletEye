@@ -11,7 +11,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use mellivora_core::{
     AppPaths, Args, AuditEntry, AuditLog, Config, MellivoraError, PackSummary, Registry, Report,
-    ToolContext, ToolManifest, VERSION,
+    Status, ToolContext, ToolManifest, VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -219,9 +219,32 @@ async fn run_tool(
         context.dry_run = dry_run;
     }
 
-    let report = tokio::task::spawn_blocking(move || tool.run(&context, &args))
+    let tool_id = tool.manifest().id.clone();
+    let started = std::time::Instant::now();
+    let outcome = tokio::task::spawn_blocking(move || tool.run(&context, &args))
         .await
-        .map_err(|err| MellivoraError::Internal(format!("tool task failed: {err}")))??;
+        .map_err(|err| MellivoraError::Internal(format!("tool task failed: {err}")))?;
+
+    // A failed run is recorded too: an audit trail that only holds successes
+    // cannot show repeated failures, which is the shape of an attempt to guess a
+    // passphrase.
+    let report = match outcome {
+        Ok(report) => report,
+        Err(error) => {
+            if let Some(audit) = &state.audit {
+                let entry = AuditEntry::new(
+                    &tool_id,
+                    Status::Error,
+                    started.elapsed().as_millis() as u64,
+                )
+                .with_arg_keys(arg_keys);
+                if let Err(err) = audit.record(&entry) {
+                    tracing::warn!(%err, "failed to write audit record");
+                }
+            }
+            return Err(error.into());
+        }
+    };
 
     if let Some(audit) = &state.audit {
         let entry = AuditEntry::new(report.tool.clone(), report.status, report.duration_ms)

@@ -127,6 +127,11 @@ One line per run, append-only:
 {"ts":"2026-10-25T18:04:11Z","tool":"crypto.encrypt","status":"ok","duration_ms":312,"arg_keys":["input","passphrase_env"]}
 ```
 
+A run that fails gets a line too, with `"status":"error"` and the same
+argument-name-only detail. That is deliberate: an attempt to guess a passphrase is
+a series of failures, and a trail that only stored successes would show nothing at
+all. The duration is the time until the failure.
+
 Argument *values* are never recorded — only their names — so a passphrase cannot
 leak into the trail. Pruning is atomic and serialised: `max_entries` trims through
 a temporary file and a rename, so a concurrent writer cannot lose a record and a

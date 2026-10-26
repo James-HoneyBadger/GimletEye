@@ -259,6 +259,20 @@ if cli audit --limit 5 --format json | grep -q 'passwords'; then
     fail "audit trail leaked an argument value"
 fi
 
+# A run that fails is still a run. An attack on a passphrase is a series of
+# failures, so a trail that only holds successes would show nothing.
+if cli crypto.decrypt "input=$MELLIVORA_HOME/missing.melv" passphrase=guess >/dev/null 2>&1; then
+    fail "decrypting a missing container should fail"
+fi
+cli audit --limit 1 --format json | python3 -c '
+import json, sys
+entry = json.load(sys.stdin)[0]
+assert entry["status"] == "error", entry
+assert entry["tool"] == "crypto.decrypt", entry
+assert "passphrase" in entry["arg_keys"], entry
+assert "guess" not in json.dumps(entry), "the trail recorded an argument value"
+' || fail "a failed run left no error record in the audit trail"
+
 step "compatibility pack"
 if [ -d external/Perl_Den/lib/PerlDen/Scripts ]; then
     pack_tools=$(cli tools list --format json | python3 -c '
@@ -323,6 +337,23 @@ curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/packs" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, list), d'
 curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/config" \
     | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["config"]["schema_version"] == 1 and "audit_file" in d["paths"], d'
-echo "API ok (token required, mode 0600, 401 without it, 7 routes)"
+# The same promise over HTTP: a rejected run is recorded.
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" \
+    "http://127.0.0.1:$port/api/v1/run" -H 'content-type: application/json' \
+    -d '{"tool":"crypto.decrypt","args":{"input":"/nonexistent/attempt.melv","passphrase":"guess"}}')
+case "$code" in
+    4*|5*) ;;
+    *) fail "a failing tool should not answer $code" ;;
+esac
+curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/audit?limit=1" \
+    | python3 -c '
+import json, sys
+entry = json.load(sys.stdin)["entries"][0]
+assert entry["status"] == "error", entry
+assert entry["tool"] == "crypto.decrypt", entry
+assert "guess" not in json.dumps(entry), "the trail recorded an argument value"
+' || fail "the API recorded no audit entry for a failed run"
+
+echo "API ok (token required, mode 0600, 401 without it, 7 routes, failures audited)"
 
 printf '\n\033[32msmoke test passed\033[0m\n'
