@@ -115,26 +115,41 @@ Both are recorded in `apps/desktop/src-tauri/deny.toml`, which CI checks so a
 ## Release signing
 
 Release checksums are signed with [minisign](https://jedisct1.github.io/minisign/).
-The public key is published here once the first signed release is cut:
+The public key is committed as [`release-key.pub`](release-key.pub):
 
 ```text
-untrusted comment: minisign public key (not yet published: no signed release exists)
+untrusted comment: minisign public key 5F87CFD4343B9B84
+RWSEmzs01M+HX6BEgq9OUX4naG53feGQ01VTaT3SP6Xz1VbX4TXU6ojG
 ```
 
-Until that line is replaced with a real key, every release is unsigned, and
-`scripts/verify-release.sh` will say so rather than pretending otherwise.
+Anything claiming to be a Mellivora ToolKit release and not signed by that key is
+not one. `scripts/verify-release.sh` uses it by default and fails when the
+signature is missing, when the key does not match, or when any listed file does
+not match its checksum — a partial verification is not a verification.
 
-**Why the delay is deliberate:** a signing key is only worth something if it was
-generated offline and never touched a CI runner. The release workflow refuses to
-publish an unsigned release unless an operator explicitly passes `unsigned: true`,
-so the first signed release requires the key to exist. Creating it is a
-maintainer action, not a code change:
+The release workflow refuses to publish an unsigned release unless an operator
+explicitly passes `unsigned: true`, so a release either carries a signature or
+says out loud that it does not.
+
+### Key custody, and the one shortcut taken here
+
+The first key was generated with `minisign -G -W`: **an empty passphrase**, so the
+secret half is protected only by the `MINISIGN_SECRET_KEY` repository secret and
+GitHub's access controls. That is weaker than an offline, passphrase-protected
+key, and it was chosen to get a verifiable release out; it is recorded here
+rather than glossed over.
+
+Rotating to a passphrase-protected key is a five-minute job and needs no code
+change:
 
 ```bash
-minisign -G -p release-key.pub -s release-key.sec
-# store release-key.sec as the MINISIGN_SECRET_KEY repository secret, keep it offline,
-# and commit release-key.pub to this repository
+minisign -G -p release-key.pub -s release-key.sec   # prompted for a passphrase
+gh secret set MINISIGN_SECRET_KEY < release-key.sec # store, then delete the file
+git commit -am "chore(release): rotate the signing key" && git tag -f vX.Y.Z
 ```
+
+A rotation is visible: the public key in this file changes, and releases before
+the change verify against the old key only.
 
 To verify a release:
 
