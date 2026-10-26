@@ -68,6 +68,9 @@ trade-offs behind each decision.
 
 `mellivora serve` opens a local workbench — no cloud, no account, no uploads:
 
+- **Start** from the three pillars — System, Crypto, Privacy — which are buttons:
+  each one narrows the catalogue and opens its first tool. Your last tool is
+  restored next time, so the choice costs a click once.
 - **Browse** by category, or search across names, summaries, tags, capabilities,
   and argument names (`Ctrl/⌘ K`); arrow keys move through the list.
 - **Fill in** generated forms: every field comes from the tool's manifest, so a

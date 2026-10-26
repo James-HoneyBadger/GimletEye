@@ -141,6 +141,15 @@ root.addEventListener('click', (event) => {
     return;
   }
 
+  // A pillar card on the empty screen promises "go here", so it also opens the
+  // first tool in that pillar. The sidebar tabs only narrow the list, because a
+  // user browsing should not have the form under their cursor replaced.
+  const pillar = target.closest<HTMLElement>('[data-open-category]');
+  if (pillar) {
+    actions.openCategory(pillar.dataset.openCategory || null);
+    return;
+  }
+
   const filter = target.closest<HTMLElement>('[data-category]');
   if (filter) {
     state.category = filter.dataset.category || null;

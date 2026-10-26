@@ -93,16 +93,33 @@ async function boot() {
   await vi.waitFor(() => expect(document.querySelectorAll('[data-tool]').length).toBe(3));
 }
 
+/** Open a tool the way a user does: click it in the list. */
+async function openTool(id: string) {
+  document.querySelector<HTMLElement>(`[data-tool="${id}"]`)!.click();
+  await vi.waitFor(() =>
+    expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe(id),
+  );
+}
+
 describe('workbench shell', () => {
-  it('lists tools and renders the selected tool without a manual refresh', async () => {
+  it('lists tools and opens one without a manual refresh', async () => {
     await boot();
-    expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.echo');
+    await openTool('demo.echo');
     expect(document.querySelector('.tool-name')?.textContent).toContain('Echo');
     expect(document.querySelector('#arg-input')).not.toBeNull();
   });
 
+  it('lands on the pillars on a first run instead of picking a tool', async () => {
+    await boot();
+    // Nothing is open, so the three pillars are the way in rather than decoration.
+    expect(document.querySelector('.empty-state')).not.toBeNull();
+    expect(document.querySelector('.tool--active')).toBeNull();
+    expect(document.querySelectorAll('.hint-card').length).toBe(3);
+  });
+
   it('blocks a run and explains which field is missing', async () => {
     await boot();
+    await openTool('demo.echo');
     document.querySelector<HTMLButtonElement>('#run')!.click();
 
     await vi.waitFor(() => expect(document.querySelector('.field-error')?.textContent).toContain('Choose a file'));
@@ -111,6 +128,7 @@ describe('workbench shell', () => {
 
   it('runs the tool and shows the report with a copyable CLI command', async () => {
     await boot();
+    await openTool('demo.echo');
     const input = document.querySelector<HTMLInputElement>('#arg-input')!;
     input.value = '/tmp/a.txt';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -125,6 +143,7 @@ describe('workbench shell', () => {
 
   it('keeps a typed value when the tool is re-selected', async () => {
     await boot();
+    await openTool('demo.echo');
     const input = document.querySelector<HTMLInputElement>('#arg-input')!;
     input.value = '/tmp/kept.txt';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -140,6 +159,7 @@ describe('workbench shell', () => {
 
   it('offers a dry run only for tools that write', async () => {
     await boot();
+    await openTool('demo.echo');
     expect(document.querySelector('.readonly')?.textContent).toContain('Read-only');
     expect(document.querySelector('#dry-run')).toBeNull();
     expect(document.querySelector('[data-tool="demo.echo"] .tool-flag')).toBeNull();
@@ -166,6 +186,7 @@ describe('workbench shell', () => {
 
   it('moves focus into the form after a pointer selection, not the list', async () => {
     await boot();
+    await openTool('demo.echo');
     const row = document.querySelector<HTMLElement>('[data-tool="demo.write"]')!;
     row.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
 
@@ -240,6 +261,60 @@ describe('workbench shell', () => {
 
     await vi.waitFor(() => expect(document.querySelectorAll('.choice.is-active').length).toBe(1));
     expect(document.querySelector('.choice.is-active')?.textContent?.trim()).toBe('archive');
+  });
+
+  it('offers the pillars as buttons that open a tool in one click', async () => {
+    await boot();
+    expect(document.querySelector('.empty-state')).not.toBeNull();
+
+    const cards = [...document.querySelectorAll<HTMLButtonElement>('.hint-card')];
+    expect(cards.length).toBeGreaterThan(0);
+    // The complaint: they used to be divs, so this is the assertion that matters.
+    for (const card of cards) {
+      expect(card.tagName).toBe('BUTTON');
+      expect(card.disabled).toBe(false);
+    }
+    expect(cards.map((card) => card.textContent?.trim().slice(0, 6))).toContain('Crypto');
+
+    const crypto = cards.find((card) => card.textContent?.includes('Crypto'))!;
+    crypto.click();
+
+    // It both narrows the catalogue and takes you somewhere.
+    await vi.waitFor(() => expect(document.querySelector('.empty-state')).toBeNull());
+    await vi.waitFor(() => expect(document.querySelector('.tool--active')).not.toBeNull());
+    expect(document.querySelector('.filter--active')?.textContent).toContain('Crypto');
+    // demo.enum is the only tool in the crypto category of this fixture.
+    expect(document.querySelector('.tool-id')?.textContent).toBe('demo.enum');
+  });
+
+  it('does not pretend the pillars work before tools have loaded', async () => {
+    // The empty screen also covers a slow start and an unreachable engine, where
+    // there is nothing to open. A card that looks clickable and cannot go
+    // anywhere is the bug this whole change is about.
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.includes('/health')) return json({ status: 'ok', version: '0.1.0', tools: 0, packs: 0 });
+      if (url.includes('/tools')) return json([]);
+      if (url.includes('/packs')) return json([]);
+      if (url.includes('/audit')) return json({ enabled: false, path: '', entries: [] });
+      throw new Error(`unexpected request ${url}`);
+    });
+
+    await import('./main');
+    await vi.waitFor(() => expect(document.querySelector('.empty-state')).not.toBeNull());
+
+    const cards = [...document.querySelectorAll<HTMLButtonElement>('.hint-card')];
+    expect(cards.length).toBe(3);
+    for (const card of cards) {
+      expect(card.tagName).toBe('BUTTON');
+      expect(card.disabled).toBe(true);
+      expect(card.hasAttribute('data-open-category')).toBe(false);
+    }
+    // The pillars are still named, so the screen still says what this is.
+    expect(cards.map((card) => card.querySelector('strong')?.textContent)).toEqual([
+      'System0',
+      'Crypto0',
+      'Privacy0',
+    ]);
   });
 
   it('opens and closes the packs sheet', async () => {

@@ -119,6 +119,14 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Fixed
 
+- **The three pillars on the empty screen are buttons, not decoration.** System,
+  Crypto, and Privacy were `<div>`s styled as cards: the most inviting thing on
+  the screen did nothing when clicked. They are now buttons that narrow the
+  catalogue to that pillar and open its first tool. Two consequences fell out of
+  making them real: the workbench no longer picks a tool for you on a first run
+  (a remembered tool is still restored, so the landing screen costs one click
+  once), and a pillar with nothing in it renders disabled with a count of `0`
+  instead of looking alive while the catalogue is still loading.
 - **A short list of choices is a row of buttons, not a dropdown.** The `kind`,
   `algorithm`, `profile`, and `redact_gps` arguments were `<select>` elements,
   which depend on a native popup the WebKitGTK webview does not open reliably

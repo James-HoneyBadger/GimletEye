@@ -37,6 +37,8 @@ export interface Actions {
   submitToken(value: string): Promise<void>;
   /** `fromKeyboard` keeps focus in the list; a pointer selection moves to the form. */
   selectTool(id: string, fromKeyboard?: boolean): void;
+  /** Narrow to a pillar and open its first tool: what the empty-state cards do. */
+  openCategory(category: string | null): void;
   moveSelection(delta: number): void;
   toggleTheme(): void;
   run(): Promise<void>;
@@ -120,9 +122,12 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
         for (const id of cached) {
           if (!known.has(id)) forgetTool(id);
         }
-        if (!state.selectedId || !known.has(state.selectedId)) {
-          state.selectedId = tools[0]?.id ?? null;
+        if (state.selectedId && !known.has(state.selectedId)) {
+          state.selectedId = null;
         }
+        // A remembered tool is restored; a first run lands on the pillar screen,
+        // which is where "System / Crypto / Privacy" are chosen from. Picking a
+        // tool for the user made those three look decorative.
         state.error = null;
         state.tokenRequired = false;
       } catch (error) {
@@ -144,6 +149,17 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       state.error = null;
       await this.boot();
       if (state.tokenRequired) toast('That token was not accepted', 'error');
+    },
+
+    openCategory(category: string | null): void {
+      state.category = category;
+      persist();
+      const first = visibleTools()[0];
+      if (first && first !== state.selectedId) {
+        this.selectTool(first);
+        return;
+      }
+      render.all();
     },
 
     selectTool(id: string, fromKeyboard = false): void {

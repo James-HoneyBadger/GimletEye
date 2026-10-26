@@ -1,6 +1,12 @@
 import type { ArgSpec, ToolManifest } from '../lib/api';
 import { escapeHtml, isNative, modLabel, originLabel, titleCase } from '../lib/format';
-import { draftFor, selectedTool, type AppState, type RawValues } from '../lib/store';
+import {
+  categories,
+  draftFor,
+  selectedTool,
+  type AppState,
+  type RawValues,
+} from '../lib/store';
 import { icons } from './icons';
 import { renderResult } from './result';
 
@@ -87,18 +93,59 @@ function field(spec: ArgSpec, draft: RawValues, error: string | undefined): stri
   return `<div class="field field--${type}">${label}${control}${help}${message}</div>`;
 }
 
+/** What each pillar covers, in the words the empty state has always used. */
+const PILLARS: { category: string; label: string; blurb: string }[] = [
+  { category: 'sysadmin', label: 'System', blurb: 'Inventory, disk capacity, host checks' },
+  { category: 'crypto', label: 'Crypto', blurb: 'Encrypt files, sign and verify, generate secrets' },
+  { category: 'privacy', label: 'Privacy', blurb: 'Inspect and remove metadata, redact GPS' },
+];
+
+/**
+ * The "nothing selected yet" screen.
+ *
+ * The pillar cards are buttons, not decoration: they used to be plain `div`s
+ * shaped like cards, so the most inviting thing on the screen did nothing when
+ * clicked. Each one narrows the catalogue to its pillar and opens the first tool
+ * in it, which is the shortest path from "where do I start" to a working form.
+ */
 function emptyState(): string {
+  const counts = new Map(categories().map((entry) => [entry.name, entry.count]));
+  const extra = categories()
+    .filter((entry) => !PILLARS.some((pillar) => pillar.category === entry.name))
+    .map((entry) => ({
+      category: entry.name,
+      label: titleCase(entry.name),
+      blurb: `${entry.count} tool${entry.count === 1 ? '' : 's'}`,
+      count: entry.count,
+    }));
+
+  const cards = [
+    ...PILLARS.map((pillar) => ({ ...pillar, count: counts.get(pillar.category) ?? 0 })),
+    ...extra,
+  ]
+    .map((card) => {
+      // Nothing loaded yet is a real state - a slow start or an unreachable
+      // engine - and a button that cannot go anywhere has to say so instead of
+      // looking alive.
+      const empty = card.count === 0;
+      const attrs = empty
+        ? 'disabled title="No tools loaded yet"'
+        : `data-open-category="${escapeHtml(card.category)}"`;
+      return `
+        <button type="button" class="hint-card${empty ? ' hint-card--empty' : ''}" ${attrs}>
+          <strong>${escapeHtml(card.label)}<span class="hint-count">${card.count}</span></strong>
+          <span class="hint-blurb">${escapeHtml(card.blurb)}</span>
+        </button>`;
+    })
+    .join('');
+
   return `
     <section class="empty-state">
       <div class="empty-art" aria-hidden="true">${icons.layers}</div>
       <h1>Pick a tool to begin</h1>
-      <p class="muted">Everything runs locally against this machine. Choose a tool on the left,
-        or press <kbd>${modLabel} K</kbd> and start typing.</p>
-      <div class="empty-hints">
-        <div class="hint-card"><strong>System</strong><span>Inventory, disk capacity, host checks</span></div>
-        <div class="hint-card"><strong>Crypto</strong><span>Encrypt files, sign and verify, generate secrets</span></div>
-        <div class="hint-card"><strong>Privacy</strong><span>Inspect and remove metadata, redact GPS</span></div>
-      </div>
+      <p class="muted">Everything runs locally against this machine. Choose a pillar below,
+        pick a tool on the left, or press <kbd>${modLabel} K</kbd> and start typing.</p>
+      <div class="empty-hints">${cards}</div>
     </section>`;
 }
 

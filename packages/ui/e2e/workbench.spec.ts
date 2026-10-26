@@ -37,6 +37,28 @@ test.describe('a live engine', () => {
     expect(await page.locator('[data-tool]').count()).toBeGreaterThan(10);
   });
 
+  test('starts at the pillars, and a pillar opens a tool', async ({ page }) => {
+    // The engine's home is removed before each run, so this is a true first run:
+    // nothing remembered, nothing selected. The pillars are the way in.
+    await page.goto(`/#token=${encodeURIComponent(token())}`);
+    await expect(page.locator('.empty-state')).toBeVisible();
+
+    const cards = page.locator('.hint-card');
+    await expect(cards).toHaveCount(3);
+    for (const card of await cards.all()) {
+      await expect(card).toBeEnabled();
+    }
+    // Named as pillars, with a live count from the registry.
+    await expect(page.locator('.hint-card strong')).toHaveText([/System/, /Crypto/, /Privacy/]);
+
+    await page.locator('.hint-card', { hasText: 'Crypto' }).click();
+    await expect(page.locator('.tool-id')).toContainText('crypto.');
+    await expect(page.locator('.filter--active')).toContainText('Crypto');
+    // And the choice sticks: a reload restores the tool instead of the pillars.
+    await page.reload();
+    await expect(page.locator('.tool-id')).toContainText('crypto.');
+  });
+
   test('browses, validates, runs, and reads the report', async ({ page }) => {
     await page.goto(`/#token=${encodeURIComponent(token())}`);
 
