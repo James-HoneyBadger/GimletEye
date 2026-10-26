@@ -69,8 +69,9 @@ log = re.sub(r'^mellivora-toolkit \([^)]*\)', f'mellivora-toolkit ({next_version
 open(changelog, 'w').write(log)
 PY
 # The bumped version is in Cargo.toml, so the lock file has to name it too or
-# `--locked` (correctly) refuses to build.
-(cd "$work/new" && cargo update --workspace --offline -q) || fail "could not refresh the lock file for the bumped version"
+# `--locked` (correctly) refuses to build. The refresh happens inside the build
+# container, which has a warm registry and network; a CI runner's cargo cache is
+# empty, so doing it here would fail on a cold machine.
 for kind in old new; do
     rm -rf "$work/$kind/packaging/arch" # makepkg is irrelevant inside Debian
 done
@@ -85,6 +86,9 @@ docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
     . "$HOME/.cargo/env"
     for kind in old new; do
         cd "/w/$kind"
+        # Only the bumped tree needs its lock refreshed, and only for the
+        # workspace members whose version changed.
+        if [ "$kind" = new ]; then cargo update --workspace -q; fi
         # `-d` skips the build-dependency check on purpose: the Debian archive
         # ships a rustc older than this project MSRV, so the build uses rustup.
         # The control file still names cargo and rustc, which is what a

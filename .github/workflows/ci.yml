@@ -215,18 +215,22 @@ jobs:
       - name: Build the .deb
         run: dpkg-buildpackage -b -uc -us -d
 
-      - name: Check what the package installs
+      # dpkg-buildpackage writes beside the source tree, and the upload action
+      # refuses to leave the workspace, so the package is collected first.
+      - name: Collect and inspect the package
         run: |
-          deb=$(ls -1 ../mellivora_*.deb | head -1)
+          mkdir -p dist
+          cp ../mellivora_*.deb dist/
+          deb=$(ls -1 dist/mellivora_*.deb | head -1)
           echo "built $deb"
           dpkg-deb -c "$deb" | sed -n '1,12p'
           dpkg-deb -f "$deb" Package Version Depends
-          [ -f "$deb" ] || exit 1
+          test -s "$deb" || exit 1
 
       - uses: actions/upload-artifact@v4
         with:
           name: deb-package
-          path: ../mellivora_*.deb
+          path: dist/mellivora_*.deb
           if-no-files-found: error
 
   rehearsal:
