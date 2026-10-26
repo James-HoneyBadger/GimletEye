@@ -147,6 +147,25 @@ needs no special case.
 | Profile file | `--policy policies/redact.toml` for a shared, reviewable policy instead of ad-hoc flags. | S |
 | Archives | A zip/tar of photos carries metadata inside; currently out of scope and easy to miss. | M |
 
+### Markdown table escaping (deferred past 1.0)
+
+**Problem.** `Report::render_markdown` interpolates finding messages and targets
+into a table without escaping. A filename may legally contain `|`, and a pack may
+put a newline in its own text; either ends the row and shifts every column after
+it, so `--format markdown` renders as noise exactly when someone is pasting a
+report into an issue. CSV is already correct — it quotes commas, quotes, and
+newlines.
+
+**Why deferred.** The fix is two lines in `crates/core/src/report.rs`, which the
+quiet-period check lists as a frozen surface, and `ALLOW_SURFACE_CHANGE` restarts
+the two-release counter — a rendering fix is not worth restarting a freeze that
+is one soak away from 1.0. The patch exists in history as commit `caeacb9` on
+2026-10-26; re-apply it in the first 1.x minor.
+
+**Effort** S · **Risk** Low.
+
+---
+
 ### ADR for profile semantics
 
 **Problem.** `privacy`, `sharing`, and `archive` were defined here: privacy
