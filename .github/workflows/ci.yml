@@ -211,6 +211,12 @@ jobs:
       - name: Run the front-page examples
         run: ./scripts/check-readme-claims.sh
 
+      # ADR 0006 Gate 3: the CLI and the HTTP routes are public API, and public
+      # API has to be documented. This compares the doc with the binary and the
+      # router, so a new flag or route cannot ship undocumented.
+      - name: The public surface is documented
+        run: ./scripts/check-public-surface.sh
+
   packaging:
     name: packaging (version agreement, deb build)
     runs-on: ubuntu-22.04

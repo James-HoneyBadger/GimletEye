@@ -22,6 +22,56 @@ policy. This document states it.
 Anything not in this table — internal module layout, parser helpers, the UI's
 DOM — can change at any time.
 
+### The CLI surface
+
+The commands and flags below are public API: they are what scripts and
+packaging recipes invoke, so a rename is a breaking change and follows the
+deprecation policy just like a field rename.
+
+| Command | Purpose | Flags it adds |
+|---|---|---|
+| `mellivora <tool-id> [KEY=VALUE…]` | Shorthand for `run` | — |
+| `mellivora run <tool> [KEY=VALUE…]` | Run one tool | — |
+| `mellivora batch <tool> <PATH…>` | Run a tool over many files, one report per file plus an aggregate | `--arg`, `--input-arg`, `--concurrency`, `--fail-fast`, `--ext`, `--no-recursive` |
+| `mellivora tools list` | The catalogue as a table | `--category` |
+| `mellivora tools show <id>` | One manifest as JSON | — |
+| `mellivora plugins list` | Installed packs | — |
+| `mellivora plugins doctor` | Why a pack would or would not load | — |
+| `mellivora plugins conformance <dir>` | Run the SDK checklist against a pack | — |
+| `mellivora plugins pin <dir>` | Print the entry-point digest for `[trust]` | — |
+| `mellivora plugins show` | Resolved plugin configuration | — |
+| `mellivora config init` | Write a default config file | `--force` |
+| `mellivora config show` | Effective configuration | — |
+| `mellivora config path` | Where the config file is looked for | — |
+| `mellivora audit` | Recent audit records | `--limit` |
+| `mellivora doctor` | Check the installation and report problems | — |
+| `mellivora serve` | Serve the HTTP API and the UI on loopback | `--host`, `--port`, `--allow-remote`, `--ui-dir` |
+
+Every command also accepts these global options: `--home`, `--format`,
+`--json`, `--dry-run`, `--no-plugins`, `--strict`, `--verbose`, `--version`,
+`--help`.
+Adding a flag is additive and may happen in a minor; removing or renaming one
+keeps the old spelling as an alias for a minor, as with fields.
+
+### The HTTP surface
+
+Every route requires the bearer token when one is configured, including
+`health` — a client that cannot present a token learns nothing from the API.
+
+| Route | Returns |
+|---|---|
+| `GET /api/v1/health` | status, version, tool and pack counts |
+| `GET /api/v1/tools` | the catalogue as manifests |
+| `GET /api/v1/tools/{id}` | one manifest, `404` when unknown |
+| `POST /api/v1/run` | one report; the body carries the tool id, arguments, and `dry_run` |
+| `GET /api/v1/packs` | installed packs with their state |
+| `GET /api/v1/audit` | recent runs from the audit trail |
+| `GET /api/v1/config` | effective configuration, redacted |
+
+`scripts/check-public-surface.sh` compares these tables with the binary's own
+`--help` output and with the router, so a command, flag, or route that is not
+documented here fails CI rather than shipping undocumented.
+
 ## The shape of `Report.data`
 
 `data` is public API, so it follows five rules. Without them a consumer has to

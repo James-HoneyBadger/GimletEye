@@ -1,4 +1,4 @@
-.PHONY: help build test fmt fmt-check clippy check msrv quiet-period ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build test fmt fmt-check clippy check msrv quiet-period surface ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
 
 CARGO ?= cargo
 UI_DIR := packages/ui
@@ -30,6 +30,9 @@ msrv: ## Build every target on the declared MSRV (what CI's msrv job runs)
 
 quiet-period: ## Verify no frozen surface moved since the last release
 	./scripts/check-quiet-period.sh
+
+surface: ## Verify every command, flag, and route is documented as public API
+	./scripts/check-public-surface.sh
 
 ui-install: ## Install UI dependencies
 	cd $(UI_DIR) && npm install
