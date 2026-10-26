@@ -110,8 +110,14 @@ truthfully is what lets a user point a pack at a directory without guessing.
 
 ```json
 {"jsonrpc":"2.0","id":3,"method":"run_tool",
- "params":{"tool":"mypack.greet","args":{"name":"Ada"}}}
+ "params":{"tool":"mypack.greet","args":{"name":"Ada"},"dry_run":false}}
 ```
+
+`dry_run` sits beside `args`, not inside it, and is `true` when the user passed
+`--dry-run` (or the workbench toggle). It is the only way a pack that would write
+can know it must not: a tool does not have to declare it, and a tool that
+predates the field can ignore it. Honouring it is a conformance item, and the
+host cannot check it for you.
 
 ```json
 {"jsonrpc":"2.0","id":3,"result":{
@@ -339,5 +345,5 @@ Before publishing a pack:
 | `perl -c` / `node --check` / `python -m py_compile` passes | `conformance` |
 | Pack works when `cwd` is its own directory | `conformance` (it always runs there) |
 | Findings drive `status` (a `high` finding with `ok` status is a bug) | manual |
-| `--dry-run` is honoured for anything that writes | manual |
+| `--dry-run` is honoured for anything that writes (the host sends `dry_run`) | manual |
 | No secret values appear in any report field | manual |

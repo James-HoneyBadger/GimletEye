@@ -8,6 +8,23 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Added
 
+- **Packaging for Arch, Debian, and Fedora**, plus `cargo install` from a tag.
+  `scripts/check-packaging.sh` fails when any of them names a version other than
+  the workspace's, and CI builds the `.deb` on every push so a broken
+  `debian/rules` cannot reach a release.
+- **Releases are reproducible and signed.** Builds remap absolute paths and skip
+  incremental compilation, so the same tag produces the same bytes; a release job
+  rebuilds from a second directory and refuses to publish on a mismatch.
+  `SHA256SUMS` is signed with minisign, and the workflow refuses an unsigned
+  release unless an operator says so explicitly. `scripts/verify-release.sh`
+  checks signature and checksums together, and treats a missing signature as a
+  failure rather than a warning.
+- **An upgrade rehearsal in a container**: install, create a sealed key, upgrade
+  to the next patch version, roll back, and upgrade again — asserting the key id
+  survives, the keystore stays 0600, and the audit trail only grows. It runs on
+  every push.
+- **A user guide, an admin guide, and a pack gallery**, the last with a complete
+  example pack that passes `mellivora plugins conformance`.
 - **Recorded throughput.** `cargo run --release -p mellivora-toolkit --example
   bench` measures scan, strip, and encrypt at 10 MiB and 1 GiB, prints JSON, and
   fails under a floor; a CI job runs it and keeps the numbers. On this machine:
@@ -119,6 +136,12 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ### Fixed
 
+- **A pack is told when the run is a dry run.** The host sent `run_tool` with
+  the tool id and its arguments and nothing else, so a pack that would write had
+  no way to know the user asked it not to - which made the SDK rule "honour
+  `--dry-run`" unimplementable, not merely unenforced. `dry_run` now travels
+  beside `args`; packs that ignore it keep working, and the protocol version
+  stays 1 because nothing changed meaning.
 - **The three pillars on the empty screen are buttons, not decoration.** System,
   Crypto, and Privacy were `<div>`s styled as cards: the most inviting thing on
   the screen did nothing when clicked. They are now buttons that narrow the

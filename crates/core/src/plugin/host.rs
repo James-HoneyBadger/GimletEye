@@ -349,7 +349,10 @@ impl Tool for PluginTool {
             )));
         }
 
-        let params = json!({ "tool": self.tool_id, "args": args.as_map() });
+        // `dry_run` is a host flag, not a tool argument: a pack that would write
+        // has no other way to know the user asked it not to. Without it the SDK
+        // rule "honour `--dry-run`" was unimplementable.
+        let params = run_tool_params(&self.tool_id, args.as_map(), ctx.dry_run);
         let value = pack.request(METHOD_RUN_TOOL, params)?;
         serde_json::from_value(value).map_err(|err| {
             MellivoraError::Plugin(format!(
@@ -512,8 +515,13 @@ impl Drop for PluginHost {
 }
 
 /// Convenience for building `run_tool` params, shared with pack authors in docs.
-pub fn run_tool_params(tool: &str, args: &BTreeMap<String, Value>) -> Value {
-    json!({ "tool": tool, "args": args })
+/// The `run_tool` payload.
+///
+/// `dry_run` sits beside `args`, not inside it, so a tool cannot be handed a
+/// flag it did not declare and a pack cannot mistake it for one of its own
+/// arguments. Packs that predate the field ignore it.
+pub fn run_tool_params(tool: &str, args: &BTreeMap<String, Value>, dry_run: bool) -> Value {
+    json!({ "tool": tool, "args": args, "dry_run": dry_run })
 }
 
 #[cfg(test)]
@@ -587,6 +595,72 @@ while IFS= read -r line; do
     esac
 done
 "#;
+
+    const DRY_RUN_PACK: &str = r#"
+while IFS= read -r line; do
+    # Every reply echoes the id it answers, which is how the host matches them.
+    id=$(printf '%s' "$line" | sed -n 's/.*"id":[ ]*\([0-9]*\).*/\1/p')
+    case "$line" in
+        *'"initialize"'*)
+            printf '{"jsonrpc":"2.0","id":%s,"result":{"protocol_version":1,"name":"dry","version":"0.1.0","capabilities":["run","list_tools"]}}\n' "$id"
+            ;;
+        *'"list_tools"'*)
+            printf '{"jsonrpc":"2.0","id":%s,"result":{"tools":[{"id":"dry.echo","title":"Echo","summary":"echo","category":"sysadmin","capabilities":[]}]}}\n' "$id"
+            ;;
+        *'"run_tool"'*)
+            case "$line" in
+                *'"dry_run":true'*) verdict=would-write ;;
+                *) verdict=wrote ;;
+            esac
+            printf '{"jsonrpc":"2.0","id":%s,"result":{"tool":"dry.echo","status":"ok","summary":"%s","findings":[],"data":{},"warnings":[],"duration_ms":0}}\n' "$id" "$verdict"
+            ;;
+        *'"shutdown"'*)
+            printf '{"jsonrpc":"2.0","id":%s,"result":{}}\n' "$id"
+            exit 0
+            ;;
+    esac
+done
+"#;
+
+    /// A pack cannot know the user asked for a dry run unless the host says so.
+    #[cfg(unix)]
+    #[test]
+    fn a_pack_is_told_when_the_run_is_a_dry_run() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = temp_dir("dryrun");
+        let pack_dir = dir.join("dry");
+        fs::create_dir_all(&pack_dir).expect("pack dir");
+        let script = pack_dir.join("pack.sh");
+        fs::write(&script, DRY_RUN_PACK).expect("write script");
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).expect("chmod");
+
+        let mut manifest = pack_manifest(Vec::new());
+        manifest.name = "dry".into();
+        manifest.command = vec!["sh".into(), "pack.sh".into()];
+
+        let mut pack =
+            RunningPack::start(&pack_dir, manifest, Duration::from_secs(5)).expect("start pack");
+        pack.handshake().expect("handshake");
+        assert_eq!(pack.tools.len(), 1);
+
+        let tool = PluginTool::new(
+            pack.tools[0].clone(),
+            "dry.echo".into(),
+            Arc::new(Mutex::new(pack)),
+        );
+        let context = ToolContext::new(crate::AppPaths::under(dir.join("home")));
+
+        let wet = tool.run(&context, &Args::new()).expect("run");
+        assert_eq!(wet.summary, "wrote");
+
+        let dry = tool
+            .run(&context.clone().with_dry_run(true), &Args::new())
+            .expect("dry run");
+        assert_eq!(dry.summary, "would-write", "the pack was not told");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[cfg(unix)]
     #[test]
