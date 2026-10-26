@@ -27,10 +27,6 @@ quiet countdown to 1.0 is unaffected.
   array, and a value pointer aimed at the IFD entry table. The first is fixed by
   rounding to whole seconds before snapping to the grid; the other two are now
   refused, naming the ranges involved, instead of being half-written.
-- **A Markdown report could not survive a pipe.** Finding messages and targets
-  are built from what the tool looked at, and a filename may legally contain `|`
-  or a newline; either one ended the table row and shifted every column after it.
-  Those cells are escaped now, so `--format markdown` stays pasteable.
 - **A run that failed left no audit entry.** Both the CLI and `POST /api/v1/run`
   recorded only after a tool returned a report, so an attempt to guess a
   passphrase was invisible in the trail. Failures are recorded with
