@@ -260,6 +260,26 @@ jobs:
       - name: Install minisign
         run: sudo apt-get update && sudo apt-get install -y minisign
 
+      # `minisign -S` verifies what it just wrote, which needs the public half.
+      # The publish job does not check the repository out, and the key may postdate
+      # the tag, so it is fetched from the tag when it is there and from the
+      # default branch otherwise.
+      - name: Fetch the release public key
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for ref in "$RELEASE_TAG" "${{ github.event.repository.default_branch }}"; do
+            if gh api "repos/${{ github.repository }}/contents/release-key.pub?ref=$ref" \
+                --jq .content 2>/dev/null | base64 -d > release-key.pub; then
+              if [ -s release-key.pub ]; then break; fi
+            fi
+          done
+          test -s release-key.pub || {
+            echo "::error::no release-key.pub in $RELEASE_TAG or the default branch"
+            exit 1
+          }
+          head -1 release-key.pub
+
       # The checksums are what a user actually trusts, so they are what gets
       # signed. The key is long-lived and offline; only the secret half reaches
       # the runner, and only for this step.
@@ -285,10 +305,10 @@ jobs:
           fi
           printf '%s' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/release.key"
           chmod 600 "$RUNNER_TEMP/release.key"
-          minisign -S -s "$RUNNER_TEMP/release.key" -m release/SHA256SUMS \
-            -x release/SHA256SUMS.minisig
+          minisign -S -p release-key.pub -s "$RUNNER_TEMP/release.key" \
+            -m release/SHA256SUMS -x release/SHA256SUMS.minisig
           rm -f "$RUNNER_TEMP/release.key"
-          minisign -V -m release/SHA256SUMS -x release/SHA256SUMS.minisig
+          minisign -V -p release-key.pub -m release/SHA256SUMS -x release/SHA256SUMS.minisig
           echo "signed SHA256SUMS" >> "$GITHUB_STEP_SUMMARY"
 
       # `gh` uploads the files and leaves the release notes alone; the release
