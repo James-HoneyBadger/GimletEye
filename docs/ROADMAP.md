@@ -287,6 +287,11 @@ the host never told a pack that a run was a dry run, so the SDK rule "honour
 - [x] **User guide** (every command with real output), **admin guide** (config,
   audit, packs, token, loopback rule, upgrades), **pack gallery** (a pack written
   from an empty directory that passes `plugins conformance`).
+
+  A version bump also regenerates [TOOL_REFERENCE.md](TOOL_REFERENCE.md):
+  `check-tool-reference.sh` compares the version the generator stamped into the
+  header with the binary's, so a snapshot from an older build fails CI instead of
+  shipping as if it were current.
 - [x] **Support policy** in SECURITY.md: previous two minors, twelve months from a
   release.
 
