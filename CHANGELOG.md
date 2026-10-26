@@ -27,6 +27,14 @@ quiet countdown to 1.0 is unaffected.
   array, and a value pointer aimed at the IFD entry table. The first is fixed by
   rounding to whole seconds before snapping to the grid; the other two are now
   refused, naming the ranges involved, instead of being half-written.
+- **A `.melv` file could make decrypting cost minutes.** The container format
+  accepts up to 1 GiB of Argon2id memory and 16 iterations, which is right for a
+  format but wrong for a tool pointed at a file someone sent you: a 75-byte
+  header asking for 595 MiB and nine iterations held a core for 42 seconds before
+  the chunk check rejected it. `crypto.decrypt` now refuses anything above 256 MiB
+  / six iterations in a quarter of a second, names the parameters, and takes
+  `allow_expensive=true` when the operator vouches for the file. The format
+  itself is unchanged.
 - **A run that failed left no audit entry.** Both the CLI and `POST /api/v1/run`
   recorded only after a tool returned a report, so an attempt to guess a
   passphrase was invisible in the trail. Failures are recorded with

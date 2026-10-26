@@ -39,6 +39,15 @@ The reader still validates parameter bounds *before* key derivation, so a
 crafted header cannot demand gigabytes of memory. Accepted range: 8 KiB –
 1 GiB memory, 1–16 iterations, 1–8 lanes.
 
+That range is the *format's* allowance, and it is deliberately generous: a peer
+may have sealed the file with strong parameters, and refusing to open it would be
+worse than the wait. The *tool* is the thing you point at a file someone sent
+you, so `crypto.decrypt` has its own budget — 256 MiB and six iterations — and
+refuses anything above it in a quarter of a second, naming the parameters and
+suggesting `allow_expensive=true`. Without that line, a 75-byte header asking for
+595 MiB and nine iterations occupied a core for 42 seconds before the chunk check
+rejected the file; a fuzz target found it.
+
 ## Reserved bytes
 
 Reserved fields must be zero. A non-zero value means the file uses a feature

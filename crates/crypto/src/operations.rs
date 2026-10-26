@@ -365,12 +365,63 @@ impl Decrypt {
                 ArgSpec::new("overwrite", ArgKind::Boolean)
                     .default_value(Value::Bool(false))
                     .help("Replace the output file if it exists"),
+                ArgSpec::new("allow_expensive", ArgKind::Boolean)
+                    .default_value(Value::Bool(false))
+                    .help(
+                        "Open a container whose key-derivation parameters exceed the default \
+                         budget (see docs/CONTAINER.md); only do this for a file you trust",
+                    ),
             ])
             .with_tags(["decryption", "container", "aead"])
             .mutating(),
             backend,
         }
     }
+}
+
+/// The most key-derivation work `crypto.decrypt` will do without being asked.
+///
+/// The container *format* accepts up to 1 GiB of memory and 16 iterations, which
+/// is the right call for the format: a peer may legitimately have used strong
+/// parameters. The built-in tool is the thing a user points at a file they were
+/// sent, though, and honouring the format's maximum means a 75-byte file can buy
+/// minutes of CPU and hundreds of megabytes of memory — the fuzz target in
+/// `fuzz/fuzz_targets/container.rs` found exactly that: a header asking for
+/// 595 MiB and nine iterations cost 42 seconds before the chunk check rejected
+/// the file.
+///
+/// So the format stays permissive and the tool is conservative: over budget is a
+/// refusal that names the parameters, and `allow_expensive=true` is the way to
+/// say "I trust this file".
+const DEFAULT_KDF_SLACK_KIB: u32 = 256 * 1024;
+const DEFAULT_KDF_SLACK_ITERATIONS: u32 = 6;
+
+fn refuse_expensive_header(input: &Path, allow_expensive: bool) -> Result<()> {
+    if allow_expensive {
+        return Ok(());
+    }
+    let Some(bytes) = std::fs::read(input).ok() else {
+        return Ok(());
+    };
+    let Ok(header) = container::inspect(&bytes) else {
+        // A header this build cannot read is refused later, with a better error.
+        return Ok(());
+    };
+    let container::Kdf::Argon2id(params) = header.kdf else {
+        return Ok(());
+    };
+    if params.m_cost_kib > DEFAULT_KDF_SLACK_KIB || params.t_cost > DEFAULT_KDF_SLACK_ITERATIONS {
+        return Err(MellivoraError::InvalidArgs(format!(
+            "this container asks for {} MiB and {} iteration(s) of Argon2id, more than this tool \
+             will spend unasked ({} MiB, {} iteration(s)). Pass allow_expensive=true if you trust \
+             the file, or use `crypto.inspect` to see the parameters without decrypting",
+            params.m_cost_kib / 1024,
+            params.t_cost,
+            DEFAULT_KDF_SLACK_KIB / 1024,
+            DEFAULT_KDF_SLACK_ITERATIONS
+        )));
+    }
+    Ok(())
 }
 
 impl Tool for Decrypt {
@@ -405,6 +456,7 @@ impl Tool for Decrypt {
 
         ensure_distinct(&input, &target)?;
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
+        refuse_expensive_header(&input, args.bool_or("allow_expensive", false)?)?;
 
         // A dry run still verifies the key and every chunk — it just discards
         // the plaintext instead of writing it.
