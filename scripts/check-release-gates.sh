@@ -53,17 +53,25 @@ row() {
 # is summed from every target's summary line, and zero is a failure.
 run_check() {
     # run_check <gate> <label> <command...>
-    local gate="$1" label="$2"
+    local gate="$1" label="$2" is_cargo=0
     shift 2
+    [ "$1" = "cargo" ] && is_cargo=1
     local output status passed
     output="$("$@" 2>&1)"
     status=$?
-    passed="$(sed -n 's/^test result: ok\. \([0-9]\+\) passed.*/\1/p' <<<"$output" |
-        awk '{ total += $1 } END { print total + 0 }')"
 
     if [ "$status" -ne 0 ]; then
         row "$gate" fail "$label" "$(grep -E '^(test result: FAILED|error)' <<<"$output" | head -1)"
-    elif [ "$passed" -eq 0 ]; then
+        return
+    fi
+    if [ "$is_cargo" -eq 0 ]; then
+        # A script either did its job or exited non-zero; there is no test count.
+        row "$gate" ok "$label" "$(tail -1 <<<"$output")"
+        return
+    fi
+    passed="$(sed -n 's/^test result: ok\. \([0-9]\+\) passed.*/\1/p' <<<"$output" |
+        awk '{ total += $1 } END { print total + 0 }')"
+    if [ "$passed" -eq 0 ]; then
         row "$gate" fail "$label" "matched no tests: the row would be vacuous"
     else
         row "$gate" ok "$label" "$passed test(s)"
