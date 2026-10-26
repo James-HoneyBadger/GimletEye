@@ -39,4 +39,8 @@ fuzz_target!(|data: &[u8]| {
         0,
         "a successful strip left removable metadata behind"
     );
+
+    if let Ok(twice) = next.strip_with(&stripped, &RemovalPolicy::all()) {
+        assert_eq!(twice, stripped, "stripping twice is not idempotent");
+    }
 });

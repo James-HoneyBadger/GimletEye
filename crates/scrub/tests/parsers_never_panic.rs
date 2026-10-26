@@ -130,6 +130,15 @@ fn exercise(name: &str, bytes: &[u8], expect: Expect) {
         0,
         "{name}: a successful strip left removable metadata behind"
     );
+
+    // "Stripping is idempotent" is documented and checked on the golden corpus;
+    // arbitrary input is where a rebuild of the same container can still differ.
+    if let Ok(twice) = next.strip_with(&stripped, &RemovalPolicy::all()) {
+        assert_eq!(
+            twice, stripped,
+            "{name}: stripping an already-stripped container changed it"
+        );
+    }
 }
 
 /// Truncations, head corruption, and impossible length fields: the three shapes
