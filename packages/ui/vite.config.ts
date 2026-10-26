@@ -17,5 +17,6 @@ export default defineConfig({
     // Unit tests only. `e2e/` holds Playwright specs, which need a real browser
     // and a real engine; vitest would try to run them and fail.
     include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test-setup.ts'],
   },
 });

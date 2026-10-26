@@ -193,6 +193,11 @@ root.addEventListener('click', (event) => {
     return;
   }
 
+  if (target.closest('[data-retry]')) {
+    actions.retry();
+    return;
+  }
+
   if (target.closest('#run')) {
     void actions.run();
     return;

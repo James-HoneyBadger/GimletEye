@@ -39,6 +39,8 @@ export interface Actions {
   selectTool(id: string, fromKeyboard?: boolean): void;
   /** Narrow to a pillar and open its first tool: what the empty-state cards do. */
   openCategory(category: string | null): void;
+  /** Retry a failed boot, from the empty screen's error. */
+  retry(): void;
   moveSelection(delta: number): void;
   toggleTheme(): void;
   run(): Promise<void>;
@@ -149,6 +151,12 @@ export function createActions(root: HTMLElement, render: Renderer): Actions {
       state.error = null;
       await this.boot();
       if (state.tokenRequired) toast('That token was not accepted', 'error');
+    },
+
+    retry(): void {
+      state.error = null;
+      render.all();
+      void this.boot();
     },
 
     openCategory(category: string | null): void {

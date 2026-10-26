@@ -108,7 +108,7 @@ const PILLARS: { category: string; label: string; blurb: string }[] = [
  * clicked. Each one narrows the catalogue to its pillar and opens the first tool
  * in it, which is the shortest path from "where do I start" to a working form.
  */
-function emptyState(): string {
+function emptyState(state: AppState): string {
   const counts = new Map(categories().map((entry) => [entry.name, entry.count]));
   const extra = categories()
     .filter((entry) => !PILLARS.some((pillar) => pillar.category === entry.name))
@@ -139,12 +139,29 @@ function emptyState(): string {
     })
     .join('');
 
+  // A failed boot used to look identical to a healthy empty catalogue: an empty
+  // list and greyed-out pillars, with the reason hidden in a region that is not
+  // rendered when no tool is selected. Say what went wrong where the user is
+  // looking, and offer the one action that can help.
+  const failure = state.error
+    ? `
+      <div class="callout callout--error empty-failure" role="alert">
+        <strong>${icons.error}Cannot reach the engine</strong>
+        <p>${escapeHtml(state.error)}</p>
+        <button class="button" data-retry>Try again</button>
+      </div>`
+    : '';
+
+  const intro = state.error
+    ? 'The toolkit could not load its catalogue, so there is nothing to run yet.'
+    : 'Everything runs locally against this machine. Choose a pillar below, pick a tool on the left, or press';
+
   return `
     <section class="empty-state">
       <div class="empty-art" aria-hidden="true">${icons.layers}</div>
-      <h1>Pick a tool to begin</h1>
-      <p class="muted">Everything runs locally against this machine. Choose a pillar below,
-        pick a tool on the left, or press <kbd>${modLabel} K</kbd> and start typing.</p>
+      <h1>${state.error ? 'No engine, no tools' : 'Pick a tool to begin'}</h1>
+      <p class="muted">${intro}${state.error ? '' : ` <kbd>${modLabel} K</kbd> and start typing.`}</p>
+      ${failure}
       <div class="empty-hints">${cards}</div>
     </section>`;
 }
@@ -186,7 +203,7 @@ export function renderWorkbench(state: AppState): string {
 
   const tool = selectedTool();
   if (!tool) {
-    return `<main class="main">${emptyState()}</main>`;
+    return `<main class="main">${emptyState(state)}</main>`;
   }
 
   const args = tool.args ?? [];

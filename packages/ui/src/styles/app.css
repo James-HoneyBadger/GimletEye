@@ -1467,6 +1467,18 @@ select[aria-invalid='true'] {
   box-shadow: 0 0 0 3px var(--error-soft);
 }
 
+.empty-failure {
+  max-width: 620px;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.empty-failure p {
+  margin: 6px 0 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* A short enum is a set of buttons: one click per option, no native popup. */
 
 .choice-group {

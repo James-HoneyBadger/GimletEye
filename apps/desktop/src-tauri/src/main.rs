@@ -5,10 +5,17 @@
 //! The window renders the same bundle the browser does and carries no logic of
 //! its own. The only thing the shell owns is the lifetime of the engine and the
 //! port it listens on.
+//!
+//! The window loads the bundle **from the engine's own HTTP server**, not from
+//! Tauri's embedded assets. That is not a preference: on Linux the webview runs
+//! the embedded copy on `tauri://localhost` and refuses a cross-scheme fetch to
+//! `http://127.0.0.1:<port>`, which left the UI reporting itself offline with an
+//! empty catalogue and nothing to click. Serving both from one origin removes
+//! the cross-origin request instead of working around it.
 
 use std::path::PathBuf;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 fn main() {
     tauri::Builder::default()
@@ -36,13 +43,26 @@ fn main() {
                 }
             );
 
+            // The browser build is served from the same origin as the API, so
+            // the UI never makes a cross-origin request.
+            let ui_dir = resolve_ui_dir(app.handle());
+            match &ui_dir {
+                Some(dir) => eprintln!("mellivora: serving the UI from {}", dir.display()),
+                None => eprintln!(
+                    "mellivora: no UI directory found; the window will load the embedded \
+                     copy and cannot reach the API. Set MELLIVORA_DESKTOP_UI_DIR or build \
+                     packages/ui (./run.sh does)."
+                ),
+            }
+
             let token_for_engine = api_token.clone();
+            let ui_for_engine = ui_dir.clone();
             std::thread::spawn(move || match mellivora_toolkit::Runtime::load(None, true) {
                 Ok(runtime) => {
                     if let Err(error) = mellivora_toolkit::serve_on_listener(
                         runtime,
                         listener,
-                        None,
+                        ui_for_engine,
                         false,
                         token_for_engine,
                     ) {
@@ -52,7 +72,18 @@ fn main() {
                 Err(error) => eprintln!("mellivora: cannot start engine: {error}"),
             });
 
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+            // Same origin as the API when the bundle is on disk; the embedded
+            // copy is only a fallback for a build that shipped without it.
+            let url = match &ui_dir {
+                Some(_) => WebviewUrl::External(
+                    format!("http://127.0.0.1:{port}/")
+                        .parse()
+                        .expect("a loopback URL parses"),
+                ),
+                None => WebviewUrl::App("index.html".into()),
+            };
+
+            WebviewWindowBuilder::new(app, "main", url)
                 .title("Mellivora ToolKit")
                 .inner_size(1240.0, 860.0)
                 .min_inner_size(880.0, 600.0)
@@ -77,6 +108,38 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("failed to start the Mellivora desktop shell");
+}
+
+/// Where the window's files come from.
+///
+/// Three places, in order: an explicit override (tests and unusual layouts), the
+/// bundle's resources (a packaged app), and the checkout (`run.sh` and `cargo
+/// run`). `index.html` is the test, because a directory without it would serve a
+/// 404 page that looks like a broken app.
+fn resolve_ui_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("MELLIVORA_DESKTOP_UI_DIR").map(PathBuf::from) {
+        if dir.join("index.html").is_file() {
+            return Some(dir);
+        }
+        eprintln!(
+            "mellivora: MELLIVORA_DESKTOP_UI_DIR points at {}, which has no index.html",
+            dir.display()
+        );
+    }
+
+    if let Ok(resources) = app.path().resource_dir() {
+        for candidate in [resources.join("ui"), resources.join("packages/ui/dist")] {
+            if candidate.join("index.html").is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    let checkout = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/ui/dist");
+    if checkout.join("index.html").is_file() {
+        return Some(checkout);
+    }
+    None
 }
 
 /// Look for packs next to the binary (installed layout) or the checkout

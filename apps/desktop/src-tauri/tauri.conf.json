@@ -27,6 +27,9 @@
     ],
     "category": "Utility",
     "shortDescription": "System, crypto, and privacy workbench",
-    "longDescription": "Mellivora ToolKit is one workbench for system administration, cryptography, and metadata privacy: a single tool registry, report format, configuration, and audit trail behind a CLI, a local API, and this window."
+    "longDescription": "Mellivora ToolKit is one workbench for system administration, cryptography, and metadata privacy: a single tool registry, report format, configuration, and audit trail behind a CLI, a local API, and this window.",
+    "resources": {
+      "../../../packages/ui/dist/": "ui/"
+    }
   }
 }
