@@ -29,6 +29,12 @@ jobs:
   soak:
     name: soak (${{ matrix.target }})
     runs-on: ubuntu-latest
+    env:
+      # `rust-toolchain.toml` pins stable for the workspace, and a toolchain
+      # file outranks `rustup default`. Without this the sanitizer flags that
+      # cargo-fuzz passes reach a stable rustc and the run dies with
+      # "the option `Z` is only accepted on the nightly compiler".
+      RUSTUP_TOOLCHAIN: nightly
     strategy:
       fail-fast: false
       matrix:
