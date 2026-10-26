@@ -2,7 +2,7 @@
 #
 # The version is checked against Cargo.toml by scripts/check-packaging.sh.
 Name:           mellivora-toolkit
-Version:        0.3.0
+Version:        0.7.0
 Release:        1%{?dist}
 Summary:        Local workbench for system, crypto, and metadata tasks
 License:        MIT
@@ -47,5 +47,6 @@ install -Dm644 docs/PLUGIN_SDK.md %{buildroot}%{_docdir}/%{name}/PLUGIN_SDK.md
 %doc README.md CHANGELOG.md docs/CONTAINER.md docs/PLUGIN_SDK.md
 
 %changelog
-* Sat Oct 25 2026 Mellivora ToolKit maintainers <maintainers@example.invalid> - 0.3.0-1
-- Initial packaging for 0.3.0
+* Sun Oct 26 2026 Mellivora ToolKit maintainers <maintainers@example.invalid> - 0.7.0-1
+- Local API token, pack conformance and trust, golden corpus, live-engine tests,
+  reproducible builds, packaging, and the user and admin guides

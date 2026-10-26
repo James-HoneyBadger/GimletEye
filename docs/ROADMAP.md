@@ -296,7 +296,19 @@ a test, a CI job, or a command.
 
 ## v1.0 — Freeze
 
-Cut from the end of 0.7, once the two quiet minors are behind it.
+Cut once the two quiet minors are behind it.
+
+**Where the count stands.** ADR 0006 counts *releases*, not commits. The ladder
+above was built in-tree across 0.4–0.7 and shipped as a single **0.7.0**, so:
+
+| Quiet release | Status |
+|---|---|
+| 0.7.0 (surface work done, nothing versioned moved) | released |
+| the next one — 0.8.0 from the same tree | not yet cut |
+
+1.0 is therefore one quiet release away, not two. 0.8.0 should be cut from a
+commit that changes nothing versioned, and `scripts/check-quiet-period.sh` — which
+went live the moment v0.7.0 was tagged — is what proves it.
 
 - [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
   (x86_64, aarch64), and Windows (x86_64); `.deb`/`.AppImage`, `.dmg`, and NSIS

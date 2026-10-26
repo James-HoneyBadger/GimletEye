@@ -22,7 +22,7 @@ mellivora doctor
 `doctor` prints where state lives, what was found, and where the audit trail is:
 
 ```text
-mellivora 0.3.0
+mellivora 0.7.0
 home        /home/you/.config/mellivora
 config      /home/you/.config/mellivora/config.toml (defaults)
 state dirs  ok
@@ -143,7 +143,7 @@ mellivora serve --ui-dir packages/ui/dist
 It prints a URL that carries its own token in the fragment:
 
 ```text
-Mellivora ToolKit 0.3.0 → http://127.0.0.1:7878
+Mellivora ToolKit 0.7.0 → http://127.0.0.1:7878
   API   http://127.0.0.1:7878/api/v1/health
   token … (stored in /home/you/.config/mellivora/api-token, mode 0600)
 ```

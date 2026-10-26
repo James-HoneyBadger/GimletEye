@@ -12,7 +12,7 @@ exclude = ["apps/desktop/src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
@@ -21,12 +21,12 @@ repository = "https://github.com/James-HoneyBadger/Mellivora_ToolKit"
 homepage = "https://github.com/James-HoneyBadger/Mellivora_ToolKit"
 
 [workspace.dependencies]
-mellivora-core = { path = "crates/core", version = "0.3.0" }
-mellivora-sysadmin = { path = "crates/sysadmin", version = "0.3.0" }
-mellivora-crypto = { path = "crates/crypto", version = "0.3.0" }
-mellivora-scrub = { path = "crates/scrub", version = "0.3.0" }
-mellivora-server = { path = "crates/server", version = "0.3.0" }
-mellivora-toolkit = { path = "crates/toolkit", version = "0.3.0" }
+mellivora-core = { path = "crates/core", version = "0.7.0" }
+mellivora-sysadmin = { path = "crates/sysadmin", version = "0.7.0" }
+mellivora-crypto = { path = "crates/crypto", version = "0.7.0" }
+mellivora-scrub = { path = "crates/scrub", version = "0.7.0" }
+mellivora-server = { path = "crates/server", version = "0.7.0" }
+mellivora-toolkit = { path = "crates/toolkit", version = "0.7.0" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

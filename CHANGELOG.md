@@ -6,6 +6,14 @@ All notable changes to Mellivora ToolKit. Format follows
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.7.0] — 2026-10-26
+
+The first release since 0.3.0, and the last quiet one: everything below is
+additive or a fix, no versioned surface changed meaning, and the two-release
+countdown to 1.0 now has one tick behind it.
+
 ### Added
 
 - **Packaging for Arch, Debian, and Fedora**, plus `cargo install` from a tag.
