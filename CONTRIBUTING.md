@@ -72,6 +72,35 @@ level where the behaviour lives.
 - Comments explain *why*. A comment that restates the line is noise.
 - Public behaviour gets a line in `CHANGELOG.md` under the release it ships in.
 
+## Merging to `main`
+
+`main` is protected: no force pushes, no deletion, and a pull request cannot be
+merged until `ci` is green. Two consequences worth knowing before a branch goes
+up.
+
+**Job names are part of the contract.** The required checks are the job names in
+`.github/workflows/ci.yml`, so renaming one silently un-requires it and leaves a
+merge gate that no longer gates anything. If a job has to be renamed, do it in
+the same change that updates the ruleset. The current set:
+
+| Required check | What it proves |
+|---|---|
+| `rust (fmt, clippy, test)` | formatting, lints, and the engine's tests |
+| `msrv (declared rust-version)` | the promised minimum still compiles |
+| `quiet period (frozen surfaces)` | no versioned surface moved (see below) |
+| `typescript (typecheck, test, build)` | the shared core, the CLI, and the UI |
+| `integration (CLI against the engine)` | the two halves agree, end to end |
+| `docs (claims, surface, reference)` | the docs still describe this build |
+| `desktop (typecheck, UI bundle, shell check)` | the window builds |
+| `packaging (version agreement, staged layout)` | a package runs after install |
+
+**The quiet-period check can be legitimately red.** It fails whenever a versioned
+surface changed since the last release, which is the case for every commit between
+a deliberate break and the release that ships it. `ALLOW_SURFACE_CHANGE` in the
+workflow accepts the break and restarts the countdown; that is recorded in
+`CHANGELOG.md` and ADR 0006. Do not weaken the check to make a merge gate go
+green — set the variable and say why.
+
 ## Reporting a security issue
 
 Do not open a public issue. See [SECURITY.md](SECURITY.md) for the private
