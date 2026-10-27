@@ -202,12 +202,10 @@ jobs:
       - name: The staged package runs
         run: ./scripts/check-package-layout.sh
 
-  # `deny.toml` at the root and `apps/desktop/src-tauri/deny.toml` both state
-  # the policy is enforced, and `scripts/check-release-gates.sh` reports
-  # "dependency policy" as a Gate 2 row by looking for a job of this exact
+  # `deny.toml` states the policy is enforced, and `scripts/check-release-gates.sh`
+  # reports "dependency policy" as a Gate 2 row by looking for a job of this exact
   # name. The overhaul dropped this job, which is how alert #1 could sit on the
-  # default branch while SECURITY.md pointed at a check that would have caught
-  # it.
+  # default branch while SECURITY.md pointed at a check that would have caught it.
   dependency-policy:
     name: dependency policy
     runs-on: ubuntu-latest
