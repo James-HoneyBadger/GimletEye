@@ -11,3 +11,4 @@ export * from './keys.js';
 export * from './keystore.js';
 export * from './passgen.js';
 export * from './signing.js';
+export * from './scrub/index.js';

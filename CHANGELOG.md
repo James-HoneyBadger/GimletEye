@@ -125,6 +125,15 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Stage 3 of retiring Rust: metadata scrub, and it is byte-identical.**
+  `packages/engine/src/scrub` walks JPEG segments, PNG chunks, and WebP chunks,
+  classifies each one, and removes only identity, text, and time — structure and
+  colour decide what the pixels mean, so they are never touched. The acceptance
+  test is the Rust corpus itself: all six fixtures reproduce the recorded byte
+  length *and* SHA-256 under `privacy`, `sharing`, and `archive`, so this is not
+  a reimplementation that "works", it is the same bytes. WebP additionally
+  clears the VP8X EXIF/XMP presence flags — but only for chunks actually
+  removed, so `archive` leaves the header truthful.
 - **Stage 2 of retiring Rust: keys, signing, hashing, passphrases, and the
   sealed keystore.** `packages/engine` now generates Ed25519 and X25519 keys,
   reads and writes the frozen key-file JSON, signs and verifies, hashes, and

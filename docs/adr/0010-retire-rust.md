@@ -29,7 +29,7 @@ stage is verifiable on its own:
 |---|---|---|
 | 1 ✅ | `.gimlet` container: read v1/v2/v3, write v2/v3 | the committed v1 and v3 fixtures open, byte for byte, and the Python second implementation reads what the new writer emits |
 | 2 ✅ | keystore, keys, signing, hashing, passphrase generation | the keystore round-trips owner-only and fails a wrong passphrase at the tag; key files round-trip through the frozen JSON; signing verifies what it signed and nothing else; the passphrase generator guarantees one character per class |
-| 3 | metadata scrub (JPEG/PNG/WebP/XMP) | the golden corpus, including pixel-identity of what is kept |
+| 3 ✅ | metadata scrub (JPEG/PNG/WebP/XMP) | all six corpus fixtures reproduce the recorded byte length and SHA-256 under all three profiles, and every structural and colour segment survives in order |
 | 4 | tool wiring, then delete `crates/`, the Cargo manifests, the MSRV and fuzz jobs, and both `deny.toml` files | `make check` green with no Rust toolchain installed |
 
 Stage 1 is in `packages/engine`. The crypto is `node:crypto` (OpenSSL) with
