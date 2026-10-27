@@ -13,6 +13,7 @@ import { chunkCount, inspect, openWithPassphrase, openWithRecipient, sealForReci
 import { decodePublic, decodeSecret } from '@gimlet-eye/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
+import { refuseSamePath } from './guard.js';
 import { invalidArgs, io, notFound } from '../errors.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
@@ -96,6 +97,9 @@ export const encryptFile: LocalTool = {
     const overwrite = booleanOr(args, 'overwrite', false);
     const to = optString(args, 'to');
 
+    // Before reading: a container written over its own plaintext is a file the
+    // user no longer has.
+    await refuseSamePath(ctx, input, output);
     const plaintext = await readInput(ctx, input);
     let sealedBytes: Buffer;
     let kdf: string;
@@ -143,6 +147,9 @@ export const decryptFile: LocalTool = {
     const overwrite = booleanOr(args, 'overwrite', false);
     const keyPath = optString(args, 'key');
 
+    // A container decrypted onto itself is gone: the plaintext replaces the only
+    // copy of the key material needed to produce it.
+    await refuseSamePath(ctx, input, output);
     const blob = await readInput(ctx, input);
     const header = inspect(blob);
     refuseExpensive(header, booleanOr(args, 'allow_expensive', false));

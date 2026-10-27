@@ -6,6 +6,39 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A strip through a symlink scrubbed nothing and reported success.** With
+  `in_place=true`, the rewrite landed on the link's own path: the link was
+  replaced by a small file, the photo it pointed at kept every byte of its
+  metadata, and the report said `ok` with `removed_bytes: 177`. The input is now
+  resolved to the file it names, so the photo is cleaned and the link survives;
+  a `.clean` copy lands beside the real file rather than beside the link.
+
+- **`crypto.encrypt`, `crypto.decrypt`, and `crypto.sign` would write over their
+  own input.** `output=<input>` replaced the plaintext with a container, the only
+  copy of a container with its plaintext, or a document with its signature. The
+  Rust refused all three; the port dropped the check. All three now refuse with
+  "output … is the input file; choose another path", including a `./` spelling or
+  a symlink that names the same file.
+
+- **The audit trail lost runs when commands overlapped.** Every record read the
+  whole trail, added a line, and renamed the file into place, so concurrent
+  processes overwrote each other: twenty parallel runs left sixteen records. Each
+  run is now one atomic append, and trimming only happens when a run takes the
+  trail past `audit.max_entries`.
+
+- **Failures were not machine-readable under `--format json`.** A script parsing
+  JSON got a plain `gimlet: …` sentence on stderr. It now gets
+  `{"error": {"code", "message"}}`, with the exit status unchanged.
+
+- **`crypto.key-export` blamed the passphrase for a keystore that did not
+  exist.** It now names the missing store, and says when the label exists as a
+  key file instead.
+
+- **A root-level audit or config path was written relative to the working
+  directory**, because the parent of `/audit.jsonl` was computed as `.`.
+
 ### Removed
 
 - **Rust is gone.** The engine — the `.gimlet` container, key handling, signing,

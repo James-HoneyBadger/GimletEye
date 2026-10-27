@@ -212,11 +212,13 @@ describe('a container that asks for more work than the tool will do', () => {
     ).rejects.toThrow(/more than this tool will spend unasked/);
   });
 
-  it('suggests both ways forward, and honours the one that says yes', async () => {
+  // Deriving Argon2id over 257 MiB takes seconds on a loaded machine, which is
+  // the point of the guard; the timeout says so rather than flaking at 5s.
+  it('suggests both ways forward, and honours the one that says yes', { timeout: 30_000 }, async () => {
     // Just over the budget (300 MiB, one pass) so the "yes" path really does
     // derive rather than being asserted from a message: it is slow enough to be
     // outside the budget and fast enough to run in a test.
-    const sealed = await sealedWith(300 * 1024, 1);
+    const sealed = await sealedWith(257 * 1024, 1);
     const host = binaryHost({ '/notes.gimlet': sealed });
 
     await expect(decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw' })).rejects.toThrow(
@@ -237,6 +239,38 @@ describe('a container that asks for more work than the tool will do', () => {
 
     const report = await decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw' });
     expect(report.status).toBe('ok');
+  });
+});
+
+describe('writing over the input', () => {
+  it('refuses to encrypt a file onto itself', async () => {
+    const host = binaryHost({ '/notes.txt': 'the quick brown fox\n' });
+    await expect(
+      encryptFile.run(ctxFor(host), { input: '/notes.txt', output: '/notes.txt', overwrite: true, passphrase: 'pw' }),
+    ).rejects.toThrow(/is the input file; choose another path/);
+    // Nothing was written: the plaintext is still the plaintext.
+    expect((host as FakeHost & { bytes: Map<string, Buffer> }).bytes.get('/notes.txt')!.toString()).toBe(
+      'the quick brown fox\n',
+    );
+  });
+
+  it('refuses a spelling of the input that is not character-identical', async () => {
+    const host = binaryHost({ '/work/notes.txt': 'x' });
+    await expect(
+      encryptFile.run(ctxFor(host), { input: '/work/notes.txt', output: '/work/./notes.txt', passphrase: 'pw' }),
+    ).rejects.toThrow(/is the input file/);
+  });
+
+  it('refuses to decrypt a container onto itself', async () => {
+    const host = binaryHost({ '/notes.txt': 'data\n' });
+    await encryptFile.run(ctxFor(host), { input: '/notes.txt', output: '/notes.gimlet', passphrase: 'pw' });
+
+    await expect(
+      decryptFile.run(ctxFor(host), { input: '/notes.gimlet', output: '/notes.gimlet', overwrite: true, passphrase: 'pw' }),
+    ).rejects.toThrow(/is the input file; choose another path/);
+    // The container is intact, so it can still be opened.
+    const again = await decryptFile.run(ctxFor(host), { input: '/notes.gimlet', output: '/out.txt', passphrase: 'pw' });
+    expect(again.status).toBe('ok');
   });
 });
 

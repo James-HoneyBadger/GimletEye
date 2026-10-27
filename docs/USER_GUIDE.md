@@ -188,6 +188,13 @@ gimlet batch crypto.sha256 ./files --input-arg path --concurrency 4 --format jso
 `batch` reports wall-clock duration (not the sum of per-file times) and counts
 every outcome.
 
+## Automation
+
+Every report can be `--format json`, and failures honour it too: a script that
+asks for JSON gets `{"error": {"code", "message"}}` on stderr rather than a
+sentence meant for a person, and the exit status still says what happened — 0
+for ok, 1 for a failed run, 2 for a command that was typed wrong.
+
 ## Troubleshooting
 
 | Symptom | Cause |

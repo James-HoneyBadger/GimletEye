@@ -9,12 +9,13 @@
  * exercised on bytes, not on a mock.
  */
 
-import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { symlinkSync } from 'node:fs';
 import { nodeHost } from '@gimlet-eye/core/host-node';
 import { removableBytes, scan, policyAll } from '@gimlet-eye/engine';
 import { defaultConfig } from '../src/config.js';
@@ -202,6 +203,53 @@ describe('privacy.metadata-strip', () => {
     expect(report.summary.startsWith('would clean')).toBe(true);
     expect((report.data as { output: null }).output).toBeNull();
     expect(fake.store.size).toBe(1);
+  });
+
+  it('cleans the file a symlink names, and leaves the link alone', async () => {
+    // Rewriting the link path instead would rename a fresh file over the link,
+    // so the photo keeps its metadata, the link is gone, and the report says
+    // success. That was true of this tool until the input was resolved.
+    const work = mkdtempSync(join(tmpdir(), 'gimlet-link-'));
+    try {
+      const nested = join(work, 'photos');
+      mkdirSync(nested);
+      const real = join(nested, 'real.jpg');
+      copyFileSync(new URL('../../engine/test/fixtures/photo-exif-gps.jpg', import.meta.url), real);
+      const link = join(work, 'link.jpg');
+      symlinkSync(real, link);
+
+      const ctx = { host: nodeHost(), config: defaultConfig(), dryRun: false, paths: pathsUnder(work) };
+      const report = await metadataStrip.run(ctx, { input: link, in_place: true });
+
+      expect(lstatSync(link).isSymbolicLink()).toBe(true);
+      expect(statSync(real).size).toBeLessThan(195);
+      expect(removableBytes(scan(readFileSync(real)), policyAll())).toBe(0);
+      expect((report.data as { output: string }).output).toBe(real);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  });
+
+  it('puts a .clean copy beside the real file, not beside the link', async () => {
+    const work = mkdtempSync(join(tmpdir(), 'gimlet-link2-'));
+    try {
+      const nested = join(work, 'photos');
+      mkdirSync(nested);
+      const real = join(nested, 'real.jpg');
+      copyFileSync(new URL('../../engine/test/fixtures/photo-exif-gps.jpg', import.meta.url), real);
+      const link = join(work, 'link.jpg');
+      symlinkSync(real, link);
+
+      const ctx = { host: nodeHost(), config: defaultConfig(), dryRun: false, paths: pathsUnder(work) };
+      const report = await metadataStrip.run(ctx, { input: link });
+
+      expect((report.data as { output: string }).output).toBe(join(nested, 'real.clean.jpg'));
+      expect(removableBytes(scan(readFileSync(join(nested, 'real.clean.jpg'))), policyAll())).toBe(0);
+      // The link is untouched and still points at the original.
+      expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 
   it('preserves a restrictive mode through the real filesystem', async () => {

@@ -7,7 +7,35 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nodeHost } from '@gimlet-eye/core/host-node';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
+import { formatFromArgv, writeFailure } from '../src/output.js';
 import { BATCH_FLAGS, COMMANDS, GLOBAL_FLAGS } from '../src/surface.js';
+
+describe('failures in the shape the caller asked for', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('writes a JSON object on stderr when the format is json', () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    writeFailure('not_found', 'not found: /nope', 'json');
+
+    const written = stderr.mock.calls.map((call) => String(call[0])).join('');
+    expect(JSON.parse(written)).toEqual({ error: { code: 'not_found', message: 'not found: /nope' } });
+  });
+
+  it('keeps the one-line message for human formats', () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    writeFailure('not_found', 'not found: /nope', 'text');
+
+    expect(stderr.mock.calls.map((call) => String(call[0])).join('')).toBe('gimlet: not found: /nope\n');
+  });
+
+  it('finds the format even when parsing the command failed', () => {
+    expect(formatFromArgv(['crypto.decrypt', 'input=x', '--format', 'json'])).toBe('json');
+    expect(formatFromArgv(['--format=json', 'nonsense'])).toBe('json');
+    expect(formatFromArgv(['sha256', 'text=x'])).toBeUndefined();
+  });
+});
 
 describe('command parsing', () => {
   it('treats a bare word as a tool id', () => {

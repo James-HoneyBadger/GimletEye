@@ -40,6 +40,8 @@ export interface Host {
   readTextFile(path: string): Promise<string>;
   readFile(path: string): Promise<Uint8Array>;
   writeTextFile(path: string, text: string): Promise<void>;
+  /** Append, creating the file if needed. Atomic for a single small write. */
+  appendTextFile(path: string, text: string): Promise<void>;
   writeFile(path: string, bytes: Uint8Array): Promise<void>;
   /** Create `path` and its parents; succeeds when it already exists. */
   createDir(path: string): Promise<void>;

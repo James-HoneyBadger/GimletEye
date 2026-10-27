@@ -20,7 +20,7 @@ import {
 
 import { executeBatch, type BatchRunner } from './batch.js';
 import { parseArgs, type Command, type Globals } from './cli.js';
-import { write, writeLine } from './output.js';
+import { formatFromArgv, write, writeFailure, writeLine } from './output.js';
 import { helpText, versionText } from './help.js';
 import { runTui } from './tui/session.js';
 
@@ -30,7 +30,7 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
     parsed = parseArgs(argv);
   } catch (error) {
     if (error instanceof GimletError && error.code === 'invalid_args') {
-      process.stderr.write(`gimlet: ${error.message}\n`);
+      writeFailure(error.code, error.message, formatFromArgv(argv));
       return 2;
     }
     throw error;
@@ -55,7 +55,7 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
     return await dispatch(runtime, parsed.globals, parsed.command);
   } catch (error) {
     const failure = error instanceof GimletError ? error : new GimletError('internal', String(error));
-    process.stderr.write(`gimlet: ${failure.message}\n`);
+    writeFailure(failure.code, failure.message, parsed.globals.format ?? runtime?.config.defaults.output);
     return failure.code === 'invalid_args' ? 2 : 1;
   } finally {
     runtime?.close();

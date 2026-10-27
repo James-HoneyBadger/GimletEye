@@ -105,7 +105,7 @@ export const keyList: LocalTool = {
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
     const path = ctx.paths.keystoreFile;
-    const store = await readStore(ctx, path, passphrase(args));
+    const store = await openStore(ctx, args);
 
     const keys = store.entries.map(viewOf);
     const signing = keys.filter((key) => key.kind === 'ed25519').length;
@@ -183,13 +183,12 @@ export const keyExport: LocalTool = {
     const wantSecret = booleanOr(args, 'secret', false);
     const overwrite = booleanOr(args, 'overwrite', false);
 
-    const pass = passphrase(args);
-    const store = await readStore(ctx, ctx.paths.keystoreFile, pass);
+    const store = await openStore(ctx, args, selector);
     let entry;
     try {
       entry = find(store, selector);
     } catch (error) {
-      throw invalidArgs((error as Error).message);
+      throw invalidArgs(`${(error as Error).message}${await keyFileHint(ctx, selector)}`);
     }
 
     const pair = wantSecret
@@ -227,7 +226,7 @@ export const keyRotate: LocalTool = {
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
     const storePath = ctx.paths.keystoreFile;
-    const store = await readStore(ctx, storePath, passphrase(args));
+    const store = await openStore(ctx, args);
     const next = newPassphrase(args);
 
     if (!ctx.dryRun) await writeStore(ctx, storePath, sealKeystore(store, next));
@@ -243,6 +242,33 @@ export const keyRotate: LocalTool = {
     });
   },
 };
+
+/**
+ * Open the store, complaining about the store before the passphrase.
+ *
+ * Asking for a passphrase first told a user with no keystore at all that "the
+ * keystore needs a passphrase", which is true and useless: there is nothing to
+ * unlock.
+ */
+async function openStore(ctx: ToolRunContext, args: Args, selector?: string): Promise<Keystore> {
+  const path = ctx.paths.keystoreFile;
+  if (!(await ctx.host.exists(path))) {
+    throw notFound(`${path} (create one with crypto.keygen keystore=true)${await keyFileHint(ctx, selector)}`);
+  }
+  return readStore(ctx, path, passphrase(args));
+}
+
+/** A label that exists as a key file is not a key the keystore has, and saying
+ * so is the difference between a puzzle and a clue. */
+async function keyFileHint(ctx: ToolRunContext, selector: string | undefined): Promise<string> {
+  if (selector === undefined) return '';
+  const asPublic = `${selector}.pub`;
+  const asSecret = `${selector}.key`;
+  if ((await ctx.host.exists(asPublic)) || (await ctx.host.exists(asSecret))) {
+    return ` ('${selector}' exists as a key file; this command reads the keystore)`;
+  }
+  return '';
+}
 
 async function readStore(ctx: ToolRunContext, path: string, pass: string): Promise<Keystore> {
   if (!(await ctx.host.exists(path))) {

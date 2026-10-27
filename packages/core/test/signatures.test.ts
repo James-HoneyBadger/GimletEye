@@ -66,6 +66,21 @@ describe('crypto.sign, in process', () => {
     ).rejects.toThrow(/already exists/);
   });
 
+  it('refuses to write the signature over the document it signs', async () => {
+    const { host, bytes } = keyed(Buffer.from('the document'));
+    await expect(
+      signFile.run(ctxFor(host), {
+        input: '/work/release.bin',
+        key: '/keys/release.key',
+        output: '/work/release.bin',
+        overwrite: true,
+      }),
+    ).rejects.toThrow(/is the input file; choose another path/);
+    // The document is still the document, and no signature was written.
+    expect(Buffer.from(bytes['/work/release.bin'] as Buffer).toString()).toBe('the document');
+    expect(host.files.has('/work/release.bin')).toBe(false);
+  });
+
   it('writes nothing on a dry run but still reports the signature', async () => {
     const { host } = keyed(Buffer.from('x'));
     const report = await signFile.run(

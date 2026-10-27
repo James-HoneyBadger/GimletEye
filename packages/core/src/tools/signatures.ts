@@ -11,6 +11,7 @@ import { decodePublic, decodeSecret, encodeSecret, signBytes, verifyBytes } from
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { invalidArgs, io, notFound } from '../errors.js';
+import { refuseSamePath } from './guard.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
@@ -55,6 +56,9 @@ export const signFile: LocalTool = {
     const output = optString(args, 'output') ?? `${input}.sig`;
     const overwrite = booleanOr(args, 'overwrite', false);
 
+    // The signature replaces whatever is at `target`, so writing it over the
+    // document being signed would leave the signature and lose the document.
+    await refuseSamePath(ctx, input, output);
     const data = await readRequired(ctx, input, 'input');
     const secret = decodeSecret(await readText(ctx, keyPath), 'ed25519');
     const signature = signBytes(secret, data);

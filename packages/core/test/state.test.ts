@@ -1,4 +1,11 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
+
+import { nodeHost } from '@gimlet-eye/core/host-node';
+import { dirname } from '../src/pathutil.js';
 
 import { AuditLog, auditEntry } from '../src/audit.js';
 import { configToToml, defaultConfig, loadConfig, moduleSetting, parseConfig } from '../src/config.js';
@@ -91,6 +98,16 @@ describe('paths', () => {
   });
 });
 
+describe('parent directories', () => {
+  it('names / for a top-level path rather than the working directory', () => {
+    // These were both computed locally as `at <= 0 ? '.'`, so a root-level audit
+    // path would have been written relative to wherever the command ran.
+    expect(dirname('/audit.jsonl')).toBe('/');
+    expect(dirname('/var/lib/gimlet/audit.jsonl')).toBe('/var/lib/gimlet');
+    expect(dirname('audit.jsonl')).toBe('.');
+  });
+});
+
 describe('audit trail', () => {
   it('records names, never values, and trims to the cap', async () => {
     const host = fakeHost();
@@ -106,6 +123,26 @@ describe('audit trail', () => {
     const raw = host.files.get('/tmp/home/audit.jsonl') ?? '';
     expect(raw).not.toContain('correct-horse');
     expect(raw.trim().split('\n')).toHaveLength(2);
+  });
+
+  it('keeps every run when they overlap, which a rewrite did not', async () => {
+    // The old implementation read the trail, added a line, and renamed the whole
+    // file into place. Twenty parallel runs left sixteen records. This runs real
+    // processes, because the in-memory host cannot race with itself.
+    const work = mkdtempSync(join(tmpdir(), 'gimlet-audit-'));
+    try {
+      const host = nodeHost();
+      const log = new AuditLog(host, join(work, 'audit.jsonl'), 1000);
+      await Promise.all(
+        Array.from({ length: 40 }, (_unused, index) => log.record(auditEntry(`tool.${index}`, 'ok', index))),
+      );
+
+      const written = await log.readAll();
+      expect(written).toHaveLength(40);
+      expect(new Set(written.map((entry) => entry.tool)).size).toBe(40);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 
   it('skips a malformed line instead of losing the trail', async () => {

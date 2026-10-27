@@ -42,9 +42,21 @@ const ROOT = '/home/tester/.gimlet';
 const ctxFor = (fake: FakeHost, dryRun = false) => ({ host: fake, config: defaultConfig(), dryRun, paths: pathsUnder(ROOT) });
 
 describe('the keystore tools, in process', () => {
+  it('points at a key file when the label is not in the store', async () => {
+    // The hint looks where the tools put key files: relative to the working
+    // directory, the same place `keygen` writes them.
+    const fake = host({ 'alice.pub': '{}' });
+    await expect(keyExport.run(ctxFor(fake), { selector: 'alice', output: '/home/out.pub' })).rejects.toThrow(
+      /exists as a key file; this command reads the keystore/,
+    );
+  });
+
   it('lists what is in the store, or says there is none', async () => {
     const fake = host();
     await expect(keyList.run(ctxFor(fake), { passphrase: 'pw' })).rejects.toThrow(/crypto.keygen keystore=true/);
+    // Complaining about the passphrase first would be true and useless: there is
+    // nothing to unlock.
+    await expect(keyList.run(ctxFor(fake), {})).rejects.not.toThrow(/needs a passphrase/);
 
     await generateKey.run(ctxFor(fake), { label: 'work', keystore: true, passphrase: 'pw' });
     await generateKey.run(ctxFor(fake), { label: 'alice', kind: 'x25519', keystore: true, passphrase: 'pw' });

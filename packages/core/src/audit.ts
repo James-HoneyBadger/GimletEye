@@ -6,14 +6,22 @@
  * it out would make repeated failures — a wrong passphrase guessed at, for
  * instance — the one thing the trail does not show.
  *
- * Every write goes through a sibling temporary file and a rename. Appending in
- * place would be faster, but two surfaces running at once can then interleave a
- * partial line into the trail, and a trail that cannot be parsed is worse than
- * one that is a few milliseconds slower.
+ * A run is appended as one line, which is atomic: two surfaces running at once
+ * each keep their record. This used to read the whole trail, add a line, and
+ * rewrite it through a rename — which lost updates outright. Twenty parallel
+ * runs left sixteen records, and the trail is precisely the file where a missing
+ * entry matters.
+ *
+ * The cap is still exact, but it is enforced by trimming only when a run takes
+ * the trail past it: the append is the write, and the read that decides whether
+ * to trim never blocks another process's append. Trimming is a read-modify-write,
+ * so two processes trimming at the same instant can drop an entry — it happens
+ * once per `max_entries` runs rather than on every one, and a lock file would
+ * bring its own failure mode.
  */
 
 import { GimletError } from './errors.js';
-import { join } from './pathutil.js';
+import { dirname, join } from './pathutil.js';
 import type { Status } from './report.js';
 import type { Host } from './host.js';
 
@@ -48,10 +56,17 @@ export class AuditLog {
   ) {}
 
   async record(entry: AuditEntry): Promise<void> {
-    await this.host.createDir(parentOf(this.path));
-    const existing = await this.readAll();
-    existing.push(entry);
-    await this.writeAll(prune(existing, this.maxEntries));
+    await this.host.createDir(dirname(this.path));
+    await this.host.appendTextFile(this.path, `${JSON.stringify(entry)}\n`);
+    await this.trimIfLarge();
+  }
+
+  /** Rewrite the trail only when a run has taken it past the cap. */
+  private async trimIfLarge(): Promise<void> {
+    if (this.maxEntries <= 0) return;
+    const entries = await this.readAll();
+    if (entries.length <= this.maxEntries) return;
+    await this.writeAll(prune(entries, this.maxEntries));
   }
 
   /** Most recent entries first, up to `limit`. */
@@ -81,7 +96,7 @@ export class AuditLog {
    * observes a half-rewritten trail.
    */
   private async writeAll(entries: readonly AuditEntry[]): Promise<void> {
-    const temporary = join(parentOf(this.path), `.${'audit'}.${processStamp()}.tmp`);
+    const temporary = join(dirname(this.path), `.${'audit'}.${processStamp()}.tmp`);
     const body = entries.map((entry) => JSON.stringify(entry)).join('\n');
     await this.host.writeTextFile(temporary, body === '' ? '' : `${body}\n`);
     try {
@@ -95,11 +110,6 @@ export class AuditLog {
 
 function prune(entries: AuditEntry[], maxEntries: number): AuditEntry[] {
   return maxEntries > 0 && entries.length > maxEntries ? entries.slice(entries.length - maxEntries) : entries;
-}
-
-function parentOf(path: string): string {
-  const at = path.lastIndexOf('/');
-  return at <= 0 ? '.' : path.slice(0, at);
 }
 
 function processStamp(): string {

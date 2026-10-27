@@ -34,7 +34,8 @@ import {
 
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { invalidArgs, io, notFound, toolFailed } from '../errors.js';
-import { basename, dirname, extension, join, normalize, stem } from '../pathutil.js';
+import { basename, dirname, extension, join, stem } from '../pathutil.js';
+import { samePath } from './guard.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
@@ -202,7 +203,11 @@ export const metadataStrip: LocalTool = {
   manifest: STRIP_MANIFEST,
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
-    const input = requireString(args, 'input');
+    const requested = requireString(args, 'input');
+    // Follow a symlink to the file it names. Writing to the link's own path would
+    // rename a fresh file over the link, so the photo the user meant to clean
+    // keeps its metadata and the link is gone — while the report says success.
+    const input = await resolveInput(ctx, requested);
     const bytes = await readInput(ctx, input);
     const inPlace = booleanOr(args, 'in_place', false);
     const overwrite = booleanOr(args, 'overwrite', false);
@@ -213,7 +218,7 @@ export const metadataStrip: LocalTool = {
     // Rewriting the source in place is a decision the caller makes with
     // `in_place`; an `output` that happens to be the input would destroy it by
     // accident, since the rewrite starts from bytes already read.
-    if (!inPlace && (await sameFile(ctx, input, target))) {
+    if (!inPlace && (await samePath(ctx, input, target))) {
       throw invalidArgs(`output ${target} is the input file; use in_place=true to rewrite it`);
     }
 
@@ -313,6 +318,16 @@ function gpsFromArgs(args: Args): ReturnType<typeof parseGpsPrecision> {
   }
 }
 
+async function resolveInput(ctx: ToolRunContext, path: string): Promise<string> {
+  if (!(await ctx.host.exists(path))) throw notFound(path);
+  try {
+    return await ctx.host.resolve(path);
+  } catch {
+    // A broken link names nothing; say so rather than failing on the read.
+    throw notFound(path);
+  }
+}
+
 async function targetPath(ctx: ToolRunContext, input: string, args: Args, inPlace: boolean): Promise<string> {
   const output = optString(args, 'output');
   if (inPlace && output !== undefined) throw invalidArgs("'in_place' and 'output' are mutually exclusive");
@@ -320,19 +335,6 @@ async function targetPath(ctx: ToolRunContext, input: string, args: Args, inPlac
   if (output !== undefined) return output;
   const suffix = extension(input);
   return join(dirname(input), `${stem(input)}.clean${suffix === '' ? '' : `.${suffix}`}`);
-}
-
-/**
- * Do two paths name the same file? Canonicalised when both exist, so a relative
- * spelling of the input is still recognised as the input.
- */
-async function sameFile(ctx: ToolRunContext, left: string, right: string): Promise<boolean> {
-  if (normalize(left) === normalize(right)) return true;
-  try {
-    return (await ctx.host.resolve(left)) === (await ctx.host.resolve(right));
-  } catch {
-    return false;
-  }
 }
 
 function scanOrFail(bytes: Buffer, input: string): ReturnType<typeof scan> {

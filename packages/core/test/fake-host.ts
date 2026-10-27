@@ -49,6 +49,9 @@ export function fakeHost(overrides: Partial<Host> = {}): FakeHost {
     async readFile(path) {
       return new TextEncoder().encode(await host.readTextFile(path));
     },
+    async appendTextFile(path, text) {
+      files.set(path, (files.get(path) ?? '') + text);
+    },
     async writeTextFile(path, text) {
       files.set(path, text);
       host.dirs.add(path.slice(0, path.lastIndexOf('/')));

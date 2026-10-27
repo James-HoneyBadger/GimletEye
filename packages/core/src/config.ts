@@ -11,6 +11,7 @@
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 import { config as configError } from './errors.js';
+import { dirname } from './pathutil.js';
 import { parseOutputFormat, type OutputFormat } from './report.js';
 import type { AppPaths } from './paths.js';
 import type { Host } from './host.js';
@@ -98,7 +99,7 @@ export function configToToml(config: Config): string {
 }
 
 export async function saveConfig(config: Config, path: string, host: Host): Promise<void> {
-  await host.createDir(parentOf(path));
+  await host.createDir(dirname(path));
   await host.writeTextFile(path, configToToml(config));
 }
 
@@ -108,11 +109,6 @@ export function moduleSetting<T>(config: Config, namespace: string, key: string,
   if (typeof module !== 'object' || module === null) return fallback;
   const value = (module as Record<string, unknown>)[key];
   return (value === undefined || value === null ? fallback : (value as T));
-}
-
-function parentOf(path: string): string {
-  const at = path.lastIndexOf('/');
-  return at <= 0 ? '.' : path.slice(0, at);
 }
 
 function objectOr(value: unknown, fallback: Record<string, unknown>): Record<string, unknown> {
