@@ -1,12 +1,9 @@
 [workspace]
 members = [
     "crates/core",
-    "crates/sysadmin",
     "crates/crypto",
     "crates/scrub",
-    "crates/server",
-    "crates/toolkit",
-    "crates/cli",
+    "crates/sidecar",
 ]
 exclude = ["apps/desktop/src-tauri"]
 resolver = "2"
@@ -22,11 +19,8 @@ homepage = "https://github.com/James-HoneyBadger/GimletEye"
 
 [workspace.dependencies]
 gimlet-eye-core = { path = "crates/core", version = "0.7.0" }
-gimlet-eye-sysadmin = { path = "crates/sysadmin", version = "0.7.0" }
 gimlet-eye-crypto = { path = "crates/crypto", version = "0.7.0" }
 gimlet-eye-scrub = { path = "crates/scrub", version = "0.7.0" }
-gimlet-eye-server = { path = "crates/server", version = "0.7.0" }
-gimlet-eye-toolkit = { path = "crates/toolkit", version = "0.7.0" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

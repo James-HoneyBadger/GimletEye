@@ -7,8 +7,8 @@ use crate::platform;
 use crate::report::Report;
 use crate::tool::{Args, Category, Tool, ToolContext, ToolManifest};
 
-/// In-process catalogue of built-in tools plus adapters contributed by plugin
-/// packs. Surfaces only ever talk to this type.
+/// In-process catalogue of the tools a build ships. A surface only ever talks
+/// to this type, so the resolution rules are one implementation.
 #[derive(Default)]
 pub struct Registry {
     tools: BTreeMap<String, Arc<dyn Tool>>,
@@ -74,17 +74,8 @@ impl Registry {
         if matches.len() == 1 {
             return Some(matches[0].clone());
         }
-        // A pack must never steal a shorthand from a built-in: `system-info`
-        // keeps meaning the native implementation, and the pack stays reachable
-        // by its full id.
-        let native: Vec<&Arc<dyn Tool>> = matches
-            .iter()
-            .copied()
-            .filter(|tool| tool.manifest().origin == "builtin")
-            .collect();
-        if native.len() == 1 {
-            return Some(native[0].clone());
-        }
+        // Two tools ending in the same name is ambiguous; the caller has to use
+        // the full id rather than the host guessing.
         None
     }
 
@@ -317,39 +308,17 @@ mod tests {
     }
 
     #[test]
-    fn builtin_wins_over_pack_for_ambiguous_shorthand() {
-        struct PackStub {
-            manifest: ToolManifest,
-        }
-
-        impl Tool for PackStub {
-            fn manifest(&self) -> &ToolManifest {
-                &self.manifest
-            }
-
-            fn run(&self, _ctx: &ToolContext, _args: &Args) -> Result<Report> {
-                Ok(Report::new(self.manifest.id.clone()))
-            }
-        }
-
+    fn an_ambiguous_shorthand_is_not_guessed() {
         let mut registry = Registry::new();
         registry
             .register(Arc::new(Stub::new("sysadmin.system-info")))
-            .expect("builtin");
+            .expect("first");
         registry
-            .register(Arc::new(PackStub {
-                manifest: ToolManifest::new(
-                    "example.system-info",
-                    "System information",
-                    "pack copy",
-                    Category::Sysadmin,
-                )
-                .with_origin("plugin:example"),
-            }))
-            .expect("pack");
+            .register(Arc::new(Stub::new("example.system-info")))
+            .expect("second");
 
-        let resolved = registry.resolve("system-info").expect("resolves");
-        assert_eq!(resolved.manifest().id, "sysadmin.system-info");
+        assert!(registry.resolve("system-info").is_none());
+        assert!(registry.resolve("sysadmin.system-info").is_some());
         assert!(registry.resolve("example.system-info").is_some());
     }
 

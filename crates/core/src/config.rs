@@ -17,13 +17,7 @@ pub const CONFIG_SCHEMA_VERSION: u32 = 1;
 pub struct Config {
     pub schema_version: u32,
     pub defaults: Defaults,
-    pub plugins: PluginSettings,
     pub audit: AuditSettings,
-    pub api: ApiSettings,
-    /// Pinned pack digests: pack name → `sha256:<hex>`. Empty means nothing is
-    /// pinned, which is the pre-0.6 behaviour; a pinned pack that does not match
-    /// is refused instead of loaded.
-    pub trust: BTreeMap<String, String>,
     /// Module-scoped settings keyed by namespace (`sysadmin`, `privacy`, ...).
     pub modules: BTreeMap<String, toml::Value>,
 }
@@ -33,26 +27,6 @@ pub struct Config {
 pub struct Defaults {
     pub output: OutputFormat,
     pub dry_run: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct PluginSettings {
-    /// Additional pack directories, searched before the defaults.
-    pub dirs: Vec<PathBuf>,
-    /// Pack names to skip during discovery.
-    pub disabled: Vec<String>,
-    pub timeout_ms: u64,
-    /// Capabilities granted to packs. Empty means "grant whatever the pack declares".
-    pub allow: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ApiSettings {
-    /// Require a token on `/api/v1`. Disabling it means any page the user
-    /// visits can drive the local tools, so it is on unless turned off.
-    pub require_token: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,10 +43,7 @@ impl Default for Config {
         Self {
             schema_version: CONFIG_SCHEMA_VERSION,
             defaults: Defaults::default(),
-            plugins: PluginSettings::default(),
             audit: AuditSettings::default(),
-            api: ApiSettings::default(),
-            trust: BTreeMap::new(),
             modules: BTreeMap::new(),
         }
     }
@@ -83,25 +54,6 @@ impl Default for Defaults {
         Self {
             output: OutputFormat::Text,
             dry_run: false,
-        }
-    }
-}
-
-impl Default for PluginSettings {
-    fn default() -> Self {
-        Self {
-            dirs: Vec::new(),
-            disabled: Vec::new(),
-            timeout_ms: 30_000,
-            allow: Vec::new(),
-        }
-    }
-}
-
-impl Default for ApiSettings {
-    fn default() -> Self {
-        Self {
-            require_token: true,
         }
     }
 }
@@ -153,16 +105,6 @@ impl Config {
         Ok(())
     }
 
-    /// Configured pack directories first, then the defaults, de-duplicated.
-    pub fn effective_plugin_dirs(&self, paths: &AppPaths) -> Vec<PathBuf> {
-        let mut dirs: Vec<PathBuf> = Vec::new();
-        let mut seen: Vec<PathBuf> = Vec::new();
-        for dir in self.plugins.dirs.iter().chain(paths.plugin_dirs.iter()) {
-            crate::paths::push_unique_dir(&mut dirs, &mut seen, dir.clone());
-        }
-        dirs
-    }
-
     /// Read a module namespace without pulling a domain dependency into core.
     pub fn module(&self, namespace: &str) -> Option<&toml::Value> {
         self.modules.get(namespace)
@@ -186,14 +128,30 @@ mod tests {
         assert_eq!(config.schema_version, CONFIG_SCHEMA_VERSION);
         assert_eq!(config.defaults.output, OutputFormat::Text);
         assert!(config.audit.enabled);
-        assert_eq!(config.plugins.timeout_ms, 30_000);
-        assert!(config.api.require_token, "the API is protected by default");
+        assert_eq!(config.audit.max_entries, 1_000);
     }
 
     #[test]
-    fn the_api_token_can_be_switched_off_explicitly() {
-        let config = Config::parse("[api]\nrequire_token = false\n").expect("parse");
-        assert!(!config.api.require_token);
+    fn a_config_from_a_release_that_had_packs_still_loads() {
+        // `[plugins]` and `[api]` belonged to surfaces that no longer exist.
+        // The file on disk is not the user's fault, so it parses and the dead
+        // sections are ignored rather than failing the build.
+        let config = Config::parse(
+            r#"
+            schema_version = 1
+
+            [defaults]
+            output = "json"
+
+            [plugins]
+            timeout_ms = 1000
+
+            [api]
+            require_token = false
+            "#,
+        )
+        .expect("parse");
+        assert_eq!(config.defaults.output, crate::report::OutputFormat::Json);
     }
 
     #[test]

@@ -4,14 +4,14 @@
   "version": "0.7.0",
   "identifier": "org.honeybadger.gimleteye",
   "build": {
-    "beforeDevCommand": "npm --prefix ../../packages/ui run dev",
-    "beforeBuildCommand": "npm --prefix ../../packages/ui run build",
+    "beforeDevCommand": "npm run dev:ui",
+    "beforeBuildCommand": "npm run build:ui",
     "devUrl": "http://localhost:5173",
-    "frontendDist": "../../../packages/ui/dist"
+    "frontendDist": "../dist"
   },
   "app": {
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:*"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -27,9 +27,10 @@
     ],
     "category": "Utility",
     "shortDescription": "System, crypto, and privacy workbench",
-    "longDescription": "Gimlet Eye is one workbench for system administration, cryptography, and metadata privacy: a single tool registry, report format, configuration, and audit trail behind a CLI, a local API, and this window.",
-    "resources": {
-      "../../../packages/ui/dist/": "ui/"
-    }
+    "longDescription": "Gimlet Eye is one workbench for system administration, cryptography, and metadata privacy: a single tool registry, report format, configuration, and audit trail behind this window and the gimlet command line.",
+    "resources": {},
+    "externalBin": [
+      "binaries/gimlet-sidecar"
+    ]
   }
 }

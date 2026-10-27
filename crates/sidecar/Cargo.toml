@@ -1,0 +1,24 @@
+[package]
+name = "gimlet-eye-sidecar"
+description = "The verified crypto and metadata engine behind the Gimlet Eye surfaces"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "gimlet-sidecar"
+path = "src/main.rs"
+
+[dependencies]
+gimlet-eye-core = { workspace = true }
+gimlet-eye-crypto = { workspace = true }
+gimlet-eye-scrub = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

@@ -223,7 +223,7 @@ impl ArgSpec {
 }
 
 /// Untyped argument bag. `k=v` pairs from the CLI, JSON objects from the HTTP
-/// API, and plugin payloads all normalize into this.
+/// and the sidecar protocol both normalize into this.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Args(BTreeMap<String, Value>);
@@ -372,8 +372,8 @@ impl Args {
     }
 }
 
-/// Metadata every tool exposes. Mirrored over the plugin protocol, so this is
-/// also the wire schema for a pack's tool listing.
+/// Metadata every tool exposes. It is also the wire schema the sidecar sends
+/// when a surface asks what the engine can do.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolManifest {
     /// Fully-qualified, stable identifier, e.g. `sysadmin.system-info`.
@@ -387,11 +387,6 @@ pub struct ToolManifest {
     pub args: Vec<ArgSpec>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
-    /// `builtin` or `plugin:<pack-name>`.
-    #[serde(default = "default_origin")]
-    pub origin: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
     /// Whether the tool may write to the host. Surfaces use this to offer a
     /// dry run only where it changes the outcome, and to warn before a run.
     #[serde(default)]
@@ -400,10 +395,6 @@ pub struct ToolManifest {
     /// Empty means everywhere; anything else is enforced by the registry.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub platforms: Vec<String>,
-}
-
-fn default_origin() -> String {
-    "builtin".to_string()
 }
 
 impl ToolManifest {
@@ -421,8 +412,6 @@ impl ToolManifest {
             capabilities: Vec::new(),
             args: Vec::new(),
             tags: Vec::new(),
-            origin: default_origin(),
-            version: None,
             mutates: false,
             platforms: Vec::new(),
         }
@@ -440,11 +429,6 @@ impl ToolManifest {
 
     pub fn with_tags<I: IntoIterator<Item = impl Into<String>>>(mut self, tags: I) -> Self {
         self.tags = tags.into_iter().map(Into::into).collect();
-        self
-    }
-
-    pub fn with_origin(mut self, origin: impl Into<String>) -> Self {
-        self.origin = origin.into();
         self
     }
 

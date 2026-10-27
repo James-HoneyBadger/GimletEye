@@ -13,10 +13,6 @@ pub enum GimletEyeError {
     NotFound(String),
     #[error("i/o error: {0}")]
     Io(String),
-    #[error("plugin error: {0}")]
-    Plugin(String),
-    #[error("plugin timed out after {0} ms")]
-    Timeout(u64),
     #[error("capability denied: {0}")]
     CapabilityDenied(String),
     #[error("tool failed: {0}")]
@@ -28,16 +24,14 @@ pub enum GimletEyeError {
 }
 
 impl GimletEyeError {
-    /// Stable, machine-readable identifier. Used by the HTTP API and the
-    /// plugin protocol, so these strings are part of the public contract.
+    /// Stable, machine-readable identifier. The sidecar sends it and the
+    /// surfaces branch on it, so these strings are part of the contract.
     pub fn code(&self) -> &'static str {
         match self {
             Self::Config(_) => "config",
             Self::InvalidArgs(_) => "invalid_args",
             Self::NotFound(_) => "not_found",
             Self::Io(_) => "io",
-            Self::Plugin(_) => "plugin",
-            Self::Timeout(_) => "timeout",
             Self::CapabilityDenied(_) => "capability_denied",
             Self::Tool(_) => "tool",
             Self::Unsupported(_) => "unsupported",

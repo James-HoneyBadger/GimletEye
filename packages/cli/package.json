@@ -1,0 +1,17 @@
+{
+  "name": "@gimlet-eye/cli",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "description": "The gimlet command line",
+  "bin": {
+    "gimlet": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@gimlet-eye/core": "*"
+  }
+}
