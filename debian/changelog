@@ -1,4 +1,4 @@
-gimlet-eye-toolkit (0.7.0) unstable; urgency=medium
+gimlet-eye-toolkit (0.8.0) unstable; urgency=medium
 
   * TypeScript surfaces over one Rust engine; the HTTP API is gone.
   * The command line and the desktop app share their implementation.

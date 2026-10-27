@@ -27,6 +27,7 @@ is part of the contract, not because it accepts third-party code.
 | `.gimlet` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open, and an independent reader in `packages/engine/test/fixtures/read_container.py` proves [CONTAINER.md](CONTAINER.md) is enough to implement it |
 | Keystore (`keystore.gimlet`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
 | Environment variables | Stable | `GIMLET_*`; new ones are additive |
+| `Report.data` shape | Stable | Declared per tool in `ToolManifest.data` (`shape`, `required`, `optional`), checked by the runtime before a surface sees the report, and compared with real reports by `scripts/check-data-schema.sh`. A union like `number\|null` is written where a dry run returns null |
 | `Report.data` keys | Stable | Renames keep the old key for one minor (see the `algorithm`/`kind` example below) |
 | Failure output | Stable | With `--format json`, a failure writes `{"error": {"code", "message"}}` to stderr; other formats write one `gimlet: …` line. Exit status is 0 for ok, 1 for a failed run, 2 for a command the user typed wrong |
 

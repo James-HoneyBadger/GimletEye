@@ -6,7 +6,35 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-10-27
+
+The release that retires the Rust, and the one the 1.0 quiet period restarts
+from (ADR 0006, ADR 0010). Every change below is in 0.8.0; `[Unreleased]` above
+it starts empty.
+
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
@@ -118,6 +146,28 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
+
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
   removed, the audit trail rewritten instead of appended — each of which must
@@ -199,6 +249,28 @@ All notable changes to Gimlet Eye. Format follows
   names, the binary, and the environment variables is not a quiet one.
 
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
@@ -373,6 +445,28 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
+
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
   removed, the audit trail rewritten instead of appended — each of which must
@@ -498,6 +592,28 @@ countdown to 1.0 now has one tick behind it.
 
 ### Added
 
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
+
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
   removed, the audit trail rewritten instead of appended — each of which must
@@ -530,6 +646,28 @@ countdown to 1.0 now has one tick behind it.
   This is the kind of rename the 1.0 freeze will make expensive; better now.
 
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
@@ -663,6 +801,28 @@ this release are version 2 (chunked); every earlier container still opens.
 
 ### Added
 
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
+
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
   removed, the audit trail rewritten instead of appended — each of which must
@@ -696,6 +856,28 @@ release instead.
   for every build, so a partial release is impossible.
 
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
@@ -850,6 +1032,28 @@ Highlights:
 
 ### Added
 
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
+
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
   removed, the audit trail rewritten instead of appended — each of which must
@@ -880,6 +1084,28 @@ Highlights:
 - Dead store helpers left over from the previous interface.
 
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
@@ -1012,6 +1238,28 @@ First release: one contract, one registry, and three domain modules
   documentation and ADRs.
 
 ### Added
+
+- **`Report.data` has a declared shape, per tool.** `ToolManifest.data` says
+  whether the payload is an object or a table of rows, which fields are always
+  present, which are optional (a dry run or a "nothing to do" branch), and what
+  type each one is. `Runtime` checks every report against it before a surface
+  sees it, so a tool that adds, drops, or retypes a field fails immediately
+  rather than surprising a script two releases later.
+  `scripts/check-data-schema.sh` runs every documented example and compares the
+  schema with what the tool actually returned — that gate found two live
+  mismatches the moment it existed.
+
+- **The fuzz targets are TypeScript now.** Six targets (jpeg, png, webp, exif,
+  gps, container) mutate the saved corpus and the fixtures;
+  `scripts/fuzz-soak.sh` records each run in `fuzz/soak-ledger.jsonl`, and
+  `scripts/check-fuzz-soak.sh` adds the ledger up against the 350 target-minutes
+  Gate 2 asks for. A `RangeError` or `TypeError` from a parser counts as a
+  finding, which is what a missing bounds check looks like.
+
+- **An end-to-end test of the window.** `apps/desktop/e2e/run.mjs` launches the
+  real app, reads the catalogue over IPC, runs a tool, and then checks the audit
+  trail on disk — the mocked UI tests could not see a broken channel or a
+  sentinel leaking into a label.
 
 - **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
   the keystore mode loosened, the grid rounding reverted, the distinct-path guard
