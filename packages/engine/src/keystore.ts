@@ -96,6 +96,9 @@ export function remove(store: Keystore, selector: string): { store: Keystore; en
 }
 
 export function secretOf(entry: KeystoreEntry): Buffer {
+  if (entry.secret_key === '') {
+    throw new Error(`'${entry.label}' holds only a public key`);
+  }
   return hexDecodeExact(entry.secret_key, 32, 'stored secret key');
 }
 
@@ -127,7 +130,10 @@ export function parseDocument(document: unknown): Keystore {
     if (typeof raw.secret_key !== 'string') throw new Error(`entry ${index} has no secret_key`);
     if (typeof raw.created_at !== 'string') throw new Error(`entry ${index} has no created_at`);
     hexDecodeExact(raw.public_key, 32, `entry ${index} public_key`);
-    hexDecodeExact(raw.secret_key, 32, `entry ${index} secret_key`);
+    // An imported public half has no secret to store, and the Rust writer stored
+    // an empty string for it — so empty is valid, and only a *wrong length*
+    // secret is corruption.
+    if (raw.secret_key !== '') hexDecodeExact(raw.secret_key, 32, `entry ${index} secret_key`);
     return {
       id: raw.id,
       label: raw.label,

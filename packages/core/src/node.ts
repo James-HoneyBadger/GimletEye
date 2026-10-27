@@ -8,6 +8,7 @@
 
 import { CONTAINER_TOOLS } from './tools/containers.js';
 import { INSPECT_TOOLS } from './tools/keys.js';
+import { KEYSTORE_TOOLS } from './tools/keystore-tools.js';
 import { metadataScan, metadataVerify } from './tools/metadata.js';
 import { SIGNING_TOOLS } from './tools/signatures.js';
 import { sha256 } from './tools/hash.js';
