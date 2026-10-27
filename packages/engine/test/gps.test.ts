@@ -218,9 +218,13 @@ describe('GPS redaction', () => {
     const redaction = redactGps(jpeg, 'country');
     expect(redaction).toBeDefined();
     expect(redaction!.latitude).toBe(1); // the last block's answer
-    // Both blocks were rewritten.
+    // Both blocks were rewritten on disk, not just reported: the first to
+    // 51° 0' 0", the second from 1° 17' 24" to 1° 0' 0".
     const first = jpeg.indexOf(Buffer.from('MM', 'latin1'));
+    const second = jpeg.lastIndexOf(Buffer.from('MM', 'latin1'));
+    expect(second).not.toBe(first);
     expect(readDms(jpeg, first, 92)).toEqual([51, 0, 0]);
+    expect(readDms(jpeg, second, 92)).toEqual([1, 0, 0]);
   });
 });
 
