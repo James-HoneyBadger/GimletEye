@@ -234,11 +234,12 @@ jobs:
 
       # `check advisories` only: this policy file sets no license or ban rules,
       # and `cargo deny check` would apply the defaults and fail on licenses.
-      # `--config` is explicit because the action runs from the repository root,
-      # where cargo-deny would otherwise discover the root policy instead.
+      # `--config` goes in `arguments` because cargo-deny rejects it after the
+      # subcommand, and it must be explicit because the action runs from the
+      # repository root, where the root policy would otherwise be discovered.
       - name: Desktop graph (the shell's own lockfile)
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories
           manifest-path: ./apps/desktop/src-tauri/Cargo.toml
-          command-arguments: --config apps/desktop/src-tauri/deny.toml
+          arguments: --config apps/desktop/src-tauri/deny.toml
