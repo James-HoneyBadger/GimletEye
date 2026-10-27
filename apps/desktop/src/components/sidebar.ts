@@ -1,6 +1,6 @@
 import { escapeHtml, matchesQuery, titleCase, truncate } from '../lib/format';
 import { categories, type AppState } from '../lib/store';
-import type { ToolManifest } from '../lib/engine';
+import type { Health, ToolManifest } from '../lib/engine';
 import { categoryIcon } from './icons';
 
 function toolRow(tool: ToolManifest, selectedId: string | null): string {
@@ -15,6 +15,17 @@ function toolRow(tool: ToolManifest, selectedId: string | null): string {
       </span>
       <span class="tool-summary">${escapeHtml(truncate(tool.summary, 110))}</span>
     </button>`;
+}
+
+/**
+ * What the footer says about the engine.
+ *
+ * `none` is the runtime's way of saying every tool is built in, and printing it
+ * as a version ("engine vnone") is a sentinel leaking into the interface.
+ */
+function engineLabel(health: Health | null): string {
+  if (health === null) return 'starting';
+  return health.engine === 'none' ? 'engine built in' : `engine v${escapeHtml(health.engine)}`;
 }
 
 export function renderSidebar(state: AppState): string {
@@ -78,7 +89,7 @@ export function renderSidebar(state: AppState): string {
       <div class="sidebar-scroll">${list}</div>
       <footer class="sidebar-footer">
         <span class="muted">${state.tools.length} tools</span>
-        <span class="muted">engine ${state.health ? `v${escapeHtml(state.health.engine)}` : 'starting'}</span>
+        <span class="muted">${engineLabel(state.health)}</span>
       </footer>
     </aside>
   `;
