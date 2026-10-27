@@ -125,6 +125,15 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **A Rust-free platform is chosen for the window.** With the engine in
+  TypeScript, the last Rust is the 385-line Tauri shell. [ADR 0011](docs/adr/0011-rust-free-application-platform.md)
+  selects Electron with the runtime moved into the main process: the webview
+  becomes a pure view, so a keystore passphrase and decrypted bytes stop
+  crossing into a renderer at all. The cost is honest and recorded — an install
+  grows from about 10 MB to about 150 MB, reversing ADR 0003's size judgement,
+  which was made when Rust was still acceptable. Neutralino was the runner-up
+  and loses because it cannot host the Node engine, so it would reintroduce the
+  sidecar boundary this work is removing.
 - **Stage 4 begins: four engine tools now run in process.** `crypto.sha256`,
   `crypto.passgen`, `privacy.metadata-scan`, and `privacy.metadata-verify` are
   TypeScript tools over the ported engine, with the engine's manifests, argument
