@@ -25,13 +25,14 @@ export const COMMANDS: readonly CommandEntry[] = [
   { command: 'config path', args: '', summary: 'Print the configuration file path' },
   { command: 'audit', args: '[--limit N]', summary: 'Recent audit records' },
   { command: 'doctor', args: '', summary: 'Check the installation' },
+  { command: 'tui', args: '', summary: 'Browse and run tools in the terminal' },
   { command: 'help', args: '', summary: 'This text' },
   { command: 'version', args: '', summary: 'Print the version' },
 ];
 
 export const GLOBAL_FLAGS: readonly CommandEntry[] = [
   { command: '--home', args: '<DIR>', summary: 'Override the toolkit home' },
-  { command: '--format', args: '<F>', summary: 'text | json | markdown | csv' },
+  { command: '--format', args: '<F>', summary: 'text | json | markdown | csv | html' },
   { command: '--json', args: '', summary: 'Shorthand for --format json' },
   { command: '--dry-run', args: '', summary: 'Report intended changes without writing them' },
   { command: '--strict', args: '', summary: 'Treat warnings as failures' },

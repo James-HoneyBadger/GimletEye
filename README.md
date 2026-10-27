@@ -120,13 +120,14 @@ node packages/cli/bin/gimlet system-info
 ```bash
 gimlet tools list [--category sysadmin] [--format json]
 gimlet tools show system-info
-gimlet run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run] [--strict]
+gimlet run <tool> [key=value ...] [--format text|json|markdown|csv|html] [--dry-run] [--strict]
 gimlet <tool> [key=value ...]        # shorthand for `run`
 gimlet batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
                 [--concurrency 4] [--fail-fast] [--no-recursive]
 gimlet config show|init|path
 gimlet audit [--limit N]
 gimlet doctor
+gimlet tui                          # browse and run tools in the terminal
 ```
 
 Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.

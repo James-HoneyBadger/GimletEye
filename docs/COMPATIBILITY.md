@@ -66,6 +66,7 @@ policy just like a field rename.
 | `gimlet config path` | Where the config file is looked for | — |
 | `gimlet audit` | Recent audit records | `--limit` |
 | `gimlet doctor` | Check the installation | — |
+| `gimlet tui` | Browse and run tools in the terminal | — |
 | `gimlet help` | The help text | — |
 | `gimlet version` | The version | — |
 
@@ -74,7 +75,7 @@ Global flags, accepted before or after the command:
 | Flag | Meaning |
 |---|---|
 | `--home <DIR>` | Toolkit home (config, audit, keystore) |
-| `--format <text\|json\|markdown\|csv>` | Report format |
+| `--format <text\|json\|markdown\|csv\|html>` | Report format |
 | `--json` | Shorthand for `--format json` |
 | `--dry-run` | Report intended changes without writing them |
 | `--strict` | Exit non-zero on a warning verdict |

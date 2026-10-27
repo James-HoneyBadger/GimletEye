@@ -138,6 +138,19 @@ report, and maps the verdict to an exit code (`0` ok, `1` error, `2` usage). It
 owns no behaviour of its own: `run`, `batch`, `tools`, `config`, `audit`, and
 `doctor` are all a few lines over `packages/core`.
 
+**Terminal surface.** `gimlet tui` is a fourth surface over the same
+`packages/core`: the catalogue, filtering, argument entry, and report rendering
+live in `packages/cli/src/tui` as pure functions, with one thin session loop that
+owns the TTY. It calls `Runtime.run` like the CLI does, so a run started in the
+terminal lands in the audit trail. No behaviour is duplicated: the state machine
+is tested without a TTY, and a frame is asserted against an explicit size.
+
+**Web surface.** `--format html` renders any report as one self-contained
+document: inline CSS, a `default-src 'none'` content policy, no script, and no
+request of any kind. It is a *viewer*, not a driver — there is no served UI and
+no listening port, which is why [0008](adr/0008-typescript-surfaces-rust-engine.md)
+still holds.
+
 **Desktop app.** `apps/desktop` is a Tauri 2 window. Its frontend imports
 `packages/core` and holds one `Runtime`; the Rust shell in
 `apps/desktop/src-tauri` owns exactly two things: the window, and the

@@ -22,6 +22,7 @@ import { executeBatch, type BatchRunner } from './batch.js';
 import { parseArgs, type Command, type Globals } from './cli.js';
 import { write, writeLine } from './output.js';
 import { helpText, versionText } from './help.js';
+import { runTui } from './tui/session.js';
 
 export async function main(argv: readonly string[], host = nodeHost()): Promise<number> {
   let parsed;
@@ -78,6 +79,8 @@ async function dispatch(runtime: Runtime, globals: Globals, command: Command): P
       return showAudit(runtime, globals, command.limit);
     case 'doctor':
       return doctor(runtime);
+    case 'tui':
+      return runTui(runtime);
     case 'help':
     case 'version':
       return 0;

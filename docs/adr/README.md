@@ -13,6 +13,7 @@ considered and what it cost.
 | [0006](0006-what-1.0-promises.md) | What 1.0 promises | Accepted |
 | [0007](0007-keystore-and-recipients.md) | A keystore and recipient encryption | Accepted |
 | [0008](0008-typescript-surfaces-rust-engine.md) | TypeScript surfaces over one Rust engine | Accepted |
+| [0009](0009-four-surfaces.md) | Four surfaces, one contract | Accepted |
 
 A superseded record stays in place: the reasoning is still the reason the new
 record exists.

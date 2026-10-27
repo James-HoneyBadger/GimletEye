@@ -38,6 +38,7 @@ export type Command =
   | { kind: 'config-path' }
   | { kind: 'audit'; limit: number }
   | { kind: 'doctor' }
+  | { kind: 'tui' }
   | { kind: 'help' }
   | { kind: 'version' };
 
@@ -47,7 +48,7 @@ export interface Parsed {
 }
 
 /** Commands a bare word may name; anything else is a tool id. */
-const COMMANDS = new Set(['run', 'batch', 'tools', 'config', 'audit', 'doctor', 'help', 'version']);
+const COMMANDS = new Set(['run', 'batch', 'tools', 'config', 'audit', 'doctor', 'tui', 'help', 'version']);
 
 /** Flags that take a value, so the next token is not a positional. */
 const VALUE_FLAGS = new Set([
@@ -187,6 +188,9 @@ function parseFormat(value: string): OutputFormat {
       return 'markdown';
     case 'csv':
       return 'csv';
+    case 'html':
+    case 'htm':
+      return 'html';
     default:
       throw invalidArgs(`unknown output format '${value}'`);
   }
@@ -244,6 +248,8 @@ function parseCommand(positional: string[], argv: readonly string[]): Command {
       return { kind: 'audit', limit: Number(flagValue(argv, '--limit') ?? flagValue(argv, '-l') ?? 20) };
     case 'doctor':
       return { kind: 'doctor' };
+    case 'tui':
+      return { kind: 'tui' };
     default:
       throw invalidArgs(`unknown command '${head}' (try --help)`);
   }

@@ -53,9 +53,31 @@ tool takes the same global flags:
 
 | Flag | Effect |
 |---|---|
-| `--format text\|json\|markdown` | output shape; `--json` is shorthand |
+| `--format text\|json\|markdown\|csv\|html` | output shape; `--json` is shorthand |
 | `--dry-run` | do everything except the write |
 | `-v` | debug logging to stderr |
+
+`html` writes one self-contained page — no script, no stylesheet, no request —
+so a report can be filed or handed to someone who has no copy of the toolkit:
+
+```bash
+gimlet sysadmin.disk-usage --format html > disk.html
+```
+
+## The terminal surface
+
+`gimlet tui` is the same catalogue, the same tools, and the same report contract
+as the CLI and the desktop app, drawn in the terminal:
+
+```bash
+gimlet tui
+```
+
+Type to filter (`crypto key` narrows by every word), `↑`/`↓` to move, `enter` to
+run the selected tool — argument-taking tools prompt for `key=value` pairs — and
+`esc` to clear the filter or step back. Results scroll with `↑`/`↓` and page
+with `pgup`/`pgdn`; `ctrl-c` quits. Runs started here are recorded in the audit
+trail like any other, because the TUI calls the same `Runtime.run`.
 
 `gimlet run <tool> …` is the explicit spelling; the shorthand form
 (`gimlet system-info`) is an alias that resolves suffixes, so `sha256` finds
