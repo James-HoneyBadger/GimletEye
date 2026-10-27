@@ -133,22 +133,28 @@ describe('GPS redaction', () => {
     expect(redaction!.longitude).toBe(151);
   });
 
-  it('redacts idempotently, including the grid-rounding case', () => {
+  it('is a fixed point for a coordinate already on the grid', () => {
+    // 1° 17' 24" is 4644 seconds — exactly 129 city steps — but it reads back
+    // from binary floating point as 4643.999…, so truncating before snapping
+    // lands a whole step lower and silently coarsens a file that was already
+    // coarse enough. That is the bug the Rust fuzz target found, and a second
+    // pass alone does not catch it: 1.28° happens to truncate to itself.
+    const payload = buildExif([1, 17, 24], [0, 7, 39.93], undefined, 'N', 'E');
+    const redaction = redactGpsPayload(payload, 'city')!;
+
+    expect(redaction.latitude).toBe((129 * 36) / 3600);
+    expect(readDms(payload, 6, 92)).toEqual([1, 17, 24]);
+  });
+
+  it('redacts idempotently', () => {
     const payload = buildExif(LONDON, GREENWICH, undefined, 'N', 'W');
     const first = redactGpsPayload(payload, 'city');
+    const afterFirst = Buffer.from(payload);
     const second = redactGpsPayload(payload, 'city');
     expect(second).toEqual(first);
-    expect(payload).toEqual(payload); // bytes unchanged by the second pass
+    // Same report *and* same bytes: the second pass is a no-op, not another step.
+    expect(payload.equals(afterFirst)).toBe(true);
     expect(readDms(payload, 6, 92)).toEqual([51, 30, 0]);
-
-    // 1° 17' 24" is a hair under 1.29° in binary floating point; truncating the
-    // hair used to drop a whole grid step on the second pass.
-    const grid = buildExif([1, 17, 24], [0, 7, 39.93], undefined, 'N', 'E');
-    const once = redactGpsPayload(grid, 'city');
-    const snapshot = Buffer.from(grid);
-    const twice = redactGpsPayload(grid, 'city');
-    expect(twice).toEqual(once);
-    expect(grid.equals(snapshot)).toBe(true);
   });
 
   it('accepts the raw TIFF form that PNG and WebP chunks use', () => {
@@ -228,13 +234,27 @@ function app1(payload: Buffer): Buffer {
 
 const PRECISIONS: GpsPrecision[] = ['country', 'region', 'city'];
 
+/** One cell of the grid, in degrees: 3600, 360, and 36 seconds of arc. */
+const CELL_DEGREES: Record<Exclude<GpsPrecision, 'off'>, number> = { country: 1, region: 0.1, city: 0.01 };
+
 describe('the precision grid', () => {
-  it('never moves a coordinate further than its cell', () => {
+  it('moves a coordinate into its own cell, never past it', () => {
     for (const precision of PRECISIONS) {
+      const cell = CELL_DEGREES[precision];
       const payload = buildExif(LONDON, GREENWICH, undefined, 'N', 'W');
       const redaction = redactGpsPayload(payload, precision)!;
-      expect(redaction.latitude).toBeLessThanOrEqual(51.50735);
-      expect(Math.abs(redaction.longitude)).toBeLessThanOrEqual(0.12776);
+
+      // Truncation only ever decreases, so the upper bound alone would hold for
+      // any answer. The lower bound is the one that says "in the same cell":
+      // 51.50735 may become 51.5 but not 51.0.
+      expect(redaction.latitude, precision).toBeLessThanOrEqual(51.50735);
+      expect(redaction.latitude, precision).toBeGreaterThan(51.50735 - cell);
+      expect(Math.abs(redaction.longitude), precision).toBeLessThanOrEqual(0.12776 + cell);
+
+      // And it lands exactly on the grid, which is what makes a second pass a
+      // no-op instead of another step.
+      const seconds = Math.round(redaction.latitude * 3600);
+      expect(seconds % Math.round(cell * 3600), precision).toBe(0);
     }
   });
 });
