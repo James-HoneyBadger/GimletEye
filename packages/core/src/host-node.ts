@@ -124,19 +124,43 @@ function execOnce(program: string, args: readonly string[]): Promise<ExecResult>
 /**
  * Where the engine binary lives.
  *
- * `GIMLET_SIDECAR` wins, then a binary installed next to the CLI, then the
- * build tree this checkout produced, then `PATH`.
+ * `GIMLET_SIDECAR` wins, then the install layout, then the build tree, then
+ * `PATH`.
+ *
+ * The install layout is found from *this module*, not from `process.execPath`:
+ * a packaged CLI runs as `/usr/bin/node /usr/lib/gimlet/cli/main.js`, so the
+ * directory holding `node` says nothing about where the engine is. The layout a
+ * package creates is:
+ *
+ *     /usr/lib/gimlet/gimlet-sidecar
+ *     /usr/lib/gimlet/core/dist/host-node.js   <- this file
+ *     /usr/bin/gimlet -> ../lib/gimlet/bin/gimlet
  */
-export function sidecarPath(): string {
-  const override = process.env.GIMLET_SIDECAR;
+export interface SidecarLookup {
+  /** Overrides the running module's URL; used by the tests. */
+  moduleUrl?: string;
+  execPath?: string;
+  env?: NodeJS.ProcessEnv;
+}
+
+export function sidecarPath(lookup: SidecarLookup = {}): string {
+  const env = lookup.env ?? process.env;
+  const override = env['GIMLET_SIDECAR'];
   if (override) return override;
 
   const name = process.platform === 'win32' ? 'gimlet-sidecar.exe' : 'gimlet-sidecar';
-  const beside = join(dirname(process.execPath), name);
+  const modulePath = fileURLToPath(lookup.moduleUrl ?? import.meta.url);
+
+  // Up from `.../core/dist/host-node.js` to the directory that holds the engine.
+  const installed = join(dirname(dirname(dirname(modulePath))), name);
+  if (existsSync(installed)) return installed;
+
+  // A single-directory install, where node and the engine sit together.
+  const beside = join(dirname(lookup.execPath ?? process.execPath), name);
   if (existsSync(beside)) return beside;
 
   for (const relative of ['target/release', 'target/debug']) {
-    for (const root of checkoutRoots()) {
+    for (const root of checkoutRoots(dirname(modulePath))) {
       const candidate = join(root, relative, name);
       if (existsSync(candidate)) return candidate;
     }
@@ -145,9 +169,9 @@ export function sidecarPath(): string {
 }
 
 /** Directories from this module upwards that look like the source checkout. */
-function checkoutRoots(): string[] {
+function checkoutRoots(from: string): string[] {
   const roots: string[] = [];
-  let current = dirname(fileURLToPath(import.meta.url));
+  let current = from;
   for (let depth = 0; depth < 8; depth += 1) {
     roots.push(current);
     if (existsSync(join(current, 'Cargo.toml'))) break;
