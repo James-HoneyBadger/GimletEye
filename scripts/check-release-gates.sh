@@ -135,7 +135,7 @@ run_check 1 "key exchange: OpenPGP interop against real gpg" \
     env GIMLET_REQUIRE_GPG=1 cargo test --quiet -p gimlet-eye-crypto --test gpg_interop
 run_check 1 "key exchange: a .gimlet a second implementation can read" \
     env GIMLET_REQUIRE_SECOND_IMPL=1 cargo test --quiet -p gimlet-eye-crypto --test second_implementation
-ci_row 1 "integration (CLI, API, Perl pack)" "platform contract and pack behaviour"
+ci_row 1 "integration (CLI against the engine)" "the CLI drives the real engine"
 run_check 1 "format coverage: golden corpus round-trips" \
     cargo test --quiet -p gimlet-eye-scrub --test golden_corpus
 echo
@@ -157,11 +157,13 @@ if [ $? -eq 0 ]; then
 else
     row 2 open "fuzz soak: seven nights or 350 target-minutes" "$(tail -1 <<<"$fuzz_output")"
 fi
-ci_row 2 "integration (CLI, API, Perl pack)" "API token, pack trust, conformance"
+ci_row 2 "integration (CLI against the engine)" "exit codes, configuration, engine contract"
 ci_row 2 "dependency policy" "cargo deny on both graphs"
 ci_row 2 "msrv (declared rust-version)" "the declared MSRV actually builds"
-ci_row 2 "e2e (live engine, Playwright)" "the UI against a live engine"
-ci_row 2 "rehearsal (install, upgrade, roll back)" "install, upgrade, rollback in a container"
+ci_row 2 "typescript (typecheck, test, build)" "every surface typechecks and its tests pass"
+ci_row 2 "desktop (typecheck, UI bundle, shell check)" "the window bundles and the shell compiles"
+row 2 open "install, upgrade, roll back" \
+    "no CI job since the TypeScript overhaul; scripts/rehearse-upgrade.sh is the hook"
 echo
 
 echo "Gate 3 — the freeze"
@@ -178,7 +180,7 @@ done
 echo
 
 echo "Gate 4 — distribution"
-ci_row 4 "packaging (version agreement, deb build)" "packaging files agree with the version"
+ci_row 4 "packaging (version agreement, staged layout)" "packaging files agree with the version"
 if [ -n "$(git tag --list 'v0.7*')" ]; then
     release_state="$(gh run list --workflow release.yml --limit 1 --json conclusion \
         --jq '.[0].conclusion // "running"' 2>/dev/null || echo unknown)"

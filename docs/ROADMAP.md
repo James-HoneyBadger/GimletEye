@@ -398,7 +398,9 @@ from there — no standing waiver, and nothing to remember to switch on.
 - [x] **Gate 5 audit** (2026-10-26) — user guide, admin guide, and pack gallery
   are published; every README claim is executed by `check-readme-claims.sh`; all
   39 tools have an example with real output in [TOOL_REFERENCE.md](TOOL_REFERENCE.md),
-  enforced by `check-tool-reference.sh`.
+  enforced by `check-tool-reference.sh`. (The counts in this checklist are the
+  pre-0008 catalogue; the TypeScript overhaul left 21 tools, and every one still
+  has an example.)
 - [ ] ADR 0006 moves from Proposed to Accepted with the audit results attached.
 - [ ] `CHANGELOG.md` gets a 1.0.0 entry stating the promise in one paragraph.
 
