@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "node16",
+    "moduleResolution": "node16",
+    "verbatimModuleSyntax": false,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "composite": false,
+    "types": ["node"]
+  },
+  "include": ["main.ts", "preload.cts", "api.ts"]
+}

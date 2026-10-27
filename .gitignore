@@ -33,3 +33,6 @@ crates/scrub/fuzz/corpus/
 # Tauri generated schemas and the staged engine binary
 apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/binaries/
+
+# Electron shell output
+apps/desktop/electron/dist/

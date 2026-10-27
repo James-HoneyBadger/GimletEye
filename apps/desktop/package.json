@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "description": "Gimlet Eye desktop workbench",
+  "main": "electron/dist/main.js",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
     "build:ui": "npm run build --prefix ../.. --workspace @gimlet-eye/core && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "dev:ui": "vite"
+    "dev:ui": "vite",
+    "electron:build": "tsc -p electron",
+    "electron:start": "npm run electron:build && electron ."
   },
   "dependencies": {
     "@gimlet-eye/core": "*",
@@ -19,6 +22,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",
     "@types/node": "^22.10.2",
+    "electron": "^45.0.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.4.5",
