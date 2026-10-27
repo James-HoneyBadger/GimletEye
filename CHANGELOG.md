@@ -21,6 +21,14 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Changed
 
+- **The dependency policy is enforced now.** `deny.toml`, the desktop shell's
+  `apps/desktop/src-tauri/deny.toml`, and the Gate 2 row in
+  `scripts/check-release-gates.sh` all described a `cargo deny` check that no
+  workflow ran, so a new advisory in either Cargo graph could reach `main`
+  unremarked. A `dependency policy` job now runs `check` on the root graph and
+  `check advisories` on the shell's own lockfile, where the two accepted GTK3
+  findings are listed with the reasoning for accepting them.
+
 - **The surfaces are TypeScript, over one Rust engine.** The HTTP API, the
   browser surface, the API token, the Rust CLI, and the pack protocol are gone:
 

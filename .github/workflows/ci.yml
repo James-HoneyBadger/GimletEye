@@ -212,3 +212,33 @@ jobs:
       # cannot find once node is the process name.
       - name: The staged package runs
         run: ./scripts/check-package-layout.sh
+
+  # `deny.toml` at the root and `apps/desktop/src-tauri/deny.toml` both state
+  # the policy is enforced, and `scripts/check-release-gates.sh` reports
+  # "dependency policy" as a Gate 2 row by looking for a job of this exact
+  # name. Nothing ran either graph until this job existed, which is how
+  # alert #1 could sit on the default branch unnoticed.
+  dependency-policy:
+    name: dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The shell is a separate crate with its own lockfile, so the root graph
+      # never sees the GTK stack that carries both accepted advisories.
+      - name: Root graph (engine, CLI, sidecar)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          manifest-path: ./Cargo.toml
+
+      # `check advisories` only: this policy file sets no license or ban rules,
+      # and `cargo deny check` would apply the defaults and fail on licenses.
+      # `--config` is explicit because the action runs from the repository root,
+      # where cargo-deny would otherwise discover the root policy instead.
+      - name: Desktop graph (the shell's own lockfile)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories
+          manifest-path: ./apps/desktop/src-tauri/Cargo.toml
+          command-arguments: --config apps/desktop/src-tauri/deny.toml

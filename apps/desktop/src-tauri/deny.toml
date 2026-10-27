@@ -1,8 +1,9 @@
 # Advisory policy for the desktop shell.
 #
 # The shell is a separate crate with its own lockfile (the workspace excludes
-# it), so the root policy never saw these dependencies. CI runs
-# `cargo deny check advisories` here, so anything new fails the build.
+# it), so the root policy never saw these dependencies. CI's `dependency policy`
+# job runs `cargo deny check advisories` here, so anything new fails the build
+# instead of going unnoticed.
 #
 # Two findings are accepted, both from Tauri's GTK3 stack:
 
@@ -14,18 +15,16 @@ ignore = [
     # glib-macros, contributes no runtime code to the binary, and cannot be
     # dropped without a gtk-rs release that stops using it.
     "RUSTSEC-2024-0370",
+    # glib::VariantStrIter's Iterator/DoubleEndedIterator impls are unsound;
+    # this is also GHSA-wrw7-89jp-8q8g, which Dependabot tracks as alert #1.
+    # Fixed in glib 0.20.0, and the GTK3 bindings that carry that fix are gtk
+    # 0.19 (glib ^0.22). tauri 2.12 and wry 0.57 still require gtk ^0.18, and
+    # wry pins webkit2gtk =2.0.2, which also requires gtk ^0.18. gtk 0.18 and
+    # 0.19 both link the native gtk-3 library, so only one may be in the graph:
+    # adding gtk 0.19 fails resolution with "gtk-sys links gtk-3". This shell's
+    # own code never constructs the type.
+    #
+    # Revisit when tauri/wry accept gtk ^0.19, or when tauri 3 builds against
+    # GTK4 (its gtk4 dependency already sits on glib >= 0.20).
+    "RUSTSEC-2024-0429",
 ]
-
-# Not in the RustSec database yet, so it cannot be listed above; Dependabot
-# tracks it as alert #1 instead:
-#
-#   GHSA-wrw7-89jp-8q8g - unsound Iterator/DoubleEndedIterator impls for
-#   glib::VariantStrIter. Fixed in glib 0.20.0; the GTK3 bindings that carry
-#   that fix are gtk 0.19 (glib ^0.22). tauri 2.12 and wry 0.57 still require
-#   gtk ^0.18, and wry pins webkit2gtk =2.0.2, which also requires gtk ^0.18.
-#   gtk 0.18 and 0.19 both link the native gtk-3 library, so only one may be in
-#   the graph: adding gtk 0.19 fails resolution with "gtk-sys links gtk-3".
-#   This shell's own code never constructs the type.
-#
-# Revisit when tauri/wry accept gtk ^0.19, or when tauri 3 builds against GTK4
-# (its gtk4 dependency already sits on glib >= 0.20).
