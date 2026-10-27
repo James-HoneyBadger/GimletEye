@@ -34,10 +34,18 @@ stage is verifiable on its own:
 
 Stage 4 is being done tool by tool rather than in one switch, so the CLI keeps
 working during the migration. `Runtime` registers local tools first and lets the
-engine serve whatever is not ported yet. Migrated so far: `crypto.sha256`,
-`crypto.passgen`, `privacy.metadata-scan`, `privacy.metadata-verify`. The
-`privacy.metadata-strip` tool waits for GPS redaction, which is the last piece of
-`crates/scrub` not yet ported.
+engine serve whatever is not ported yet. Every engine tool is ported except
+`privacy.metadata-strip`, which waits for GPS redaction — the last piece of
+`crates/scrub` not yet translated.
+
+Registration is part of a port, and it is the part that is easy to forget: a
+local tool's manifest replaces the engine's for the same id, so a tool that is
+written but missing from `NODE_TOOLS` is not merely slower, it silently keeps
+running the Rust implementation. Four ports landed that way before
+`packages/core/test/node-tools.test.ts` pinned the list to the modules. A port is
+therefore only evidence of anything once the CLI output shows the new code
+running: `crypto.encrypt` reporting `1 chunk(s)` rather than the engine's `1
+chunks` is the check that was actually conclusive.
 
 Stage 1 is in `packages/engine`. The crypto is `node:crypto` (OpenSSL) with
 `@noble/hashes` for Argon2id, because Node does not expose it.
