@@ -142,7 +142,7 @@ export class Runtime {
     }
     const local = this.local.get(id);
     if (local) {
-      return local.run({ host: this.host, config: this.config, dryRun }, args);
+      return local.run({ host: this.host, config: this.config, dryRun, paths: this.paths }, args);
     }
     return this.sidecar.run(id, args, { dryRun, home: this.paths.root });
   }

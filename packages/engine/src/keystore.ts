@@ -10,7 +10,7 @@
  * is what a report may contain, and it has no secret field to leak.
  */
 
-import { chmod, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
+import { chmod, mkdir, open as openFile, readFile, rename, unlink } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 
@@ -158,13 +158,13 @@ export function encode(store: Keystore): Buffer {
   );
 }
 
-export async function load(path: string, passphrase: string | Uint8Array): Promise<Keystore> {
-  let sealed: Buffer;
-  try {
-    sealed = await readFile(path);
-  } catch {
-    throw new Error(`no keystore at ${path} (create one with crypto.keygen keystore=true)`);
-  }
+/** Seal a store to bytes. The caller decides where they go — that is the Host's job. */
+export function seal(store: Keystore, passphrase: string | Uint8Array): Buffer {
+  return sealWithPassphrase(encode(store), passphrase);
+}
+
+/** Open sealed bytes. A wrong passphrase fails the tag before any JSON is parsed. */
+export function open(sealed: Buffer, passphrase: string | Uint8Array): Keystore {
   const plaintext = openWithPassphrase(sealed, passphrase);
   try {
     return parseDocument(JSON.parse(plaintext.toString('utf8')));
@@ -173,14 +173,24 @@ export async function load(path: string, passphrase: string | Uint8Array): Promi
   }
 }
 
+export async function load(path: string, passphrase: string | Uint8Array): Promise<Keystore> {
+  let sealed: Buffer;
+  try {
+    sealed = await readFile(path);
+  } catch {
+    throw new Error(`no keystore at ${path} (create one with crypto.keygen keystore=true)`);
+  }
+  return open(sealed, passphrase);
+}
+
 /** Seal and write atomically, owner-only: a half-written keystore loses every key in it. */
 export async function save(path: string, passphrase: string | Uint8Array, store: Keystore): Promise<void> {
-  const sealed = sealWithPassphrase(encode(store), passphrase);
+  const sealed = seal(store, passphrase);
   const temp = `${path}.tmp`;
   const directory = dirname(path);
   if (directory !== '' && directory !== '.') await mkdir(directory, { recursive: true });
 
-  const handle = await open(temp, 'w', 0o600);
+  const handle = await openFile(temp, 'w', 0o600);
   try {
     await handle.writeFile(sealed);
     await handle.sync();

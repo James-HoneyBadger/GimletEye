@@ -10,12 +10,15 @@ import type { Args } from './args.js';
 import type { Config } from './config.js';
 import type { Host } from './host.js';
 import type { ToolManifest } from './manifest.js';
+import type { AppPaths } from './paths.js';
 import type { Report } from './report.js';
 
 export interface ToolRunContext {
   host: Host;
   config: Config;
   dryRun: boolean;
+  /** Where this installation keeps its config, audit trail, and keystore. */
+  paths: AppPaths;
 }
 
 export interface LocalTool {
