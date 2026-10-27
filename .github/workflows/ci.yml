@@ -216,30 +216,25 @@ jobs:
   # `deny.toml` at the root and `apps/desktop/src-tauri/deny.toml` both state
   # the policy is enforced, and `scripts/check-release-gates.sh` reports
   # "dependency policy" as a Gate 2 row by looking for a job of this exact
-  # name. Nothing ran either graph until this job existed, which is how
-  # alert #1 could sit on the default branch unnoticed.
+  # name. The overhaul dropped this job, which is how alert #1 could sit on the
+  # default branch while SECURITY.md pointed at a check that would have caught
+  # it.
   dependency-policy:
     name: dependency policy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # The shell is a separate crate with its own lockfile, so the root graph
-      # never sees the GTK stack that carries both accepted advisories.
-      - name: Root graph (engine, CLI, sidecar)
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          manifest-path: ./Cargo.toml
+      - uses: dtolnay/rust-toolchain@stable
 
-      # `check advisories` only: this policy file sets no license or ban rules,
-      # and `cargo deny check` would apply the defaults and fail on licenses.
-      # `--config` goes in `arguments` because cargo-deny rejects it after the
-      # subcommand, and it must be explicit because the action runs from the
-      # repository root, where the root policy would otherwise be discovered.
-      - name: Desktop graph (the shell's own lockfile)
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check advisories
-          manifest-path: ./apps/desktop/src-tauri/Cargo.toml
-          arguments: --config apps/desktop/src-tauri/deny.toml
+      - uses: taiki-e/install-action@cargo-deny
+
+      - run: cargo deny check advisories licenses bans sources
+
+      # The desktop shell is excluded from the workspace and has its own
+      # lockfile, so it needs its own run; the check is advisories only because
+      # that policy file sets no license or ban rules, and the defaults would
+      # fail. `deny.toml` next to the manifest is what it reads.
+      - name: Desktop dependency policy
+        working-directory: apps/desktop/src-tauri
+        run: cargo deny check advisories
