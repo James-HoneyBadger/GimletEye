@@ -7,6 +7,7 @@
  */
 
 import { metadataScan, metadataVerify } from './tools/metadata.js';
+import { SIGNING_TOOLS } from './tools/signatures.js';
 import { sha256 } from './tools/hash.js';
 import { passgen } from './tools/passwords.js';
 import { HOST_TOOLS } from './runtime.js';
@@ -14,4 +15,4 @@ import { HOST_TOOLS } from './runtime.js';
 export * from './runtime.js';
 
 /** Every tool the Node build registers before it asks the engine for the rest. */
-export const NODE_TOOLS = [...HOST_TOOLS, sha256, passgen, metadataScan, metadataVerify];
+export const NODE_TOOLS = [...HOST_TOOLS, sha256, passgen, metadataScan, metadataVerify, ...SIGNING_TOOLS];
