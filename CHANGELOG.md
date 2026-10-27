@@ -6,6 +6,19 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The dev toolchain no longer carries known vulnerabilities.** `npm audit`
+  reported six advisories in the test and build tooling — two critical
+  (`vitest` 2.1.9, `tinypool`), one high (`vite` 5.4.21), three moderate — all
+  reachable through the old `vitest` line. `vitest` moves to `^4.1.12`, whose
+  fixes land in 4.1.11+, and `vite` is held on the patched `^6.4.5` line. Vite 7
+  and `vitest` 5 would have been simpler, but they require Node 20.19+/22.12+
+  while this build declares Node 20+, so they stay out until that floor moves.
+  `apps/desktop` now declares `@types/node` and lists it in `types`, because
+  `vite` 6 stopped referencing node types implicitly and its tests import
+  `node:fs`. `npm audit` is clean; no runtime dependency changed.
+
 ### Changed
 
 - **The surfaces are TypeScript, over one Rust engine.** The HTTP API, the
