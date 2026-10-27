@@ -497,3 +497,27 @@ function rawPublic(key: ReturnType<typeof createPublicKey>): Buffer {
 function x25519PublicOf(key: ReturnType<typeof createPrivateKey>): Buffer {
   return rawPublic(createPublicKey(key));
 }
+
+/**
+ * How many chunk frames the body holds, without decrypting it.
+ *
+ * Used by `crypto.decrypt`'s report: "chunked, 3 frames" is the evidence that a
+ * large file streamed rather than being held whole.
+ */
+export function chunkCount(blob: Buffer): number {
+  const header = inspect(blob);
+  const start = header.version === VERSION_RECIPIENT ? header.headerLength : HEADER_LEN;
+  if (header.version === VERSION_WHOLE_FILE) return 1;
+
+  let offset = start;
+  let count = 0;
+  while (offset + 5 <= blob.length) {
+    const flags = blob[offset] as number;
+    const length = blob.readUInt32LE(offset + 1);
+    if (length < TAG_LEN || offset + 5 + length > blob.length) break;
+    count += 1;
+    offset += 5 + length;
+    if ((flags & FLAG_FINAL) !== 0) break;
+  }
+  return count;
+}
