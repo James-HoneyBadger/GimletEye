@@ -173,6 +173,73 @@ describe('crypto.encrypt / crypto.decrypt, in process', () => {
   });
 });
 
+describe('a container that asks for more work than the tool will do', () => {
+  /** A real container with its KDF cost fields rewritten, exactly as a hostile
+   * file would arrive: the header is authenticated, so this also proves the
+   * refusal happens *before* the key is derived. */
+  function withCost(memoryKib: number, timeCost: number): FakeHost {
+    const host = binaryHost({ '/notes.txt': 'the quick brown fox\n' });
+    return host;
+  }
+
+  async function sealedWith(memoryKib?: number, timeCost?: number): Promise<Buffer> {
+    const host = withCost(0, 0);
+    await encryptFile.run(ctxFor(host), { input: '/notes.txt', output: '/notes.gimlet', passphrase: 'pw' });
+    const sealed = Buffer.from((host as FakeHost & { bytes: Map<string, Buffer> }).bytes.get('/notes.gimlet')!);
+    // Header: magic(4) version cipher kdf reserved, then m_cost(u32) at 8,
+    // t_cost(u32) at 12, lanes at 16.
+    if (memoryKib !== undefined) sealed.writeUInt32LE(memoryKib, 8);
+    if (timeCost !== undefined) sealed.writeUInt32LE(timeCost, 12);
+    return sealed;
+  }
+
+  it('refuses an expensive header before deriving anything', async () => {
+    const sealed = await sealedWith(512 * 1024, 8);
+    const host = binaryHost({ '/notes.gimlet': sealed });
+
+    const started = Date.now();
+    await expect(
+      decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw' }),
+    ).rejects.toThrow(/more than this tool will spend unasked/);
+    // 512 MiB and eight passes would take far longer than this to derive.
+    expect(Date.now() - started).toBeLessThan(2000);
+
+    // Each dimension is checked on its own: 64 MiB is well inside the memory
+    // budget, and eight passes is what makes this one expensive.
+    const passes = await sealedWith(64 * 1024, 8);
+    await expect(
+      decryptFile.run(ctxFor(binaryHost({ '/notes.gimlet': passes })), { input: '/notes.gimlet', passphrase: 'pw' }),
+    ).rejects.toThrow(/more than this tool will spend unasked/);
+  });
+
+  it('suggests both ways forward, and honours the one that says yes', async () => {
+    // Just over the budget (300 MiB, one pass) so the "yes" path really does
+    // derive rather than being asserted from a message: it is slow enough to be
+    // outside the budget and fast enough to run in a test.
+    const sealed = await sealedWith(300 * 1024, 1);
+    const host = binaryHost({ '/notes.gimlet': sealed });
+
+    await expect(decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw' })).rejects.toThrow(
+      /allow_expensive=true.*crypto\.inspect/,
+    );
+
+    // allow_expensive gets past the refusal and on to the tag check, which fails
+    // here because the header was tampered with — the point is that the budget
+    // was what stood in the way, not the encryption.
+    await expect(
+      decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw', allow_expensive: true }),
+    ).rejects.toThrow(/tag|authenticat|decrypt|unable/i);
+  });
+
+  it('accepts the parameters this build writes without being asked', async () => {
+    const sealed = await sealedWith();
+    const host = binaryHost({ '/notes.gimlet': sealed });
+
+    const report = await decryptFile.run(ctxFor(host), { input: '/notes.gimlet', passphrase: 'pw' });
+    expect(report.status).toBe('ok');
+  });
+});
+
 describe('the decrypt output name', () => {
   it('strips a container suffix and falls back to .decrypted', () => {
     expect(decryptedPath('/a/b.txt.gimlet')).toBe('/a/b.txt');

@@ -196,6 +196,9 @@ export async function save(path: string, passphrase: string | Uint8Array, store:
   const directory = dirname(path);
   if (directory !== '' && directory !== '.') await mkdir(directory, { recursive: true });
 
+  // Created 0600 as well as renamed into place as 0600: the creation mode is the
+  // one that holds if this process dies between the write and the rename, and a
+  // leftover keystore that is world-readable is not a leftover worth having.
   const handle = await openFile(temp, 'w', 0o600);
   try {
     await handle.writeFile(sealed);

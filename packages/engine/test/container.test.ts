@@ -162,6 +162,24 @@ describe('recipient containers', () => {
     expect(() => openWithRecipient(swapped, alice.secret)).toThrow(ContainerError);
   });
 
+  it('refuses a header that claims an implausible number of recipients', () => {
+    // Without the ceiling the reader loops once per claimed recipient *before*
+    // it checks whether the file is long enough, so this header is a way to
+    // spend a machine's time for the price of 45 bytes.
+    const alice = generateRecipientKey();
+    const sealed = sealForRecipients(Buffer.from('x'), [alice.public]);
+    const absurd = Buffer.from(sealed);
+    absurd.writeUInt32LE(0xffffffff, 40);
+
+    const started = Date.now();
+    expect(() => inspect(absurd)).toThrow(/outside the accepted range/);
+    expect(Date.now() - started).toBeLessThan(1000);
+
+    const none = Buffer.from(sealed);
+    none.writeUInt32LE(0, 40);
+    expect(() => inspect(none)).toThrow(/outside the accepted range/);
+  });
+
   it('streams a multi-chunk payload under the file key', () => {
     const alice = generateRecipientKey();
     const plaintext = Buffer.alloc(150 * 1024, 7);
