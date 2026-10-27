@@ -2,9 +2,9 @@ Source: gimlet-eye-toolkit
 Section: utils
 Priority: optional
 Maintainer: Gimlet Eye maintainers <maintainers@example.invalid>
-# The engine is Rust; the CLI and the desktop frontend are TypeScript, so a
-# build needs both toolchains. scripts/rehearse-upgrade.sh installs rustup and
-# node into a container to prove that.
+# The engine is Rust and the command line is TypeScript, so a build needs both
+# toolchains. scripts/rehearse-upgrade.sh installs rustup and Node 20 into a
+# container to prove that.
 Build-Depends: debhelper-compat (= 13), cargo, rustc, nodejs (>= 20), npm
 Standards-Version: 4.6.2
 Homepage: https://github.com/James-HoneyBadger/GimletEye
@@ -13,22 +13,12 @@ Rules-Requires-Root: no
 
 Package: gimlet
 Architecture: any
-Depends: ${misc:Depends}, nodejs (>= 20), gimlet-engine (= ${binary:Version})
+Depends: ${misc:Depends}, nodejs (>= 20)
 Recommends: gnupg
 Description: local workbench for system, crypto, and metadata tasks
  One tool registry, one report format, one configuration file, one audit trail,
  and one command line for system administration, file encryption and signing,
- and metadata removal.
+ and metadata removal, plus the engine it runs those tools in.
  .
- Everything runs locally: no network calls, no telemetry, no auto-update.
-
-Package: gimlet-engine
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: verified crypto and metadata engine for Gimlet Eye
- The Rust engine behind the Gimlet Eye command line and desktop app. It carries
- the fuzz corpora, the golden fixtures, and a second implementation that pins
- the container format, and it runs only the tools this build compiled.
- .
- It is spawned by the surfaces over a versioned JSON protocol and is not
- intended to be invoked directly.
+ Everything runs locally: no network calls, no telemetry, no auto-update. There
+ is no daemon and no listening port.

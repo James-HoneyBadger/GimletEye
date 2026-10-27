@@ -37,7 +37,9 @@ All notable changes to Gimlet Eye. Format follows
 
   The `gimlet` binary now requires Node 20+ and must be installed beside
   `gimlet-sidecar` (or `GIMLET_SIDECAR` set) — a lone binary is no longer enough
-  to run the crypto tools.
+  to run the crypto tools. The package layout is one definition, in
+  `scripts/stage-package.sh`, used by the deb, rpm, and Arch recipes.
+  **This restarts the two-release countdown to 1.0** (ADR 0006, ADR 0008).
 
 - **The project is now Gimlet Eye.** Mellivora is the name of a different project
   family, and this toolkit shares nothing with it but a name. The rename reaches

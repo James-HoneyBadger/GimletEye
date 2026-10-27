@@ -80,6 +80,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Versioned surfaces have not moved
+        # 0.8 renames the surfaces (ADR 0008): the report gains nothing, but the
+        # config drops [plugins]/[api]/[trust], the manifest drops origin and
+        # version, and the plugin protocol is replaced by the engine protocol.
+        # Per ADR 0006 that restarts the two-release countdown to 1.0, which is
+        # what the changelog records.
+        env:
+          ALLOW_SURFACE_CHANGE: "0.8: TypeScript surfaces over one Rust engine (ADR 0008)"
         run: ./scripts/check-quiet-period.sh
 
   typescript:
@@ -175,13 +182,28 @@ jobs:
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
   packaging:
-    name: packaging (version agreement, deb build)
+    name: packaging (version agreement, staged layout)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Build what the package contains
+        run: |
+          cargo build --release --locked -p gimlet-eye-sidecar
+          npm run build
       - name: Packaging files agree on the version
         run: ./scripts/check-packaging.sh
+      # Staging catches what a version check cannot: a symlink at the wrong
+      # depth, a module that only resolves in the checkout, an engine the CLI
+      # cannot find once node is the process name.
+      - name: The staged package runs
+        run: ./scripts/check-package-layout.sh

@@ -1,5 +1,5 @@
-.PHONY: help build engine cli ui test test-rust test-ts fmt fmt-check clippy check typecheck \
-        msrv quiet-period surface gates fuzz-nights desktop run smoke doctor clean
+.PHONY: help build engine cli ui package-check test test-rust test-ts fmt fmt-check clippy check \
+        typecheck msrv quiet-period surface gates fuzz-nights desktop run smoke doctor clean
 
 CARGO ?= cargo
 NPM ?= npm
@@ -19,6 +19,10 @@ cli: ## Build the CLI
 
 ui: ## Build the desktop UI bundle
 	$(NPM) run build:ui -w @gimlet-eye/desktop
+
+package-check: build ## Stage the package and run it the way an install would
+	./scripts/check-packaging.sh
+	./scripts/check-package-layout.sh
 
 test: test-rust test-ts ## Everything: engine, CLI, and UI
 

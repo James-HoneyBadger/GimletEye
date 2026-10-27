@@ -43,10 +43,14 @@ grep -q '^Package: gimlet$' debian/control || {
     echo "debian/control must ship a package named 'gimlet'" >&2
     fail=1
 }
-grep -q 'usr/bin/gimlet' debian/rules || {
-    echo "debian/rules must install usr/bin/gimlet" >&2
-    fail=1
-}
+# The three recipes must all stage through one script, because three
+# hand-written install sections drift the moment one of them is edited.
+for recipe in debian/rules packaging/arch/PKGBUILD packaging/fedora/gimlet-eye-toolkit.spec; do
+    grep -q 'scripts/stage-package.sh' "$recipe" || {
+        echo "$recipe must install through scripts/stage-package.sh" >&2
+        fail=1
+    }
+done
 
 if [ "$fail" -ne 0 ]; then
     cat >&2 <<EOF

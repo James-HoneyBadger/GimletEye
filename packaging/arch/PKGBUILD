@@ -27,18 +27,7 @@ build() {
 
 package() {
     cd "$pkgname-$pkgver"
-    install -Dm755 target/release/gimlet-sidecar "$pkgdir/usr/lib/gimlet/gimlet-sidecar"
-    cp -r packages/core/dist "$pkgdir/usr/lib/gimlet/core"
-    cp -r packages/cli/dist "$pkgdir/usr/lib/gimlet/cli"
-    cp -r packages/cli/bin "$pkgdir/usr/lib/gimlet/bin"
-    install -d "$pkgdir/usr/lib/gimlet/node_modules/@gimlet-eye"
-    cp -r node_modules/smol-toml "$pkgdir/usr/lib/gimlet/node_modules/"
-    ln -s ../../core "$pkgdir/usr/lib/gimlet/node_modules/@gimlet-eye/core"
-    install -d "$pkgdir/usr/bin"
-    ln -s ../lib/gimlet/bin/gimlet "$pkgdir/usr/bin/gimlet"
+    # One definition of the layout, shared with the deb and rpm recipes.
+    ./scripts/stage-package.sh "$pkgdir"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 CHANGELOG.md "$pkgdir/usr/share/doc/$pkgname/CHANGELOG.md"
-    install -Dm644 docs/CONTAINER.md "$pkgdir/usr/share/doc/$pkgname/CONTAINER.md"
-    install -Dm644 docs/COMPATIBILITY.md "$pkgdir/usr/share/doc/$pkgname/COMPATIBILITY.md"
 }

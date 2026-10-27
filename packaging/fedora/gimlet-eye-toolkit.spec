@@ -12,6 +12,8 @@ BuildRequires:  cargo
 BuildRequires:  rust
 BuildRequires:  nodejs >= 20
 BuildRequires:  npm
+# The staging script is bash.
+Requires:       bash
 # The unit suite needs only the toolchain; it runs in CI, not here, so that a
 # package build stays a build.
 %global __cargo_skip_test 1
@@ -39,26 +41,14 @@ npm ci
 npm run build
 
 %install
-install -Dm755 target/release/gimlet-sidecar %{buildroot}%{_libdir}/gimlet/gimlet-sidecar
-cp -r packages/core/dist %{buildroot}%{_libdir}/gimlet/core
-cp -r packages/cli/dist %{buildroot}%{_libdir}/gimlet/cli
-cp -r packages/cli/bin %{buildroot}%{_libdir}/gimlet/bin
-mkdir -p %{buildroot}%{_libdir}/gimlet/node_modules/@gimlet-eye
-cp -r node_modules/smol-toml %{buildroot}%{_libdir}/gimlet/node_modules/
-ln -s ../../core %{buildroot}%{_libdir}/gimlet/node_modules/@gimlet-eye/core
-mkdir -p %{buildroot}%{_bindir}
-ln -s ../lib64/gimlet/bin/gimlet %{buildroot}%{_bindir}/gimlet
-install -Dm644 LICENSE %{buildroot}%{_licensedir}/%{name}/LICENSE
-install -Dm644 README.md %{buildroot}%{_docdir}/%{name}/README.md
-install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/%{name}/CHANGELOG.md
-install -Dm644 docs/CONTAINER.md %{buildroot}%{_docdir}/%{name}/CONTAINER.md
-install -Dm644 docs/COMPATIBILITY.md %{buildroot}%{_docdir}/%{name}/COMPATIBILITY.md
+# One definition of the layout, shared with the deb and Arch recipes.
+./scripts/stage-package.sh %{buildroot}
 
 %files
 %{_bindir}/gimlet
 %{_libdir}/gimlet
+%{_docdir}/%{name}
 %license LICENSE
-%doc README.md CHANGELOG.md docs/CONTAINER.md docs/COMPATIBILITY.md
 
 %changelog
 * Sun Oct 26 2026 Gimlet Eye maintainers <maintainers@example.invalid> - 0.7.0-1

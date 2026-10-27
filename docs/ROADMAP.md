@@ -304,28 +304,36 @@ a test, a CI job, or a command.
 Cut once the two quiet minors are behind it.
 
 **Where the count stands.** ADR 0006 counts *releases*, not commits. The ladder
-above was built in-tree across 0.4–0.7 and shipped as a single **0.7.0**, so:
+above was built in-tree across 0.4–0.7 and shipped as a single **0.7.0**.
+
+**0.8 restarts the count** (ADR 0008): it removes the plugin protocol, the HTTP
+API, the API token, and the `[plugins]`/`[api]`/`[trust]` config sections, and
+adds the engine protocol. A removal resets the counter, so the ladder starts
+again from the 0.8 release:
 
 | Quiet release | Status |
 |---|---|
 | 0.7.0 (surface work done, nothing versioned moved) | released |
-| the next one — 0.8.0 from the same tree | not yet cut |
+| 0.8.0 (the restructure; surfaces deliberately moved) | not yet cut — this is the reset |
+| 0.9.0 and 0.10.0 | not yet cut — these two must be quiet |
 
-1.0 is therefore one quiet release away, not two. 0.8.0 should be cut from a
-commit that changes nothing versioned, and `scripts/check-quiet-period.sh` — which
-went live the moment v0.7.0 was tagged — is what proves it.
+1.0 is therefore at least two quiet minors after 0.8.0, and
+`scripts/check-quiet-period.sh` is what proves each one; this release runs it
+with `ALLOW_SURFACE_CHANGE` set, which is the documented way to record a
+deliberate break.
 
 - [x] **No unverified claims** — `scripts/check-readme-claims.sh` runs the front
   page as written (17 commands, all green) and lists the claims a command cannot
   settle with where their evidence lives. New `claims` CI job.
-- [x] **Surfaces documented as public** — `docs/COMPATIBILITY.md` now lists the
-  CLI's commands and flags and the HTTP routes alongside the frozen types, and
-  `scripts/check-public-surface.sh` compares those tables with the binary's
-  `--help` output and the router, so a new flag or route fails CI until it is
-  documented. Runs in the `claims` job.
+- [x] **Surfaces documented as public** — `docs/COMPATIBILITY.md` lists the
+  CLI's commands and flags alongside the frozen types, and
+  `scripts/check-public-surface.sh` compares that table with the surface the CLI
+  declares (`packages/cli/src/surface.ts`), so a new flag fails CI until it is
+  documented. Runs in the `docs` job.
 - [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
-  (x86_64, aarch64), and Windows (x86_64); `.deb`/`.AppImage`, `.dmg`, and NSIS
-  installers for the desktop app; checksums. `.github/workflows/release.yml`
+  (x86_64, aarch64), and Windows (x86_64), each carrying the engine it spawns;
+  `.deb`/`.AppImage`, `.dmg`, and NSIS installers for the desktop app;
+  checksums. `.github/workflows/release.yml`
   builds and attaches them from a tag, and publishes nothing unless every build
   succeeds.
 - [x] **A `.gimlet` a second implementation can read** — `crates/crypto/tests/interop/read_container.py`
