@@ -50,7 +50,7 @@ shippable and none of them adds a feature users have to learn.
 | Audit trail (JSONL, no values) | ✅ | test asserts values never serialized |
 | Plugin host (JSON-RPC, timeouts, capabilities) | ✅ | broken pack does not block startup |
 | First compatibility pack (system audits) | ✅ | external modules listed and runnable |
-| CLI / HTTP API / UI / Tauri shell | ✅ | UI lists tools and runs them |
+| CLI / UI / Electron shell | ✅ | UI lists tools and runs them |
 | `sysadmin.system-info`, `sysadmin.disk-usage` | ✅ | fixtures + live host |
 | `crypto.passgen`, `crypto.sha256` | ✅ | known-answer tests |
 | `privacy.metadata-{scan,strip,verify}` (JPEG/PNG/WebP) | ✅ | strip is byte-preserving and re-verified |
@@ -138,8 +138,8 @@ evidence found a real defect in three of the six (a latent form-reload bug, the
   1.82 while `zeroize`, `tokio`, `clap` and `hashbrown` all need 1.85 (Cargo
   1.82 cannot even parse `zeroize_derive`'s edition-2024 manifest). The floor is
   now 1.85, `scripts/check-msrv.sh` fails when the manifest and the job
-  disagree, and the job compiles every target `--locked`. The desktop shell, a
-  separate workspace, follows Tauri and declares 1.90.
+  disagree, and the job compiles every target `--locked`. The desktop shell is
+  TypeScript now (ADR 0011) and declares no Rust version of its own.
 - [x] **Quiet-period enforcement.** ADR 0006 defines the rule; add a CI check
   that diffs the versioned files (`report.rs`, `protocol.rs`, the config schema,
   the container constants) between the last two tags, so a stray change during

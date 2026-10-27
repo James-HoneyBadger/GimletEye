@@ -31,8 +31,8 @@ crates/scrub/fuzz/corpus/
 *.swp
 
 # Tauri generated schemas and the staged engine binary
-apps/desktop/src-tauri/gen/
-apps/desktop/src-tauri/binaries/
 
-# Electron shell output
+# Electron shell output, and the installers it produces
 apps/desktop/electron/dist/
+apps/desktop/release/
+apps/desktop/electron/bin/

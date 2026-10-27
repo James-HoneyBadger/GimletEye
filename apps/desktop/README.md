@@ -1,56 +1,58 @@
-# Desktop app
+# The Gimlet Eye window
 
-A Tauri 2 window around `packages/core`. The frontend imports the same runtime the
-CLI uses, so the catalogue, the forms, the reports, and the audit trail cannot
-disagree between the two.
+An Electron 45 window around `packages/core`. The UI is the same TypeScript the
+CLI renders reports with, and the main process holds the only `Runtime`: the
+renderer asks four questions and displays the answers.
 
 ```
 apps/desktop/
-├── index.html            the shell page
-├── src/                  frontend: components, store, actions, Tauri host
-├── src-tauri/            Rust shell: window, file I/O, engine lifetime
-├── vite.config.ts
-└── tsconfig.json
+├── electron/             the shell (TypeScript)
+│   ├── main.ts           window, IPC validation, lifecycle
+│   ├── preload.cts       four fixed channels -> window.gimlet (CommonJS)
+│   └── api.ts            health/tools/run/audit, Electron-free and unit-tested
+├── src/                  frontend: components, store, actions
+│   └── lib/bridge.ts     the renderer's view of the machine
+├── dist/                 the built UI (vite)
+└── release/              installers, when `npm run package` is used
 ```
 
-## How it fits together
+Data flows one way:
 
 ```
-src/main.ts → src/lib/engine.ts → @gimlet-eye/core Runtime
-                                          │
-                        src/lib/tauri-host.ts (Host over IPC)
-                                          │
-                             src-tauri/src/main.rs (commands)
-                                          │
-                                gimlet-sidecar (engine)
+renderer (no Node)  ──window.gimlet.health/tools/run/audit──▶  main process
+                                                                  │
+                                                       Runtime + node:fs
 ```
 
-- **No server.** The window never binds a port and never fetches from one. There
-  is no token and no CORS policy, because there is no HTTP surface.
-- **No logic in Rust.** `src-tauri` exposes file operations, one `exec`, and the
-  engine's lifetime. Everything that decides what a run means is in TypeScript.
-- **The engine is bundled.** `gimlet-sidecar` is declared as a Tauri
-  `externalBin`, so a packaged app carries its own copy. During development it is
-  found in `target/{release,debug}`, or from `GIMLET_SIDECAR`.
+## Why it is shaped this way
 
-## Running it
+- **The renderer holds no runtime and no key material.** Under the previous Tauri
+  shell the frontend held a `Runtime`, so a keystore passphrase and decrypted
+  bytes existed inside a webview. Now a `Report` is the only thing that crosses.
+- **No generic IPC.** The preload exposes four named calls; there is no
+  `invoke(name, …)` for a compromised page to reach through. `main.ts` validates
+  every argument and refuses a sender that is not the window.
+- **Deny by default.** `contextIsolation`, `nodeIntegration: false`,
+  `sandbox: true`, navigation prevented, `window.open` denied, every permission
+  request refused, and a single-instance lock so two windows cannot race on one
+  keystore.
+- **The engine is bundled.** Until ADR 0010 reaches stage 4 the engine is still
+  `gimlet-sidecar`; `scripts/stage-engine.sh` puts it in `electron/bin`, and
+  `main.ts` points `GIMLET_SIDECAR` at the copy inside the package.
+
+## Commands
 
 ```bash
-npm run dev        # Tauri dev window, hot-reloading frontend
-npm run build      # bundle for this platform
-npm run typecheck  # tsc --noEmit
-npm test           # vitest + jsdom against a mocked engine
+npm run dev            # build the UI, compile the shell, open the window
+npm run build          # build the UI and compile the shell
+npm run package        # build, then produce deb/AppImage/dmg/nsis in release/
+npm run typecheck
+npm test
 ```
 
-From the repository root, `./run.sh` builds the engine and the UI bundle first,
-which is the shortest path from a fresh checkout to a window.
+## Requirements
 
-## Testing without a window
-
-The frontend tests run in jsdom with `./lib/engine` mocked, so they exercise real
-components, real validation, and real rendering without a browser or a Tauri
-runtime. The engine's own behaviour is covered by `cargo test`, and the CLI's
-end-to-end path by `scripts/smoke.sh`.
-
-A Tauri bundle needs `webkit2gtk` (Linux), Xcode command-line tools (macOS), or
-WebView2 (Windows); CI builds it on all three.
+Node 20+. No system webview, no Rust toolchain, and no GTK headers: Electron
+ships its own Chromium, and the shell is TypeScript. The window needs a display,
+which is why the four operations live in `electron/api.ts` and are tested
+without one.

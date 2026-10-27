@@ -34,7 +34,7 @@ telemetry, no auto-update, and no remote logging.
 
 ```
       desktop app ──┐                      ┌── command line
-      (Tauri, TS)   │  packages/core:      │   (Node, TS)
+      (Electron, TS) │  packages/core:      │   (Node, TS)
                     ├─ catalogue · report ─┤
                     │  config · audit      │
                     └──────────┬───────────┘
@@ -90,7 +90,7 @@ Tagged releases carry prebuilt artifacts:
 
 - `gimlet-<version>-<target>.tar.gz` / `.zip` — the CLI **and** the engine, for
   Linux (x86_64, aarch64), macOS (x86_64, aarch64), and Windows (x86_64)
-- `.deb`, `.rpm`, and a Tauri bundle (`.AppImage`, `.dmg`, NSIS `.exe`) — the
+- `.deb`, `.rpm`, and an Electron bundle (`.AppImage`, `.dmg`, NSIS `.exe`) — the
   desktop app, engine included
 - `SHA256SUMS` for all of the above
 
@@ -154,7 +154,7 @@ the batch still runs unless `--fail-fast` is given.
 | CLI: `run`, `batch`, `tools`, `config`, `audit`, `doctor`, `tui` | ✅ |
 | Terminal surface (`gimlet tui`): filter, arguments, report, scroll | ✅ |
 | Report as one self-contained page (`--format html`) | ✅ |
-| Desktop app (Tauri): catalogue, generated forms, reports, history | ✅ |
+| Desktop app (Electron): catalogue, generated forms, reports, history | ✅ |
 | `sysadmin.system-info`, `sysadmin.disk-usage`, `sysadmin.kernel-hardening`, `sysadmin.network` | ✅ TypeScript |
 | `crypto.*`, `privacy.metadata-*` | ✅ Rust engine |
 | Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ Rust engine |
@@ -174,7 +174,7 @@ packages/
   core/       catalogue, report contract, args, config, audit, sidecar client (TS)
   engine/     the .gimlet container in TypeScript — ADR 0010 stage 1
   cli/        `gimlet` — a Node CLI over packages/core
-apps/desktop/ Tauri 2 window + frontend; the Rust shell is window and OS boundary only
+apps/desktop/ Electron shell (TS) + frontend; the main process owns the OS boundary
 crates/
   core/       contracts the engine needs: report, manifest, args, config, paths
   crypto/     cryptographic tools + the CryptoBackend seam

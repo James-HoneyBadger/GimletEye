@@ -111,9 +111,7 @@ case "$mode" in
         step "starting the desktop app"
         info "first build takes a few minutes; later ones are incremental"
         export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/$engine_bin}"
-        # Tauri validates `externalBin` while it builds, not only when bundling.
-        ./scripts/stage-tauri-engine.sh
         cd apps/desktop
-        exec npm run dev
+        exec npm run electron:start
         ;;
 esac

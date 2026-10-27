@@ -2,7 +2,7 @@
  * Path arithmetic without a runtime.
  *
  * The desktop app runs in a webview, where `node:path` does not exist and
- * Tauri's path plugin is async; resolving a config root should not be. These are
+ * IPC is async; resolving a config root should not be. These are
  * the four operations the toolkit actually needs, written once so the CLI and
  * the webview agree on what `join(root, 'audit.jsonl')` means.
  */

@@ -6,26 +6,63 @@
   "description": "Gimlet Eye desktop workbench",
   "main": "electron/dist/main.js",
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "npm run build:ui && npm run electron:start",
+    "build": "npm run build:ui && npm run electron:build",
     "build:ui": "npm run build --prefix ../.. --workspace @gimlet-eye/core && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev:ui": "vite",
     "electron:build": "tsc -p electron",
-    "electron:start": "npm run electron:build && electron ."
+    "electron:start": "npm run electron:build && electron .",
+    "package": "npm run build && electron-builder"
   },
   "dependencies": {
-    "@gimlet-eye/core": "*",
-    "@tauri-apps/api": "^2.1.1"
+    "@gimlet-eye/core": "*"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.1.0",
     "@types/node": "^22.10.2",
     "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.4.5",
     "vitest": "^4.1.12"
+  },
+  "build": {
+    "appId": "dev.gimleteye.desktop",
+    "productName": "Gimlet Eye",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/dist/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "deb",
+        "AppImage"
+      ],
+      "category": "Utility",
+      "maintainer": "Gimlet Eye contributors"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "electron/bin",
+        "to": "bin"
+      }
+    ]
   }
 }

@@ -2,7 +2,7 @@
  * What the toolkit needs from whatever it is running on.
  *
  * The CLI has Node: files, processes, and a child process for the engine. The
- * desktop app has a webview: the same operations arrive through Tauri's plugins.
+ * desktop app has a webview and a main process: the same operations arrive over IPC.
  * Everything above this interface — the registry, the report contract, the
  * config, the audit trail — is written once and does not care which it is.
  */

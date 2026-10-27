@@ -15,7 +15,7 @@ considered and what it cost.
 | [0008](0008-typescript-surfaces-rust-engine.md) | TypeScript surfaces over one Rust engine | Accepted |
 | [0009](0009-four-surfaces.md) | Four surfaces, one contract | Accepted |
 | [0010](0010-retire-rust.md) | Retire Rust | Proposed |
-| [0011](0011-rust-free-application-platform.md) | A Rust-free application platform | Proposed |
+| [0011](0011-rust-free-application-platform.md) | A Rust-free application platform | Accepted |
 
 A superseded record stays in place: the reasoning is still the reason the new
 record exists.

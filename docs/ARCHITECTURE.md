@@ -39,7 +39,7 @@ spawn.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ surfaces        packages/cli (Node) · apps/desktop (Tauri)    │
+│ surfaces        packages/cli (Node) · apps/desktop (Electron) │
 └───────────────────────────┬──────────────────────────────────┘
                             │ imports, not RPC
 ┌───────────────────────────┴──────────────────────────────────┐
@@ -151,13 +151,12 @@ request of any kind. It is a *viewer*, not a driver — there is no served UI an
 no listening port, which is why [0008](adr/0008-typescript-surfaces-rust-engine.md)
 still holds.
 
-**Desktop app.** `apps/desktop` is a Tauri 2 window. Its frontend imports
-`packages/core` and holds one `Runtime`; the Rust shell in
-`apps/desktop/src-tauri` owns exactly two things: the window, and the
-operating-system boundary a webview cannot reach (file reads and writes, one
-`exec`, and the engine process). The frontend reaches that boundary through
-Tauri commands, so there is no HTTP server, no port, no token, and no way for a
-web page to drive the tools.
+**Desktop app.** `apps/desktop` is an Electron 45 window. The main process in
+`apps/desktop/electron` holds the one `Runtime` and owns the operating-system
+boundary; the renderer is a view that asks for a catalogue, a report, or the
+audit tail over four fixed IPC channels exposed by the preload. It holds no
+runtime and no key material, so a passphrase never enters a webview. There is no
+HTTP server, no port, no token, and no way for a web page to drive the tools.
 
 The same TypeScript tests drive both: `packages/core` is tested against a fake
 host, and the UI against a mocked engine module.

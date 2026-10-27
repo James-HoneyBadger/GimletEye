@@ -1,6 +1,6 @@
 # 0011 — A Rust-free application platform
 
-- **Status:** Proposed
+- **Status:** Accepted — 2026-10-27
 - **Date:** 2026-10-27
 - **Depends on:** [0010](0010-retire-rust.md) (retire Rust)
 

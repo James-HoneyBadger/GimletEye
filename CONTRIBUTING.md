@@ -41,7 +41,7 @@ until it passes, because a green baseline is what makes review cheap.
 | The window, forms, and result rendering | `apps/desktop/src` |
 | A host-inspection tool (`/proc`, `df`) | `packages/core/src/tools` |
 | Anything touching key material or a file format | `crates/crypto`, `crates/scrub` |
-| The window or the OS boundary | `apps/desktop/src-tauri` |
+| The window or the OS boundary | `apps/desktop/electron` |
 
 Two rules decide most placement questions:
 

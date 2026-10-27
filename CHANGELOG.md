@@ -125,6 +125,17 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **The window is Electron now, and Tauri is gone.** The renderer holds no
+  `Runtime` and no key material — it asks the main process for a catalogue, a
+  report, or the audit tail over four fixed IPC channels, so a keystore
+  passphrase and decrypted bytes no longer exist inside a webview. `contextIsolation`,
+  `sandbox`, denied navigation, refused permissions, validated IPC arguments, and
+  a single-instance lock. The shell is TypeScript, so the desktop job no longer
+  installs webkit2gtk or runs `cargo`, and `apps/desktop/src-tauri`, its
+  `deny.toml`, and the two GTK advisories accepted there are deleted — Dependabot
+  alert #1 closes with them. Installers come from `electron-builder`
+  (deb, AppImage, dmg, nsis); `scripts/stage-engine.sh` still ships the sidecar
+  for the tools ADR 0010 has not ported yet.
 - **A Rust-free platform is chosen for the window.** With the engine in
   TypeScript, the last Rust is the 385-line Tauri shell. [ADR 0011](docs/adr/0011-rust-free-application-platform.md)
   selects Electron with the runtime moved into the main process: the webview
