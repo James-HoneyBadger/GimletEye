@@ -11,6 +11,7 @@ import {
   Runtime,
   configToToml,
   parseCategory,
+  platformAllows,
   render,
   fromPairs,
   type OutputFormat,
@@ -230,9 +231,8 @@ async function doctor(runtime: Runtime): Promise<number> {
     writeLine('audit       disabled');
   }
 
-  const unsupported = manifests.filter(
-    (manifest) => manifest.platforms !== undefined && !manifest.platforms.includes(runtime.host.platform),
-  );
+  // An empty `platforms` list means "everywhere", not "nowhere".
+  const unsupported = manifests.filter((manifest) => !platformAllows(manifest, runtime.host.platform));
   for (const manifest of unsupported) {
     writeLine(`note        ${manifest.id} does not run on ${runtime.host.platform}`);
   }

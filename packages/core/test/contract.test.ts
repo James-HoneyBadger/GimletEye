@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { coerce, fromPairs } from '../src/args.js';
 import { render, sealed, type Report } from '../src/report.js';
 import { Registry, similarity } from '../src/registry.js';
-import type { ToolManifest } from '../src/manifest.js';
+import { platformAllows, type ToolManifest } from '../src/manifest.js';
 
 const manifest = (id: string, category: ToolManifest['category'] = 'sysadmin'): ToolManifest => ({
   id,
@@ -61,6 +61,20 @@ describe('report verdicts', () => {
   it('escapes commas and quotes in csv', () => {
     const csv = render({ ...base, data: { note: 'a,b"c' } }, 'csv');
     expect(csv).toContain('"a,b""c"');
+  });
+});
+
+describe('platform declarations', () => {
+  const base: ToolManifest = { id: 'a.b', title: 'A', summary: 'a', category: 'sysadmin' };
+
+  it('treats an empty list as everywhere', () => {
+    expect(platformAllows({ ...base, platforms: [] }, 'linux')).toBe(true);
+    expect(platformAllows(base, 'macos')).toBe(true);
+  });
+
+  it('refuses a host the manifest does not name', () => {
+    expect(platformAllows({ ...base, platforms: ['linux'] }, 'linux')).toBe(true);
+    expect(platformAllows({ ...base, platforms: ['linux'] }, 'macos')).toBe(false);
   });
 });
 
