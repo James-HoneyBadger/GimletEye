@@ -152,14 +152,18 @@ else
     row 2 open "CI on main is green" "no gh, or no run: pass --no-ci to ignore"
 fi
 ci_row 2 "corpus replay (parsers never panic)" "the seed corpus the Rust targets left behind"
-row 2 open "fuzz soak: seven nights or 350 target-minutes" \
-    "was Rust-only; the corpus is replayed in npm test, the soak is not replaced (ADR 0010)"
+soak_output="$(./scripts/check-fuzz-soak.sh 2>&1)"
+if [ $? -eq 0 ]; then
+    row 2 ok "fuzz soak: 350 target-minutes" "$(tail -1 <<<"$soak_output")"
+else
+    row 2 open "fuzz soak: 350 target-minutes" "$(tail -1 <<<"$soak_output")"
+fi
 ci_row 2 "integration (CLI, no engine)" "exit codes, configuration, batch, audit"
 ci_row 2 "dependency policy" "npm audit over the runtime dependency set"
 ci_row 2 "typescript (typecheck, test, build)" "every surface typechecks and its tests pass"
 ci_row 2 "desktop (typecheck, UI bundle, shell check)" "the window bundles and the shell compiles"
-row 2 open "install, upgrade, roll back" \
-    "no CI job since the TypeScript overhaul; scripts/rehearse-upgrade.sh is the hook"
+ci_row 2 "e2e (Electron, real app)" "the window, a run, and the audit trail it wrote"
+ci_row 2 "rehearsal (install, upgrade, roll back)" "real state through an upgrade and a rollback"
 echo
 
 echo "Gate 3 — the freeze"

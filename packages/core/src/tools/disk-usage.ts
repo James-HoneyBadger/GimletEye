@@ -24,6 +24,7 @@ const MANIFEST: ToolManifest = {
     { name: 'path', type: 'path', help: 'Restrict the report to the filesystem holding this path' },
     { name: 'all', type: 'boolean', default: false, help: 'Include pseudo filesystems such as tmpfs' },
   ],
+  data: { shape: 'array', row: { filesystem: 'string', total_kb: 'number', used_kb: 'number', available_kb: 'number', use_percent: 'number', mount: 'string' } },
   tags: ['inspection', 'capacity', 'filesystem'],
   platforms: ['linux', 'macos'],
 };

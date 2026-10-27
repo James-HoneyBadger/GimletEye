@@ -25,6 +25,15 @@ const MANIFEST: ToolManifest = {
     { name: 'text', type: 'string', help: 'Literal text to hash' },
   ],
   tags: ['hash', 'integrity', 'fingerprint'],
+  data: {
+    shape: 'object',
+    required: {
+      backend: 'string',
+      sha256: 'string',
+      size_bytes: 'number',
+      source: 'string',
+    },
+  },
 };
 
 export const sha256: LocalTool = {

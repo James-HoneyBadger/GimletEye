@@ -82,6 +82,10 @@ jobs:
         run: ./scripts/check-public-surface.sh
       - name: Every tool is in the reference
         run: ./scripts/check-tool-reference.sh
+      # Gate 3: the schema in each manifest is compared with what the tool
+      # actually returned, so a report cannot drift from its contract.
+      - name: Reports match their declared data schema
+        run: ./scripts/check-data-schema.sh
 
   # The Rust targets saved their inputs; this replays them. A separate job
   # because `scripts/check-release-gates.sh` names it as Gate 2 evidence, and a
@@ -99,6 +103,49 @@ jobs:
       - run: npm ci
       - run: npm run build -w @gimlet-eye/engine
       - run: npx vitest run packages/engine/test/corpus.test.ts
+
+  # Gate 2 asks for evidence that the pieces agree, and the vitest suite mocks
+  # the bridge — which is how "engine vnone" reached the window with every test
+  # passing. This launches the real app and reads the files it wrote.
+  e2e:
+    name: e2e (Electron, real app)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Build the app and the packages it imports
+        run: |
+          npm run build
+          npm run build:ui -w @gimlet-eye/desktop
+          npm run electron:build -w @gimlet-eye/desktop
+      - name: Drive the real window
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x900x24" npm run e2e -w @gimlet-eye/desktop
+
+  # Gate 4: install, upgrade, and roll back with real state, in a container.
+  rehearsal:
+    name: rehearsal (install, upgrade, roll back)
+    runs-on: ubuntu-latest
+    # A full package build per version; the default 6h is far more than it needs.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Build what the packages contain
+        run: npm run build
+      - name: Install, upgrade, roll back
+        env:
+          REQUIRE_REHEARSAL: '1'
+        run: ./scripts/rehearse-upgrade.sh
 
   desktop:
     name: desktop (typecheck, UI bundle, shell check)

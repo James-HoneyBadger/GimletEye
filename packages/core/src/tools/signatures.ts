@@ -29,6 +29,16 @@ const SIGN: ToolManifest = {
     { name: 'output', type: 'path', help: 'Signature path (default: <input>.sig)' },
     { name: 'overwrite', type: 'boolean', default: false, help: 'Replace the signature file if it exists' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    dry_run: 'boolean',
+    input: 'string',
+    signature: 'string|null',
+    signature_hex: 'string|null',
+    },
+  },
   tags: ['signature', 'ed25519', 'integrity'],
   mutates: true,
 };
@@ -44,6 +54,17 @@ const VERIFY: ToolManifest = {
     { name: 'signature', type: 'path', required: true, help: 'Detached signature file' },
     { name: 'key', type: 'path', required: true, help: 'Public key file (<label>.pub)' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    input: 'string',
+    key: 'string',
+    public_key: 'string',
+    signature: 'string',
+    valid: 'boolean',
+    },
+  },
   tags: ['signature', 'ed25519', 'verification'],
 };
 

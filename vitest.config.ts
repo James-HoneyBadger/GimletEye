@@ -19,6 +19,11 @@ export default defineConfig({
     environment: 'node',
     // jsdom has no matchMedia, and the UI store reads it as it evaluates.
     setupFiles: ['apps/desktop/src/test-setup.ts'],
+    // Argon2id tests derive real keys (several seconds each). The default 5s is
+    // fine on an idle machine and flaky on a busy one, which is how a genuine
+    // failure gets mistaken for load.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     reporters: 'default',
   },
 });

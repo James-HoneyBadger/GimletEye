@@ -33,6 +33,24 @@ const INSPECT: ToolManifest = {
   category: 'crypto',
   capabilities: ['fs:read'],
   args: [{ name: 'input', type: 'path', required: true, help: 'Container to inspect' }],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    base_nonce_hex: 'string',
+    chunks: 'number',
+    ciphertext_bytes: 'number',
+    container_bytes: 'number',
+    container_version: 'number',
+    kdf: 'string',
+    lanes: 'number',
+    max_chunk_bytes: 'number',
+    memory_kib: 'number',
+    path: 'string',
+    streaming: 'boolean',
+    time_cost: 'number',
+    },
+  },
   tags: ['container', 'inspection', 'metadata'],
 };
 
@@ -66,6 +84,20 @@ const KEYGEN: ToolManifest = {
     },
     { name: 'passphrase', type: 'string', help: 'Keystore passphrase inline' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    dry_run: 'boolean',
+    id: 'string',
+    kind: 'string',
+    label: 'string',
+    public_key: 'string',
+    public_path: 'null',
+    secret_path: 'null',
+    stored: 'string',
+    },
+  },
   tags: ['keys', 'ed25519', 'x25519', 'keystore'],
   mutates: true,
 };

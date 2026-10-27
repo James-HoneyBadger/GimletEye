@@ -47,6 +47,14 @@ const LIST: ToolManifest = {
   category: 'crypto',
   capabilities: ['fs:read', 'secrets'],
   args: [...PASSPHRASE_ARGS],
+  data: {
+    shape: 'object',
+    required: {
+    count: 'number',
+    keys: 'array',
+    path: 'string',
+    },
+  },
   tags: ['keys', 'keystore', 'inventory'],
 };
 
@@ -64,6 +72,18 @@ const IMPORT: ToolManifest = {
     { name: 'replace', type: 'boolean', default: false, help: 'Replace an existing entry with the same label' },
     ...PASSPHRASE_ARGS,
   ],
+  data: {
+    shape: 'object',
+    required: {
+    dry_run: 'boolean',
+    has_secret: 'boolean',
+    id: 'string',
+    keys: 'number',
+    kind: 'string',
+    label: 'string',
+    public_key: 'string',
+    },
+  },
   tags: ['keys', 'keystore', 'import'],
   mutates: true,
 };
@@ -81,6 +101,17 @@ const EXPORT: ToolManifest = {
     { name: 'overwrite', type: 'boolean', default: false, help: 'Replace the output file if it exists' },
     ...PASSPHRASE_ARGS,
   ],
+  data: {
+    shape: 'object',
+    required: {
+    dry_run: 'boolean',
+    kind: 'string',
+    label: 'string',
+    output: 'string|null',
+    public_key: 'string',
+    secret: 'boolean',
+    },
+  },
   tags: ['keys', 'keystore', 'export'],
   mutates: true,
 };
@@ -96,6 +127,15 @@ const ROTATE: ToolManifest = {
     { name: 'new_passphrase_env', type: 'string', help: 'Environment variable holding the new passphrase (preferred)' },
     { name: 'new_passphrase', type: 'string', help: 'New passphrase inline; visible in shell history' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    dry_run: 'boolean',
+    keys: 'number',
+    path: 'string',
+    scope: 'string',
+    },
+  },
   tags: ['keys', 'keystore', 'passphrase', 'rotation'],
   mutates: true,
 };

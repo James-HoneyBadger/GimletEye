@@ -19,6 +19,13 @@ const MANIFEST: ToolManifest = {
   summary: 'Interfaces, their state, MTU and address, and the default route',
   category: 'sysadmin',
   capabilities: ['system'],
+  data: {
+    shape: 'object',
+    required: {
+    default_gateway: 'string',
+    interfaces: 'array',
+    },
+  },
   tags: ['inspection', 'network', 'interfaces', 'privacy'],
   platforms: ['linux'],
 };

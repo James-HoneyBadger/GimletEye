@@ -1,5 +1,5 @@
 .PHONY: help build cli ui package-check test typecheck check mutation quiet-period surface gates \
-        desktop run smoke doctor clean
+        desktop run smoke e2e soak doctor clean
 
 NPM ?= npm
 UI_DIR := apps/desktop
@@ -32,6 +32,7 @@ mutation: ## Break the code on purpose and check the tests notice
 check: typecheck test ## Everything CI runs before the gates
 	./scripts/check-public-surface.sh
 	./scripts/check-tool-reference.sh
+	./scripts/check-data-schema.sh
 	./scripts/check-readme-claims.sh
 
 quiet-period: ## Verify no frozen surface moved since the last release
@@ -54,6 +55,12 @@ doctor: ## Report installation state
 
 smoke: ## End-to-end check of the CLI
 	./scripts/smoke.sh
+
+e2e: build ## Drive the real window: run a tool, read the report and the trail
+	$(NPM) run e2e -w @gimlet-eye/desktop
+
+soak: ## Run the fuzz targets for a budget and record it
+	./scripts/fuzz-soak.sh --minutes 10
 
 clean: ## Remove build artifacts
 	rm -rf $(UI_DIR)/dist packages/core/dist packages/engine/dist packages/cli/dist node_modules

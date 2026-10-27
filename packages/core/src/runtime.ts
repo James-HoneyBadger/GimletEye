@@ -16,6 +16,7 @@ import { systemInfo } from './tools/system-info.js';
 import { discoverPaths, ensurePaths, type AppPaths } from './paths.js';
 import { Registry } from './registry.js';
 import { Sidecar } from './sidecar.js';
+import { assertDataShape } from './data-schema.js';
 import type { Args } from './args.js';
 import type { Host } from './host.js';
 import type { LocalTool } from './local.js';
@@ -151,10 +152,14 @@ export class Runtime {
       );
     }
     const local = this.local.get(id);
-    if (local) {
-      return local.run({ host: this.host, config: this.config, dryRun, paths: this.paths }, args);
-    }
-    return this.sidecar.run(id, args, { dryRun, home: this.paths.root });
+    const report = local
+      ? await local.run({ host: this.host, config: this.config, dryRun, paths: this.paths }, args)
+      : await this.sidecar.run(id, args, { dryRun, home: this.paths.root });
+
+    // One choke point for every surface: a report whose `data` drifts from the
+    // shape its manifest declares fails here, before a consumer sees it.
+    assertDataShape(manifest ?? this.require(id), report.data);
+    return report;
   }
 
   private async record(tool: string, status: Report['status'], durationMs: number, argKeys: string[]): Promise<void> {

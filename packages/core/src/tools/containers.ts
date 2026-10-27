@@ -85,6 +85,19 @@ const ENCRYPT: ToolManifest = {
     ...PASSPHRASE_ARGS,
     { name: 'overwrite', type: 'boolean', default: false, help: 'Replace the output file if it exists' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    container_bytes: 'number',
+    dry_run: 'boolean',
+    input: 'string',
+    kdf: 'string',
+    output: 'string|null',
+    plaintext_bytes: 'number',
+    recipients: 'number|null',
+    },
+  },
   tags: ['encryption', 'container', 'argon2id', 'aead'],
   mutates: true,
 };
@@ -112,6 +125,18 @@ const DECRYPT: ToolManifest = {
       help: 'Open a container whose Argon2id parameters exceed the tool budget',
     },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    algorithm: 'string',
+    chunks: 'number',
+    container_version: 'number',
+    dry_run: 'boolean',
+    input: 'string',
+    output: 'string|null',
+    plaintext_bytes: 'number',
+    },
+  },
   tags: ['decryption', 'container', 'aead'],
   mutates: true,
 };

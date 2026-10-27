@@ -67,6 +67,19 @@ const SCAN_MANIFEST: ToolManifest = {
   category: 'privacy',
   capabilities: ['fs:read'],
   args: policyArgs('File to inspect'),
+  data: {
+    shape: 'object',
+    required: {
+      format: 'string',
+      labels: 'array',
+      metadata_bytes: 'number',
+      path: 'string',
+      policy: 'string',
+      removable_bytes: 'number',
+      segments: 'array',
+      size_bytes: 'number',
+    },
+  },
   tags: ['metadata', 'exif', 'inspection'],
 };
 
@@ -77,6 +90,17 @@ const VERIFY_MANIFEST: ToolManifest = {
   category: 'privacy',
   capabilities: ['fs:read'],
   args: policyArgs('File to verify'),
+  data: {
+    shape: 'object',
+    required: {
+    format: 'string',
+    metadata_bytes: 'number',
+    path: 'string',
+    policy: 'string',
+    removable_bytes: 'number',
+    removable_segments: 'array',
+    },
+  },
   tags: ['metadata', 'verification', 'ci'],
 };
 
@@ -195,6 +219,23 @@ const STRIP_MANIFEST: ToolManifest = {
       help: 'Reduce GPS precision in place instead of deleting EXIF (off, country, region, city)',
     },
   ],
+  data: {
+    shape: 'object',
+    required: {
+      dry_run: 'boolean',
+      format: 'string',
+      gps: 'object|null',
+      input: 'string',
+      output: 'string|null',
+      policy: 'object',
+      removed_bytes: 'number',
+    },
+    // A file with nothing to remove reports neither byte count.
+    optional: {
+      original_bytes: 'number',
+      cleaned_bytes: 'number',
+    },
+  },
   tags: ['metadata', 'exif', 'gps', 'privacy', 'batch'],
   mutates: true,
 };

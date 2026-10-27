@@ -50,6 +50,31 @@ export interface ScalarArgSpec {
 
 export type ArgSpec = EnumArgSpec | ScalarArgSpec;
 
+/** The primitive kinds a `Report.data` value can have. */
+export type DataField = 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array' | 'unknown';
+
+/**
+ * What a tool's `Report.data` is.
+ *
+ * ADR 0006 Gate 3 asks that a consumer can parse a report without
+ * reverse-engineering it, so the shape is declared per tool and checked when the
+ * report is returned. A union like `'number|null'` is written because a dry run
+ * legitimately returns null where a real run returns a value.
+ */
+export type DataSpec =
+  | {
+      shape: 'object';
+      /** Always present. */
+      required: Record<string, DataField | `${DataField}|${DataField}`>;
+      /** Present only on some paths, e.g. a dry run or a failure. */
+      optional?: Record<string, DataField | `${DataField}|${DataField}`>;
+    }
+  | {
+      shape: 'array';
+      /** The fields of each row, when the tool returns a table. */
+      row?: Record<string, DataField | `${DataField}|${DataField}`>;
+    };
+
 export interface ToolManifest {
   id: string;
   title: string;
@@ -58,6 +83,8 @@ export interface ToolManifest {
   capabilities?: Capability[];
   args?: ArgSpec[];
   tags?: string[];
+  /** The shape of `Report.data`; enforced when the report is returned. */
+  data?: DataSpec;
   /** The tool can write to this machine. Surfaces offer a dry run only here. */
   mutates?: boolean;
   /** Operating systems the tool supports; empty or absent means everywhere. */

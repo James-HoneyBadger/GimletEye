@@ -1,0 +1,6 @@
+{"target":"png","seed":1,"minutes":0.2,"iterations":2671236,"parsed":975891,"crashes":0,"details":[]}
+{"target":"jpeg","seed":1,"minutes":0.2,"iterations":3474539,"parsed":1559746,"crashes":0,"details":[]}
+{"target":"webp","seed":1,"minutes":0.2,"iterations":2472440,"parsed":667168,"crashes":0,"details":[]}
+{"target":"exif","seed":1,"minutes":0.2,"iterations":2714682,"parsed":948005,"crashes":0,"details":[]}
+{"target":"gps","seed":1,"minutes":0.2,"iterations":1722562,"parsed":191691,"crashes":0,"details":[]}
+{"target":"container","seed":1,"minutes":0.2,"iterations":220,"parsed":0,"crashes":0,"details":[]}

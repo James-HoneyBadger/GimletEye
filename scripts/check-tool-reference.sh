@@ -28,7 +28,16 @@ fi
 
 # A tool is covered when its id heads a section, which is what the generator
 # writes; a passing mention somewhere else is not an example.
-ids="$("$binary" tools list --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p')"
+# Parsed, not scraped: a manifest's `Report.data` schema may itself have a field
+# called `id`, and a regex over the JSON happily returns its *type* as a tool id.
+ids="$(GIMLET_CLI="$binary" node -e '
+let d = "";
+process.stdin.on("data", (chunk) => { d += chunk; });
+process.stdin.on("end", () => {
+  for (const tool of JSON.parse(d)) process.stdout.write(tool.id + "\n");
+});
+' <<<"$("$binary" tools list --json)")"
+[[ -n "$ids" ]] || { echo "could not read the catalogue" >&2; exit 1; }
 total="$(grep -c . <<<"$ids")"
 
 missing=()

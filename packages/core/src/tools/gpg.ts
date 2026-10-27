@@ -39,6 +39,17 @@ const VERIFY: ToolManifest = {
     { name: 'signature', type: 'path', required: true, help: 'Detached signature to check' },
     HOMEDIR_ARG,
   ],
+  data: {
+    shape: 'object',
+    required: {
+    backend: 'string',
+    fingerprint: 'string',
+    input: 'string',
+    signature: 'string',
+    signer: 'string',
+    valid: 'boolean',
+    },
+  },
   tags: ['gpg', 'openpgp', 'signature', 'interop'],
 };
 
@@ -60,6 +71,17 @@ const ENCRYPT: ToolManifest = {
     HOMEDIR_ARG,
     { name: 'overwrite', type: 'boolean', default: false, help: 'Replace the output file if it exists' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    backend: 'string',
+    dry_run: 'boolean',
+    input: 'string',
+    output: 'string|null',
+    output_bytes: 'number',
+    recipient: 'string',
+    },
+  },
   tags: ['gpg', 'openpgp', 'encryption', 'interop'],
   mutates: true,
 };

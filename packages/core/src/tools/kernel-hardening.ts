@@ -19,6 +19,12 @@ const MANIFEST: ToolManifest = {
   summary: 'Sysctls that expose one user to another, and what this host sets them to',
   category: 'sysadmin',
   capabilities: ['system'],
+  data: {
+    shape: 'object',
+    required: {
+    settings: 'array',
+    },
+  },
   tags: ['inspection', 'privacy', 'security', 'kernel', 'hardening'],
   platforms: ['linux'],
 };

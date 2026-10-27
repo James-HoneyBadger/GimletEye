@@ -18,6 +18,20 @@ const MANIFEST: ToolManifest = {
   summary: 'Host identity, kernel, uptime, load, CPU, and memory snapshot',
   category: 'sysadmin',
   capabilities: ['system'],
+  data: {
+    shape: 'object',
+    required: {
+    arch: 'string',
+    cpu: 'object',
+    hostname: 'string',
+    kernel: 'string',
+    load: 'object',
+    memory: 'object',
+    os: 'object',
+    swap: 'object',
+    uptime: 'object',
+    },
+  },
   tags: ['inspection', 'snapshot', 'host'],
   platforms: ['linux'],
 };

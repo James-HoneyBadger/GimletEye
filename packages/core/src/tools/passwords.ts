@@ -26,6 +26,16 @@ const MANIFEST: ToolManifest = {
     { name: 'symbols', type: 'boolean', default: true },
     { name: 'no_ambiguous', type: 'boolean', default: false, help: 'Exclude characters that look alike (Il1O0o)' },
   ],
+  data: {
+    shape: 'object',
+    required: {
+    alphabet_size: 'number',
+    backend: 'string',
+    entropy_bits: 'number',
+    length: 'number',
+    passwords: 'array',
+    },
+  },
   tags: ['secrets', 'entropy', 'generator'],
 };
 

@@ -28,7 +28,7 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FIXTURE = ROOT / "crates/scrub/tests/golden/fixtures/photo-gps.jpg"
+FIXTURE = ROOT / "packages/engine/test/fixtures/photo-exif-gps.jpg"
 OUTPUT_LINES = 14
 
 # One entry per tool: the arguments that produce a useful report. A tool with no
@@ -124,6 +124,11 @@ def main() -> int:
     parser.add_argument("--binary", default=None)
     parser.add_argument("--out", default=str(ROOT / "docs/TOOL_REFERENCE.md"))
     parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument(
+        "--data-schema",
+        action="store_true",
+        help="Print the Report.data shape each example produced, as JSON, instead of writing the document",
+    )
     args = parser.parse_args()
 
     binary = args.binary
@@ -269,6 +274,9 @@ def main() -> int:
         "binary": binary,
     }
 
+    if args.data_schema:
+        return emit_data_schema(catalogue, binary, env, placeholders, args.timeout)
+
     lines: list[str] = []
     lines.append("# Tool reference")
     lines.append("")
@@ -353,6 +361,42 @@ def main() -> int:
         f"{len(failed)} example(s) failed, "
         f"{len([n for n in notes if n.startswith('- setup')])} setup step(s) incomplete"
     )
+    return 0
+
+
+KIND_OF = {
+    "str": "string",
+    "bool": "boolean",
+    "int": "number",
+    "float": "number",
+    "list": "array",
+    "dict": "object",
+    "NoneType": "null",
+}
+
+
+def emit_data_schema(catalogue, binary, env, placeholders, timeout) -> int:
+    """Run every example as JSON and print the shape of `Report.data`.
+
+    This is where the declared `data` schema in each manifest comes from: a
+    hand-written one documents what somebody believed, and this documents what
+    the tool actually returned.
+    """
+    schema: dict[str, dict[str, str]] = {}
+    for tool in catalogue:
+        arguments = [argument.format(**placeholders) for argument in EXAMPLES[tool["id"]]]
+        code, output = run([binary, tool["id"], *arguments, "--format", "json"], env, timeout)
+        try:
+            report = json.loads(strip_ansi(output))
+        except ValueError:
+            sys.stderr.write(f"{tool['id']}: no JSON report (exit {code})\n")
+            continue
+        data = report.get("data")
+        if not isinstance(data, dict):
+            continue
+        schema[tool["id"]] = {key: KIND_OF.get(type(value).__name__, "unknown") for key, value in data.items()}
+    json.dump(schema, sys.stdout, indent=2, sort_keys=True)
+    sys.stdout.write("\n")
     return 0
 
 
