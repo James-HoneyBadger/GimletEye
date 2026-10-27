@@ -249,12 +249,83 @@ describe('the precision grid', () => {
       // 51.50735 may become 51.5 but not 51.0.
       expect(redaction.latitude, precision).toBeLessThanOrEqual(51.50735);
       expect(redaction.latitude, precision).toBeGreaterThan(51.50735 - cell);
-      expect(Math.abs(redaction.longitude), precision).toBeLessThanOrEqual(0.12776 + cell);
+      expect(Math.abs(redaction.longitude), precision).toBeLessThanOrEqual(0.12776);
+      expect(Math.abs(redaction.longitude), precision).toBeGreaterThan(0.12776 - cell);
 
       // And it lands exactly on the grid, which is what makes a second pass a
       // no-op instead of another step.
-      const seconds = Math.round(redaction.latitude * 3600);
-      expect(seconds % Math.round(cell * 3600), precision).toBe(0);
+      for (const value of [redaction.latitude, redaction.longitude]) {
+        const seconds = Math.round(Math.abs(value) * 3600);
+        expect(seconds % Math.round(cell * 3600), `${precision} ${value}`).toBe(0);
+      }
+    }
+  });
+});
+
+/**
+ * The expected answer, computed from the definitions rather than from the code.
+ *
+ * One sample coordinate is not enough: `redact_gps=city` on London happens to
+ * land on the same value whether it snaps on a 36-second or a 108-second grid,
+ * so a longitude-only bug in the grid was invisible. This checks every
+ * combination below against the arithmetic instead.
+ */
+function snap(degrees: number, gridSeconds: number): number {
+  const seconds = Math.round(Math.abs(degrees) * 3600);
+  return (Math.trunc(seconds / gridSeconds) * gridSeconds) / 3600;
+}
+
+describe('the grid arithmetic, over many coordinates', () => {
+  const DEGREES = [0, 1, 12, 33, 51, 89];
+  const MINUTES = [0, 7, 30, 59];
+  const SECONDS = [0, 0.5, 26.46, 59.99];
+
+  it('snaps both axes onto the grid, at every precision', () => {
+    for (const precision of PRECISIONS) {
+      const grid = CELL_DEGREES[precision] * 3600;
+      for (const degrees of DEGREES) {
+        for (const minutes of MINUTES) {
+          for (const seconds of SECONDS) {
+            // Longitude deliberately different from latitude, so a bug in one
+            // axis cannot hide behind the other.
+            const lonDegrees = 89 - degrees;
+            const lonMinutes = 59 - minutes;
+            const lonSeconds = seconds === 0 ? 0.5 : seconds;
+
+            const payload = buildExif(
+              [degrees, minutes, seconds],
+              [lonDegrees, lonMinutes, lonSeconds],
+              undefined,
+              'N',
+              'W',
+            );
+            const redaction = redactGpsPayload(payload, precision)!;
+            const lat = degrees + minutes / 60 + seconds / 3600;
+            const lon = lonDegrees + lonMinutes / 60 + lonSeconds / 3600;
+
+            expect(redaction.latitude, `${precision} ${lat}`).toBe(snap(lat, grid));
+            // A western reference, so the magnitude is what the grid decides.
+            expect(redaction.longitude, `${precision} -${lon}`).toBe(-snap(lon, grid));
+
+            // The report is not the deliverable — the bytes on disk are. A bug
+            // that writes one axis wrong and reports it right passed every test
+            // here until these two lines existed, and that is the same shape as
+            // the base-offset bug this port shipped with. Offsets 92 and 116 are
+            // the two coordinate arrays in a five-entry GPS IFD; the sign lives
+            // in the reference tags, so only magnitudes are compared.
+            // Compared in whole seconds: the file stores integer DMS, so
+            // converting back to degrees carries rounding of its own.
+            const [latD, latM, latS] = readDms(payload, 6, 92);
+            const [lonD, lonM, lonS] = readDms(payload, 6, 116);
+            expect(latD * 3600 + latM * 60 + latS, `${precision} lat on disk`).toBe(
+              Math.round(snap(lat, grid) * 3600),
+            );
+            expect(lonD * 3600 + lonM * 60 + lonS, `${precision} lon on disk`).toBe(
+              Math.round(snap(lon, grid) * 3600),
+            );
+          }
+        }
+      }
     }
   });
 });
