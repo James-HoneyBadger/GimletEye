@@ -32,6 +32,13 @@ stage is verifiable on its own:
 | 3 ✅ | metadata scrub (JPEG/PNG/WebP/XMP) | all six corpus fixtures reproduce the recorded byte length and SHA-256 under all three profiles, and every structural and colour segment survives in order |
 | 4 | tool wiring, then delete `crates/`, the Cargo manifests, the MSRV and fuzz jobs, and both `deny.toml` files | `make check` green with no Rust toolchain installed |
 
+Stage 4 is being done tool by tool rather than in one switch, so the CLI keeps
+working during the migration. `Runtime` registers local tools first and lets the
+engine serve whatever is not ported yet. Migrated so far: `crypto.sha256`,
+`crypto.passgen`, `privacy.metadata-scan`, `privacy.metadata-verify`. The
+`privacy.metadata-strip` tool waits for GPS redaction, which is the last piece of
+`crates/scrub` not yet ported.
+
 Stage 1 is in `packages/engine`. The crypto is `node:crypto` (OpenSSL) with
 `@noble/hashes` for Argon2id, because Node does not expose it.
 

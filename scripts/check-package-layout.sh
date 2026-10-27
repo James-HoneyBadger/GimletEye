@@ -32,8 +32,12 @@ for path in \
     usr/lib/gimlet/cli/dist/main.js \
     usr/lib/gimlet/core/dist/index.js \
     usr/lib/gimlet/core/package.json \
+    usr/lib/gimlet/engine/dist/index.js \
+    usr/lib/gimlet/engine/package.json \
     usr/lib/gimlet/node_modules/smol-toml/package.json \
+    usr/lib/gimlet/node_modules/@noble/hashes/package.json \
     usr/lib/gimlet/node_modules/@gimlet-eye/core \
+    usr/lib/gimlet/node_modules/@gimlet-eye/engine \
     usr/share/doc/gimlet/README.md \
     usr/share/doc/gimlet/COMPATIBILITY.md; do
     [ -e "$stage/$path" ] || fail "missing $path"

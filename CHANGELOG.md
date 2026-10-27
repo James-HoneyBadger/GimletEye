@@ -125,6 +125,14 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Stage 4 begins: four engine tools now run in process.** `crypto.sha256`,
+  `crypto.passgen`, `privacy.metadata-scan`, and `privacy.metadata-verify` are
+  TypeScript tools over the ported engine, with the engine's manifests, argument
+  names, and report keys. The migration is tool by tool rather than a flag day:
+  `Runtime` registers local tools first and the sidecar serves whatever is not
+  ported yet, so the CLI never loses a tool. These four were chosen because they
+  are read-only — `privacy.metadata-strip` waits for GPS redaction, the last
+  piece of the scrub crate not yet ported.
 - **Stage 3 of retiring Rust: metadata scrub, and it is byte-identical.**
   `packages/engine/src/scrub` walks JPEG segments, PNG chunks, and WebP chunks,
   classifies each one, and removes only identity, text, and time — structure and

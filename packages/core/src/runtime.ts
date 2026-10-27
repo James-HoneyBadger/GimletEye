@@ -10,8 +10,11 @@ import { AuditLog, auditEntry } from './audit.js';
 import { loadConfig, type Config } from './config.js';
 import { GimletError, asGimletError, notFound } from './errors.js';
 import { diskUsage } from './tools/disk-usage.js';
+import { sha256 } from './tools/hash.js';
 import { kernelHardening } from './tools/kernel-hardening.js';
+import { metadataScan, metadataVerify } from './tools/metadata.js';
 import { network } from './tools/network.js';
+import { passgen } from './tools/passwords.js';
 import { systemInfo } from './tools/system-info.js';
 import { discoverPaths, ensurePaths, type AppPaths } from './paths.js';
 import { Registry } from './registry.js';
@@ -57,7 +60,7 @@ export class Runtime {
 
     const registry = new Registry();
     const local = new Map<string, LocalTool>();
-    for (const tool of [systemInfo, diskUsage, kernelHardening, network]) {
+    for (const tool of [systemInfo, diskUsage, kernelHardening, network, sha256, passgen, metadataScan, metadataVerify]) {
       local.set(tool.manifest.id, tool);
       registry.register(tool.manifest);
     }
