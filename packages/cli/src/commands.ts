@@ -6,9 +6,9 @@
  */
 
 import { nodeHost } from '@gimlet-eye/core/host-node';
+import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
 import {
   GimletError,
-  Runtime,
   configToToml,
   parseCategory,
   platformAllows,
@@ -47,7 +47,11 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
 
   let runtime: Runtime | undefined;
   try {
-    runtime = await Runtime.load(host, { home: parsed.globals.home, dryRun: parsed.globals.dryRun });
+    runtime = await Runtime.load(host, {
+      home: parsed.globals.home,
+      dryRun: parsed.globals.dryRun,
+      localTools: NODE_TOOLS,
+    });
     return await dispatch(runtime, parsed.globals, parsed.command);
   } catch (error) {
     const failure = error instanceof GimletError ? error : new GimletError('internal', String(error));

@@ -10,11 +10,8 @@ import { AuditLog, auditEntry } from './audit.js';
 import { loadConfig, type Config } from './config.js';
 import { GimletError, asGimletError, notFound } from './errors.js';
 import { diskUsage } from './tools/disk-usage.js';
-import { sha256 } from './tools/hash.js';
 import { kernelHardening } from './tools/kernel-hardening.js';
-import { metadataScan, metadataVerify } from './tools/metadata.js';
 import { network } from './tools/network.js';
-import { passgen } from './tools/passwords.js';
 import { systemInfo } from './tools/system-info.js';
 import { discoverPaths, ensurePaths, type AppPaths } from './paths.js';
 import { Registry } from './registry.js';
@@ -38,7 +35,17 @@ export interface RuntimeOptions {
   /** Overrides `GIMLET_HOME`; the CLI's `--home`. */
   home?: string | undefined;
   dryRun?: boolean | undefined;
+  /**
+   * Tools that run in this process. The default set touches the host only
+   * through `Host`, so it is safe in a webview; anything that needs `node:crypto`
+   * is supplied by the Node entry point instead, because this barrel is bundled
+   * into the desktop UI.
+   */
+  localTools?: readonly LocalTool[];
 }
+
+/** Tools that need nothing from Node beyond the `Host` interface. */
+export const HOST_TOOLS: readonly LocalTool[] = [systemInfo, diskUsage, kernelHardening, network];
 
 export class Runtime {
   private constructor(
@@ -60,7 +67,7 @@ export class Runtime {
 
     const registry = new Registry();
     const local = new Map<string, LocalTool>();
-    for (const tool of [systemInfo, diskUsage, kernelHardening, network, sha256, passgen, metadataScan, metadataVerify]) {
+    for (const tool of options.localTools ?? HOST_TOOLS) {
       local.set(tool.manifest.id, tool);
       registry.register(tool.manifest);
     }
