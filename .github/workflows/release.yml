@@ -90,14 +90,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      # The engine is the only per-target artifact: the CLI is JavaScript.
-      - name: Build the engine
-        shell: bash
-        run: |
-          cargo build --release --locked -p gimlet-eye-sidecar --target "${{ matrix.target }}"
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
-
+      # Everything a release contains is JavaScript now: one build, no per-target
+      # artifact, and the same tree on every platform.
       - name: Build the CLI
         shell: bash
         run: |
@@ -109,12 +103,16 @@ jobs:
         shell: bash
         run: |
           name="gimlet-${RELEASE_TAG#v}-${{ matrix.target }}"
-          mkdir -p "dist/$name"
-          cp "target/${{ matrix.target }}/release/gimlet-sidecar" "dist/$name/"
-          cp -r packages "dist/$name/"
-          mkdir -p "dist/$name/node_modules"
-          cp -r node_modules/smol-toml "dist/$name/node_modules/"
+          mkdir -p "dist/$name/node_modules/@gimlet-eye" "dist/$name/node_modules/@noble"
+          cp -r packages "dist/$name/packages"
           rm -rf "dist/$name/packages"/*/node_modules "dist/$name/packages"/*/*.tsbuildinfo
+          # The workspace links are how `@gimlet-eye/core` resolves from the CLI
+          # once the tree is unpacked somewhere else; the installers create the
+          # same thing in scripts/stage-package.sh.
+          ln -sfn ../../packages/core "dist/$name/node_modules/@gimlet-eye/core"
+          ln -sfn ../../packages/engine "dist/$name/node_modules/@gimlet-eye/engine"
+          cp -r node_modules/smol-toml "dist/$name/node_modules/smol-toml"
+          cp -r node_modules/@noble/hashes "dist/$name/node_modules/@noble/hashes"
           cp README.md LICENSE CHANGELOG.md "dist/$name/"
           tar -czf "dist/$name.tar.gz" -C dist "$name"
           rm -rf "dist/$name"
@@ -126,10 +124,20 @@ jobs:
           $version = $env:RELEASE_TAG.TrimStart('v')
           $name = "gimlet-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/gimlet-sidecar.exe" "dist/$name/"
           Copy-Item -Recurse packages "dist/$name/packages"
-          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules" | Out-Null
+          Get-ChildItem "dist/$name/packages" -Directory | ForEach-Object {
+            Remove-Item -Recurse -Force "$($_.FullName)/node_modules" -ErrorAction SilentlyContinue
+          }
+          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@gimlet-eye" | Out-Null
+          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@noble" | Out-Null
+          # Junctions rather than symlinks: Windows needs no privilege for them,
+          # and they keep the tree relocatable the way the POSIX links do.
+          New-Item -ItemType Junction -Path "dist/$name/node_modules/@gimlet-eye/core" `
+            -Target "dist/$name/packages/core" | Out-Null
+          New-Item -ItemType Junction -Path "dist/$name/node_modules/@gimlet-eye/engine" `
+            -Target "dist/$name/packages/engine" | Out-Null
           Copy-Item -Recurse node_modules/smol-toml "dist/$name/node_modules/smol-toml"
+          Copy-Item -Recurse node_modules/@noble/hashes "dist/$name/node_modules/@noble/hashes"
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           Remove-Item -Recurse -Force "dist/$name"
@@ -162,10 +170,6 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      # The engine is still `gimlet-sidecar` until ADR 0010 reaches stage 4, so
-      # the release builds it even though the shell is now TypeScript.
-      - uses: dtolnay/rust-toolchain@stable
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -176,11 +180,6 @@ jobs:
       # so a partial install would build against a stale copy.
       - name: Install the JavaScript dependencies
         run: npm ci
-
-      - name: Build and stage the engine
-        run: |
-          cargo build --release --locked -p gimlet-eye-sidecar
-          ./scripts/stage-engine.sh --release
 
       - name: Build the installers
         run: npm run package -w @gimlet-eye/desktop
@@ -207,31 +206,42 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
+      # What ships is JavaScript, so that is what is compared: every built file,
+      # by content, in a stable order. An absolute path in a source map or an
+      # unlocked dependency shows up as a difference.
       - name: Build here
         run: |
-          cargo build --release --locked -p gimlet-eye-sidecar
-          sha256sum target/release/gimlet-sidecar | awk '{print $1}' > /tmp/here.txt
+          npm ci
+          npm run build
+          find packages/*/dist apps/desktop/dist -type f -print0 |
+            sort -z | xargs -0 sha256sum > /tmp/here.txt
+          sha256sum /tmp/here.txt | awk '{print $1}' > /tmp/here.digest
 
       - name: Build in another directory
         run: |
           mkdir -p /tmp/elsewhere
           git archive HEAD | tar -x -C /tmp/elsewhere
-          cp Cargo.lock /tmp/elsewhere/
           cd /tmp/elsewhere
-          RUSTFLAGS="--remap-path-prefix=/tmp/elsewhere=." \
-            cargo build --release --locked -p gimlet-eye-sidecar
-          sha256sum target/release/gimlet-sidecar | awk '{print $1}' > /tmp/there.txt
+          npm ci
+          npm run build
+          find packages/*/dist apps/desktop/dist -type f -print0 |
+            sort -z | xargs -0 sha256sum > /tmp/there.txt
+          sha256sum /tmp/there.txt | awk '{print $1}' > /tmp/there.digest
 
       - name: Compare
         run: |
-          here=$(cat /tmp/here.txt)
-          there=$(cat /tmp/there.txt)
+          here=$(cat /tmp/here.digest)
+          there=$(cat /tmp/there.digest)
           echo "here:  $here"
           echo "there: $there"
           if [ "$here" != "$there" ]; then
-            echo "::error::the same source produced two different binaries"
+            echo "::error::the same source produced two different builds"
             echo "Something non-reproducible got in: an absolute path, a build"
             echo "timestamp, or an unlocked dependency."
             exit 1
