@@ -186,19 +186,8 @@ jobs:
       - name: Install the JavaScript dependencies
         run: npm ci
 
-      - name: Build the engine
-        run: cargo build --release --locked -p gimlet-eye-sidecar
-
-      # The engine is bundled as a Tauri `externalBin`, which expects it in
-      # apps/desktop/src-tauri/binaries with the target triple in the name.
-      - name: Stage the engine for bundling
-        shell: bash
-        run: |
-          mkdir -p apps/desktop/src-tauri/binaries
-          triple="$(rustc -vV | sed -n 's/^host: //p')"
-          src="target/release/gimlet-sidecar"
-          [ -f "$src" ] || src="target/release/gimlet-sidecar.exe"
-          cp "$src" "apps/desktop/src-tauri/binaries/gimlet-sidecar-$triple"
+      - name: Build and stage the engine
+        run: ./scripts/stage-tauri-engine.sh --release
 
       - name: Build the installers
         uses: tauri-apps/tauri-action@v0

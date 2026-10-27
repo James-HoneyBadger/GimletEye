@@ -181,6 +181,10 @@ jobs:
         run: npm run build:ui -w @gimlet-eye/desktop
       - name: Type-check the frontend
         run: npm run typecheck -w @gimlet-eye/desktop
+      # Tauri validates `externalBin` while it builds, so the engine has to be
+      # staged with the triple in its name before the shell is checked.
+      - name: Stage the engine
+        run: ./scripts/stage-tauri-engine.sh
       - name: Shell compiles
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 

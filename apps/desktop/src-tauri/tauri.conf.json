@@ -10,6 +10,18 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Gimlet Eye",
+        "width": 1240,
+        "height": 860,
+        "minWidth": 880,
+        "minHeight": 600,
+        "resizable": true,
+        "center": true
+      }
+    ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
