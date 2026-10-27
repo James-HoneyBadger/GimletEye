@@ -19,9 +19,11 @@ The constraints are not generic:
    `Report`, and it contains no tool-specific code.
 2. **The boundary is already abstracted.** `apps/desktop/src/lib/tauri-host.ts`
    implements the `Host` interface over IPC; [main.rs](../apps/desktop/src-tauri/src/main.rs)
-   exposes exactly `host_info`, file read/write, `create_dir`, `remove_tree`,
-   `path_exists`, `path_stat`, `read_dir`, `exec`, and the engine transport.
-   Nothing in the UI calls Tauri directly.
+   exposes fifteen commands — `host_info`, `read_text_file`, `read_file`,
+   `write_text_file`, `write_file`, `create_dir`, `remove_tree`, `path_exists`,
+   `path_stat`, `read_dir`, `rename_path`, `chmod_owner_only`, `resolve_path`,
+   `exec_command`, and `engine_request` — and nothing in the UI calls Tauri
+   directly.
 3. **The engine is Node.** After 0010 it is `node:crypto` and `@noble/hashes`,
    in process. A platform that cannot host Node must spawn it.
 4. **Security model.** Since [0008](0008-typescript-surfaces-rust-engine.md)
@@ -90,9 +92,9 @@ depends on it rather than duplicating it.
   than replacing it with another IPC boundary.
 - The existing UI, its tests, and the `Host` interface survive unchanged; only
   `tauri-host.ts` is replaced by `ipc-host.ts` and the shell is written in
-  TypeScript. The shell's whole surface today is nine commands and an engine
-  transport — a few hundred lines of `node:fs` and `node:child_process`, not a
-  new domain to learn.
+  TypeScript. The whole surface is fifteen commands over `node:fs`,
+  `node:child_process`, and the engine — a direct transcription of the `Host`
+  interface, not a new domain to learn.
 - Key material stops crossing into a renderer.
 
 **Negative**
