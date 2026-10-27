@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "build:ui": "vite build",
+    "build:ui": "npm run build --prefix ../.. --workspace @gimlet-eye/core && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev:ui": "vite"

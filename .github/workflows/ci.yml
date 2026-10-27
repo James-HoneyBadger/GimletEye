@@ -176,8 +176,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm ci
+      # `build:ui` builds @gimlet-eye/core first, which the type-check needs.
       - name: UI bundle
         run: npm run build:ui -w @gimlet-eye/desktop
+      - name: Type-check the frontend
+        run: npm run typecheck -w @gimlet-eye/desktop
       - name: Shell compiles
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 

@@ -11,7 +11,7 @@
     "./host-node": "./dist/host-node.js"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --force",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
