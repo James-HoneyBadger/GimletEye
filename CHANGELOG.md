@@ -125,6 +125,15 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Two more system-administration tools**, both TypeScript and read-only.
+  `sysadmin.kernel-hardening` reads the sysctls that decide what one user can
+  learn about another — ASLR, `kptr_restrict`, `dmesg_restrict`, Yama ptrace
+  scope, unprivileged BPF, `perf_event_paranoid`, protected hardlinks and
+  symlinks, IP forwarding — and grades each one, reporting a setting the kernel
+  does not expose as *missing* rather than as a pass.
+  `sysadmin.network` lists every interface with its state, MTU, and hardware
+  address and resolves the default route out of `/proc/net/route`. Both read
+  `/proc` and `/sys` directly, with no `exec` and no locale to depend on.
 - **A terminal surface.** `gimlet tui` browses the catalogue, filters it by any
   word, prompts for the arguments a tool declares, and renders the same report
   the CLI would print. It goes through `Runtime.run`, so its runs are audited

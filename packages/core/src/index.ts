@@ -26,3 +26,5 @@ export * from './local.js';
 export * from './runtime.js';
 export * from './tools/system-info.js';
 export * from './tools/disk-usage.js';
+export * from './tools/kernel-hardening.js';
+export * from './tools/network.js';

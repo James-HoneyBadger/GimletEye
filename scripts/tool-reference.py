@@ -61,6 +61,8 @@ EXAMPLES: dict[str, list[str]] = {
     "privacy.metadata-strip": ["input={fixture}", "output={work}/stripped.jpg", "profile=privacy"],
     "privacy.metadata-verify": ["input={fixture}"],
     "sysadmin.disk-usage": ["path=/"],
+    "sysadmin.kernel-hardening": [],
+    "sysadmin.network": [],
     "sysadmin.system-info": [],
 }
 

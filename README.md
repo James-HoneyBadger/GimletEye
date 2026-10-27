@@ -151,16 +151,18 @@ the batch still runs unless `--fail-fast` is given.
 | Area | Status |
 |---|---|
 | `Report` contract, registry, config, audit trail | ✅ |
-| CLI: `run`, `batch`, `tools`, `config`, `audit`, `doctor` | ✅ |
+| CLI: `run`, `batch`, `tools`, `config`, `audit`, `doctor`, `tui` | ✅ |
+| Terminal surface (`gimlet tui`): filter, arguments, report, scroll | ✅ |
+| Report as one self-contained page (`--format html`) | ✅ |
 | Desktop app (Tauri): catalogue, generated forms, reports, history | ✅ |
-| `sysadmin.system-info`, `sysadmin.disk-usage` | ✅ TypeScript |
+| `sysadmin.system-info`, `sysadmin.disk-usage`, `sysadmin.kernel-hardening`, `sysadmin.network` | ✅ TypeScript |
 | `crypto.*`, `privacy.metadata-*` | ✅ Rust engine |
 | Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ Rust engine |
 | Sealed keystore (`crypto.key-*`), X25519 recipients in container v3 | ✅ Rust engine |
 | OpenPGP interop (`crypto.gpg-verify`, `crypto.gpg-encrypt`) via system `gpg` | ✅ Rust engine |
 | Secret sharing, shredding, QR | ⏳ roadmap |
 | HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ roadmap |
-| WASM target, TUI, scheduler | ⏳ roadmap |
+| WASM target, scheduler | ⏳ roadmap |
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for acceptance criteria and
 [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the prioritized backlog.
