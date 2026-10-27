@@ -94,12 +94,19 @@ the same change that updates the ruleset. The current set:
 | `desktop (typecheck, UI bundle, shell check)` | the window builds |
 | `packaging (version agreement, staged layout)` | a package runs after install |
 
-**The quiet-period check can be legitimately red.** It fails whenever a versioned
-surface changed since the last release, which is the case for every commit between
-a deliberate break and the release that ships it. `ALLOW_SURFACE_CHANGE` in the
-workflow accepts the break and restarts the countdown; that is recorded in
-`CHANGELOG.md` and ADR 0006. Do not weaken the check to make a merge gate go
-green — set the variable and say why.
+**The quiet-period check knows where the countdown starts.** It carries the
+release the countdown restarted from (`restart_release`, currently `0.8.0`):
+
+- newest tag below it — a deliberate break is in flight, so surface work is
+  expected; the check says so and passes;
+- newest tag at or above it — any change to a frozen surface fails, so tagging
+  the reset release is what turns enforcement on;
+- a waiver with nothing to waive — fails, because a check that cannot fail is
+  not a check.
+
+A *new* deliberate break sets `ALLOW_SURFACE_CHANGE` with its reason for the
+commit that ships it, then tags that release and moves `restart_release` in the
+same change. Do not leave the variable set: the third rule will catch it.
 
 ## Reporting a security issue
 

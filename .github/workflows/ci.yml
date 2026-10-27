@@ -80,13 +80,11 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Versioned surfaces have not moved
-        # 0.8 renames the surfaces (ADR 0008): the report gains nothing, but the
-        # config drops [plugins]/[api]/[trust], the manifest drops origin and
-        # version, and the plugin protocol is replaced by the engine protocol.
-        # Per ADR 0006 that restarts the two-release countdown to 1.0, which is
-        # what the changelog records.
-        env:
-          ALLOW_SURFACE_CHANGE: "0.8: TypeScript surfaces over one Rust engine (ADR 0008)"
+        # No waiver here on purpose. The script knows the countdown restarted at
+        # v0.8.0 (ADR 0008) and enforces from that tag on, so this reads as
+        # "not enforcing yet" until 0.8.0 ships and then starts failing on any
+        # change to a frozen surface. A permanent ALLOW_SURFACE_CHANGE would be
+        # a required check that cannot fail.
         run: ./scripts/check-quiet-period.sh
 
   typescript:

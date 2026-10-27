@@ -318,9 +318,9 @@ again from the 0.8 release:
 | 0.9.0 and 0.10.0 | not yet cut — these two must be quiet |
 
 1.0 is therefore at least two quiet minors after 0.8.0, and
-`scripts/check-quiet-period.sh` is what proves each one; this release runs it
-with `ALLOW_SURFACE_CHANGE` set, which is the documented way to record a
-deliberate break.
+`scripts/check-quiet-period.sh` is what proves each one. It carries the restart
+release, so it reports "not enforcing yet" until v0.8.0 is tagged and enforces
+from there — no standing waiver, and nothing to remember to switch on.
 
 - [x] **No unverified claims** — `scripts/check-readme-claims.sh` runs the front
   page as written (17 commands, all green) and lists the claims a command cannot
