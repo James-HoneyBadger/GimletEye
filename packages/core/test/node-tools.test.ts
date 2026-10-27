@@ -16,7 +16,7 @@ import { GPG_TOOLS } from '../src/tools/gpg.js';
 import { sha256 } from '../src/tools/hash.js';
 import { INSPECT_TOOLS } from '../src/tools/keys.js';
 import { KEYSTORE_TOOLS } from '../src/tools/keystore-tools.js';
-import { metadataScan, metadataVerify } from '../src/tools/metadata.js';
+import { metadataScan, metadataStrip, metadataVerify } from '../src/tools/metadata.js';
 import { passgen } from '../src/tools/passwords.js';
 import { SIGNING_TOOLS } from '../src/tools/signatures.js';
 import type { LocalTool } from '../src/local.js';
@@ -27,6 +27,7 @@ const IMPLEMENTED: readonly LocalTool[] = [
   passgen,
   metadataScan,
   metadataVerify,
+  metadataStrip,
   ...SIGNING_TOOLS,
   ...CONTAINER_TOOLS,
   ...INSPECT_TOOLS,

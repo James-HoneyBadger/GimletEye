@@ -10,7 +10,7 @@ import { CONTAINER_TOOLS } from './tools/containers.js';
 import { GPG_TOOLS } from './tools/gpg.js';
 import { INSPECT_TOOLS } from './tools/keys.js';
 import { KEYSTORE_TOOLS } from './tools/keystore-tools.js';
-import { metadataScan, metadataVerify } from './tools/metadata.js';
+import { metadataScan, metadataStrip, metadataVerify } from './tools/metadata.js';
 import { SIGNING_TOOLS } from './tools/signatures.js';
 import { sha256 } from './tools/hash.js';
 import { passgen } from './tools/passwords.js';
@@ -33,6 +33,7 @@ export const NODE_TOOLS: readonly LocalTool[] = [
   passgen,
   metadataScan,
   metadataVerify,
+  metadataStrip,
   ...SIGNING_TOOLS,
   ...CONTAINER_TOOLS,
   ...INSPECT_TOOLS,

@@ -30,13 +30,19 @@ stage is verifiable on its own:
 | 1 ✅ | `.gimlet` container: read v1/v2/v3, write v2/v3 | the committed v1 and v3 fixtures open, byte for byte, and the Python second implementation reads what the new writer emits |
 | 2 ✅ | keystore, keys, signing, hashing, passphrase generation | the keystore round-trips owner-only and fails a wrong passphrase at the tag; key files round-trip through the frozen JSON; signing verifies what it signed and nothing else; the passphrase generator guarantees one character per class |
 | 3 ✅ | metadata scrub (JPEG/PNG/WebP/XMP) | all six corpus fixtures reproduce the recorded byte length and SHA-256 under all three profiles, and every structural and colour segment survives in order |
-| 4 | tool wiring, then delete `crates/`, the Cargo manifests, the MSRV and fuzz jobs, and both `deny.toml` files | `make check` green with no Rust toolchain installed |
+| 4 🟡 | tool wiring: all seventeen engine tools run in process, including GPS redaction | every ported tool's report and output bytes match the Rust implementation's on the fixtures both can run |
+| 5 | delete `crates/`, the Cargo manifests, the MSRV and fuzz jobs, and both `deny.toml` files | `make check` green with no Rust toolchain installed |
 
 Stage 4 is being done tool by tool rather than in one switch, so the CLI keeps
 working during the migration. `Runtime` registers local tools first and lets the
-engine serve whatever is not ported yet. Every engine tool is ported except
-`privacy.metadata-strip`, which waits for GPS redaction — the last piece of
-`crates/scrub` not yet translated.
+engine serve whatever is not ported yet. Every engine tool is now ported, GPS
+redaction included, and the wiring is compared against the Rust it replaces
+rather than assumed: `privacy.metadata-strip` run on every image fixture in the
+tree at all three precisions wrote **byte-identical** files from both
+implementations, 33 runs and no differences. What remains for stage 5 is
+deleting the Rust and making its absence a supported state — today `Runtime`
+refuses to start without a sidecar, which is the one thing that still makes the
+engine mandatory.
 
 Registration is part of a port, and it is the part that is easy to forget: a
 local tool's manifest replaces the engine's for the same id, so a tool that is

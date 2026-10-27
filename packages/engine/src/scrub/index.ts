@@ -11,6 +11,7 @@ import { scanPng, stripPng } from './png.js';
 import { scanWebp, stripWebp } from './webp.js';
 
 export * from './format.js';
+export * from './gps.js';
 
 export function scan(bytes: Buffer): ScanResult {
   switch (detect(bytes)) {
