@@ -172,6 +172,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for acceptance criteria and
 ```
 packages/
   core/       catalogue, report contract, args, config, audit, sidecar client (TS)
+  engine/     the .gimlet container in TypeScript — ADR 0010 stage 1
   cli/        `gimlet` — a Node CLI over packages/core
 apps/desktop/ Tauri 2 window + frontend; the Rust shell is window and OS boundary only
 crates/
