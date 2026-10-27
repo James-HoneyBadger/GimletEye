@@ -26,10 +26,13 @@ cd "$root"
 # Files that carry a frozen contract. Anything that defines bytes on disk or a
 # structure another program parses belongs here.
 surfaces=(
-    crates/core/src/report.rs
-    crates/core/src/config.rs
-    crates/sidecar/src/main.rs
-    crates/crypto/src/container.rs
+    packages/core/src/report.ts
+    packages/core/src/config.ts
+    packages/core/src/manifest.ts
+    packages/engine/src/container.ts
+    packages/engine/src/keystore.ts
+    packages/engine/src/keys.ts
+    docs/CONTAINER.md
 )
 
 # The release that restarted the countdown. Move this in the same commit that

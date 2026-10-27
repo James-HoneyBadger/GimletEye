@@ -2,13 +2,13 @@
 
 Two programs ship — a desktop app and a command line — and they share one
 implementation of everything that decides what a run means. The parts that touch
-key material or parse a file format live in one Rust engine that both of them
-spawn.
+key material or parse a file format live in one engine package that both of them
+import.
 
 - [1. Design goals](#1-design-goals)
 - [2. The four layers](#2-the-four-layers)
 - [3. The tool contract](#3-the-tool-contract)
-- [4. The engine protocol](#4-the-engine-protocol)
+- [4. Why there is one implementation](#4-why-there-is-one-implementation)
 - [5. Surfaces](#5-surfaces)
 - [6. Configuration and state](#6-configuration-and-state)
 - [7. Security model](#7-security-model)
@@ -25,17 +25,17 @@ spawn.
    configuration parsing, and the audit trail exist once. Two surfaces, one
    behaviour.
 2. **One implementation of the risky parts.** Cryptography and format parsing
-   exist once, in a language with the fuzz corpora and fixtures that earned the
-   current confidence.
+   exist once, beside the fixtures, the corpus, and the second implementation that
+   earned the current confidence.
 3. **No server.** The desktop app does not listen on a port, does not carry a
    token, and cannot be driven by a web page.
-4. **Boring, verifiable infrastructure.** Standard cargo workspace, standard npm
-   workspace, no bespoke build system, no code generation in the critical path.
+4. **Boring, verifiable infrastructure.** Standard npm workspace, no bespoke
+   build system, no code generation in the critical path.
 5. **Privacy and security are structural.** Nothing opens a socket, the audit
    trail cannot contain values, and metadata removal is verified before it is
    written.
 
-## 2. The four layers
+## 2. The layers
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -44,27 +44,27 @@ spawn.
                             │ imports, not RPC
 ┌───────────────────────────┴──────────────────────────────────┐
 │ core            packages/core: catalogue · report · args      │
-│                 config · audit · paths · sidecar client       │
+│                 config · audit · paths · the tools themselves │
 └───────────────────────────┬──────────────────────────────────┘
-                            │ one JSON line per request
+                            │ imports
 ┌───────────────────────────┴──────────────────────────────────┐
-│ engine          crates/sidecar → crates/crypto, crates/scrub  │
-└───────────────────────────┬──────────────────────────────────┘
-                            │
-┌───────────────────────────┴──────────────────────────────────┐
-│ contracts       crates/core: Report · ToolManifest · Args     │
+│ engine          packages/engine: container · keys · keystore  │
+│                 signing · passgen · metadata scrub            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The dependency rules are one-directional and checked by the build:
+The dependency rules are one-directional:
 
-- the surfaces depend on `packages/core` and on nothing in `crates/`;
-- `packages/core` depends on the engine only across the process boundary;
-- the engine crates depend on `crates/core` and never on a surface;
-- `crates/core` depends on nothing but `serde` and the standard library.
+- the surfaces depend on `packages/core`, and on `packages/engine` only through
+  the `@gimlet-eye/core/node` entry point;
+- `packages/core`'s barrel stays browser-safe — no `node:*` — because the desktop
+  UI imports it; anything that needs Node is a separate entry point;
+- the engine depends on nothing in core and never on a surface, so it can be
+  tested without either;
+- `@noble/hashes` is the only runtime dependency, and only for Argon2id.
 
-Two tools genuinely run in TypeScript (`system-info`, `disk-usage`): they read
-`/proc` and run `df`, which needs no cryptographic care. Everything else — the
+A few tools need no cryptographic care (`system-info`, `disk-usage`): they read
+`/proc` and run `df`. Everything else — the
 container format, the AEAD and KDF work, signing, the keystore, and the JPEG,
 PNG, and WebP parsers — is in the engine, because that is where the evidence
 lives.
@@ -94,42 +94,36 @@ shape whichever language produced them.
 
 `status` is derived, never declared: `sealed()` in `packages/core/src/report.ts`
 turns findings into `ok` / `warning` / `error` by severity, so a tool that
-reports a high finding cannot also report success. The same rule is implemented
-once for the engine's own reports by `crates/core/src/report.rs` — the engine
-sends a finished `Report`, and the surface never re-derives it.
+reports a high finding cannot also report success. Every tool — including the
+engine's own — goes through it, and a surface never re-derives it.
 
 Argument values are typed on arrival: `k=v` pairs, a form in the desktop app, and
 the engine's JSON all become one `Args` bag, with only `true`/`false` and
 canonical integers coerced. `0123`, `+5`, and `-0` stay strings, because
 rewriting them would silently change a passphrase, a PIN, or a file name.
 
-## 4. The engine protocol
+## 4. Why there is one implementation
 
-One JSON object per line, in and out. A handshake, a catalogue, and runs:
-
-```json
-{"id": 1, "op": "handshake"}
-{"id": 2, "op": "list"}
-{"id": 3, "op": "run", "tool": "crypto.sha256", "args": {"text": "hello"}, "dry_run": false, "home": "/home/you/.config/gimlet"}
-```
-
-The engine answers with the same `id`, `ok`, and either the payload or an error:
-
-```json
-{"id": 3, "ok": false, "error": {"code": "invalid_args", "message": "invalid arguments: …"}}
-```
+`packages/engine` holds the parts where a mistake costs data: the container
+format, key handling, signing, and the metadata scrub. Both surfaces import it,
+so a behaviour cannot differ between them and there is no second process to keep
+in step. [ADR 0010](adr/0010-retire-rust.md) records the migration that produced
+this shape, and what it cost.
 
 Three properties matter:
 
-- **Versioned.** `protocol_version` is checked on connect. A surface built
-  against a different engine refuses it instead of guessing.
-- **Not extensible.** The engine runs the tools it compiled. There is no
+- **One writer, one reader.** The format is still defined by
+  [CONTAINER.md](CONTAINER.md), and a Python reader written from that document
+  alone is part of the test suite. A format only its own source can implement is
+  not documented.
+- **Not extensible.** The engine runs the tools this build compiled. There is no
   discovery of user-supplied executables, no manifest filename to place, and no
-  code path that loads a binary the build did not produce. This is the one place
-  the project deliberately gave up an extension point.
-- **Not a security boundary.** A pack used to be untrusted code; the engine is
-  *our* code. It is a process boundary for language and packaging reasons, not a
-  sandbox, and nothing in the security model depends on it.
+  code path that loads code the build did not produce. This is the one place the
+  project deliberately gave up an extension point.
+- **An optional second opinion.** `GIMLET_SIDECAR` can still point at a separate
+  engine, and it is used when one is present, but its absence is a supported
+  state: every tool is built in. What it buys is an independent implementation to
+  compare against, which is how the ports in ADR 0010 were checked.
 
 ## 5. Surfaces
 
@@ -236,14 +230,16 @@ A tool that only inspects the host goes in TypeScript:
 3. Both surfaces see it immediately: the desktop form is generated from the
    manifest, and the CLI resolves the id.
 
-A tool that touches key material or a file format goes in the engine:
+A tool that touches key material or a file format goes beside the primitives in
+`packages/engine`, and is then wrapped by a `LocalTool` in
+`packages/core/src/tools`:
 
-1. Implement `Tool` in `crates/crypto` or `crates/scrub`; add it to that crate's
-   `tools()`.
-2. Nothing else changes: the surface asks the engine for its catalogue at start,
-   so a new engine tool appears in `gimlet tools list` and in the desktop sidebar
-   without a frontend change.
-3. Add an example to `scripts/tool-reference.py` so the generated reference
+1. The primitive lives in `packages/engine`, with no knowledge of reports or
+   arguments, so it can be tested on bytes.
+2. The tool builds the manifest, reads its arguments, and seals a report.
+3. It must be listed in `NODE_TOOLS` in `packages/core/src/node.ts`; the
+   registration guard test fails if it is not.
+4. Add an example to `scripts/tool-reference.py` so the generated reference
    covers it, and a test at the level where the behaviour lives.
 
 ## 9. Testing strategy
@@ -253,23 +249,24 @@ A tool that touches key material or a file format goes in the engine:
 | Contracts | Report verdicts, argument coercion, resolution, config, paths, audit | `packages/core/test` (vitest, fake host) |
 | CLI | Parsing, batch expansion, aggregate reports, declared surface | `packages/cli/test` |
 | Desktop | Generated forms, validation, run flow, sheets, focus management | `apps/desktop/src/**/*.test.ts` (vitest + jsdom, mocked engine) |
-| Engine | Tool behaviour, container versions, keystore, parsers | `cargo test` |
-| Container format | A second implementation reads what this build writes | `crates/crypto/tests/second_implementation.rs` + `interop/read_container.py` |
-| End to end | The CLI against the real engine | `scripts/smoke.sh` |
+| Engine | Tool behaviour, container versions, keystore, parsers | `packages/engine/test` (vitest) |
+| Container format | A second implementation reads what this build writes | `packages/engine/test/fixtures/read_container.py` |
+| Parser corpus | The inputs the Rust fuzz targets saved, replayed | `packages/engine/test/corpus.test.ts` |
+| End to end | The CLI against real files | `scripts/smoke.sh` |
 | Claims | Every README example, run as written | `scripts/check-readme-claims.sh` |
 
-The engine keeps its fuzz targets (`crates/crypto/fuzz`, `crates/scrub/fuzz`);
-the TypeScript side is covered by tests rather than fuzzing, which is a
-reasonable trade for code that parses no untrusted input.
+The seed corpus those fuzz targets saved now runs on every test pass, which keeps
+their regression value even though the nightly soak did not survive the move. That
+gap is recorded rather than glossed: ADR 0010 lists it as a cost.
 
 ## 10. Build, CI, and release
 
-`make check` runs what CI runs: `cargo fmt --check`, `clippy -D warnings`,
-`tsc` over all three TypeScript packages, `cargo test`, and `vitest`.
+`make check` runs what CI runs: `tsc` over every package, `vitest`, and the
+documentation gates.
 
-A release publishes the engine and the CLI together, because a CLI without its
-engine can list the catalogue and nothing else. The desktop bundle embeds the
-same engine.
+A release publishes one thing: the CLI package tree and the desktop app, both
+containing the same packages. There is no binary to publish alongside them, and
+nothing that can be out of step.
 
 ## 11. Known limitations
 

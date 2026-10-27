@@ -1,17 +1,12 @@
 #!/usr/bin/make -f
-# The engine is a cargo build; the command line is a TypeScript build that ships
-# as plain JavaScript. Debhelper runs the two builds and then calls the shared
-# staging script, which is also what the rpm and Arch recipes call — one
-# definition of what the package contains.
-
-export CARGO_INCREMENTAL=0
-export RUSTFLAGS=--remap-path-prefix=$(CURDIR)=.
+# One build: TypeScript, shipped as plain JavaScript on the system Node. Debhelper
+# runs it and then calls the shared staging script, which is also what the rpm and
+# Arch recipes call — one definition of what the package contains.
 
 %:
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release --locked -p gimlet-eye-sidecar
 	npm ci
 	npm run build
 
@@ -28,5 +23,4 @@ override_dh_strip:
 	dh_strip --no-automatic-dbgsym
 
 override_dh_auto_clean:
-	cargo clean || true
-	rm -rf packages/core/dist packages/cli/dist apps/desktop/dist
+	rm -rf packages/core/dist packages/engine/dist packages/cli/dist apps/desktop/dist

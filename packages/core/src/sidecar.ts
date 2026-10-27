@@ -1,10 +1,11 @@
 /**
  * The conversation with the verified engine.
  *
- * Crypto and metadata parsing live in `gimlet-sidecar`: they carry the fuzz
- * corpora, the golden fixtures, and the second implementation that pins the
- * container format. This client is the only place that knows the wire format, so
- * a change to it is one file in one language rather than one per surface.
+ * Every tool is implemented in `packages/engine` now, so this is optional: it
+ * is used when one is present, and its absence is a supported state rather than
+ * a startup failure. What the engine still buys is an independent implementation
+ * of the container format that can be asked for a second opinion — which is why
+ * this client survives the port instead of being deleted with the binary.
  */
 
 import { invalidArgs, toolFailed, unsupported } from './errors.js';
@@ -25,9 +26,21 @@ export class Sidecar {
   private tools: ToolManifest[] | null = null;
 
   private constructor(
-    private readonly transport: EngineTransport,
+    private readonly transport: EngineTransport | null,
     readonly version: string,
+    /** Why there is no engine, when there is none. */
+    private readonly problem = '',
   ) {}
+
+  /** A runtime with no engine: local tools work, and anything that needed the
+   * engine says which part is missing instead of claiming the tool is unknown. */
+  static unavailable(reason: string): Sidecar {
+    return new Sidecar(null, 'none', reason);
+  }
+
+  get available(): boolean {
+    return this.transport !== null;
+  }
 
   static async open(host: Host): Promise<Sidecar> {
     const transport = await host.engine();
@@ -47,8 +60,9 @@ export class Sidecar {
 
   /** Every tool the engine offers. Cached: the catalogue cannot change while it runs. */
   async list(): Promise<ToolManifest[]> {
+    if (!this.available) return [];
     if (this.tools) return this.tools;
-    const reply = (await this.transport.request({ op: 'list' })) as { tools?: ToolManifest[] };
+    const reply = (await this.transport!.request({ op: 'list' })) as { tools?: ToolManifest[] };
     if (!Array.isArray(reply.tools)) {
       throw toolFailed('the engine answered a list request without a tool list');
     }
@@ -57,7 +71,11 @@ export class Sidecar {
   }
 
   async run(tool: string, args: Args, options: { dryRun: boolean; home: string }): Promise<Report> {
-    const reply = (await this.transport.request({
+    const transport = this.transport;
+    if (transport === null) {
+      throw toolFailed(`'${tool}' is not built into this install, and there is no engine to run it: ${this.problem}`);
+    }
+    const reply = (await transport.request({
       op: 'run',
       tool,
       args,
@@ -69,7 +87,7 @@ export class Sidecar {
   }
 
   close(): void {
-    this.transport.close();
+    this.transport?.close();
   }
 }
 

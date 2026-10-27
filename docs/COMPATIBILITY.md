@@ -10,10 +10,10 @@ Two programs ship: the `gimlet` command line and the desktop app. They share one
 implementation (`packages/core`), so anything below that names a tool id, a report
 field, or a configuration key applies to both.
 
-The verified engine (`gimlet-sidecar`) is **not** an extension point. It is
-spawned by the surfaces, runs the tools this build compiled, and speaks a
-versioned protocol that the surfaces check on connect. It is listed here because
-its behaviour is part of the contract, not because it accepts third-party code.
+The engine package (`packages/engine`) is **not** an extension point. Both
+surfaces import it, and it contains only the tools this build compiled. It is
+listed here because its behaviour — the bytes it writes, the reports it returns —
+is part of the contract, not because it accepts third-party code.
 
 ## What is public API
 
@@ -91,7 +91,7 @@ run, `2` for a command typed wrong.
 | Variable | Meaning |
 |---|---|
 | `GIMLET_HOME` | The state root; defaults to `~/.config/gimlet` |
-| `GIMLET_SIDECAR` | Path to the engine, for a checkout or a non-standard install |
+| `GIMLET_SIDECAR` | Optional path to a separate engine, for comparing two implementations; the built-in tools do not need it |
 
 ## The report contract
 

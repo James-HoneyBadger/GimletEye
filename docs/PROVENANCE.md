@@ -15,7 +15,7 @@ project's identity or architecture.
 |---|---|---|
 | `sysadmin.system-info` | host-inventory script from an earlier Perl sysadmin toolkit | Reimplemented natively; behaviour and outputs covered by this repository's tests |
 | `sysadmin.disk-usage` | filesystem-utilisation script from the same toolkit | Reimplemented natively, with thresholds moved into config |
-| `crypto.*` primitives | a Rust cryptography suite by the same author | Engine and `.gimlet` container implemented here; key/recipient features still planned |
+| `crypto.*` primitives | `node:crypto` (OpenSSL) and `@noble/hashes` | Engine and `.gimlet` container implemented here |
 | `privacy.metadata-*` | a TypeScript metadata-scrubbing library by the same author | JPEG/PNG/WebP reimplemented natively; profiles and GPS redaction designed here |
 
 ## Compatibility packs

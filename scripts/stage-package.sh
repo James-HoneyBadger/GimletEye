@@ -11,7 +11,6 @@
 #   usr/lib/gimlet/core/{dist,package.json}
 #   usr/lib/gimlet/engine/{dist,package.json}
 #   usr/lib/gimlet/node_modules/@noble/hashes   the engine's Argon2id
-#   usr/lib/gimlet/gimlet-sidecar     the engine (found by walking up from core/)
 #   usr/lib/gimlet/node_modules/...   the one runtime dependency
 #   usr/share/doc/gimlet/             README, CHANGELOG, licence, docs
 #
@@ -27,16 +26,13 @@ die() { printf '\033[31mstage-package: %s\033[0m\n' "$*" >&2; exit 1; }
 lib="$dest/usr/lib/gimlet"
 doc="$dest/usr/share/doc/gimlet"
 
-[ -f target/release/gimlet-sidecar ] || die "build the engine first: cargo build --release -p gimlet-eye-sidecar"
 [ -f packages/cli/dist/main.js ] || die "build the CLI first: npm run build"
 [ -f packages/core/dist/index.js ] || die "build the core first: npm run build"
 [ -f packages/engine/dist/index.js ] || die "build the engine first: npm run build"
-[ -d node_modules/smol-toml ] || die "instal the dependencies first: npm ci"
+[ -d node_modules/smol-toml ] || die "install the dependencies first: npm ci"
 
 install -d "$lib/cli" "$lib/core" "$lib/engine" "$lib/node_modules/@gimlet-eye" \
     "$lib/node_modules/@noble" "$dest/usr/bin" "$doc"
-
-install -m 0755 target/release/gimlet-sidecar "$lib/gimlet-sidecar"
 
 cp -r packages/cli/dist "$lib/cli/dist"
 cp -r packages/cli/bin "$lib/cli/bin"

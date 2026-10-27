@@ -27,7 +27,6 @@ target="$(readlink "$stage/usr/bin/gimlet")"
 ok "usr/bin/gimlet -> $target"
 
 for path in \
-    usr/lib/gimlet/gimlet-sidecar \
     usr/lib/gimlet/cli/bin/gimlet \
     usr/lib/gimlet/cli/dist/main.js \
     usr/lib/gimlet/core/dist/index.js \
@@ -58,10 +57,11 @@ ok "the catalogue loads"
 "$gimlet" system-info >/dev/null || fail "a TypeScript tool failed to run"
 ok "a TypeScript tool runs"
 
-# This is the one that catches the engine lookup: it is found by walking up from
-# the installed module, not from `process.execPath`.
+# This is the one that catches a module that only resolves in the checkout:
+# `crypto.sha256` needs the engine package and its Argon2id dependency, loaded by
+# name from the installed tree rather than by relative path.
 "$gimlet" crypto.sha256 text=hello --format json | grep -q '2cf24dba5fb0a30e' ||
-    fail "the engine was not found or did not answer"
-ok "an engine tool runs"
+    fail "the crypto tool did not run from the installed tree"
+ok "a crypto tool runs"
 
 printf '\npackage layout: everything passed\n'

@@ -24,10 +24,10 @@ makepkg -si            # packaging/arch/PKGBUILD
 tar -xzf gimlet-<version>-<target>.tar.gz -C /usr/local
 ```
 
-Two programs matter: `gimlet` (the command line) and `gimlet-sidecar` (the
-engine). Keep them in the same directory — the CLI looks for the engine beside
-itself — or set `GIMLET_SIDECAR` to its path. The desktop app carries its own
-copy of the engine, so installing both packages is safe.
+One program matters: `gimlet` (the command line). It carries every tool, so there
+is no second binary to keep beside it and nothing to install into a particular
+directory. The desktop app runs the same packages in its own process, so
+installing both is safe.
 
 The CLI needs Node 20+. `gpg` is optional and only needed by `crypto.gpg-*`.
 

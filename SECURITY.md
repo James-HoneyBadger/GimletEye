@@ -69,15 +69,15 @@ what a container can say, only how much work a stranger can ask for.
    port. The desktop app is reachable only through its own window; the CLI is a
    process that exits. There is no local API to authenticate because there is no
    local API.
-2. **One engine, compiled in.** The crypto and metadata tools run in
-   `gimlet-sidecar`, which the build produces. There is no discovery of
-   user-supplied executables and no manifest that names a command, so the
-   "arbitrary code with declared capabilities" problem is designed out rather
-   than audited around.
+2. **One implementation, in the same process.** The crypto and metadata tools
+   are TypeScript in `packages/engine`, compiled from this tree. There is no
+   discovery of user-supplied executables and no manifest that names a command,
+   so the "arbitrary code with declared capabilities" problem is designed out
+   rather than audited around.
 3. **argv-only execution.** The only external processes are `df` (disk-usage)
    and `gpg` (the OpenPGP interop tools), invoked with argument vectors and never
    through a shell.
-4. **No secrets in audit.** Enforced by a unit test in `crates/core/src/audit.rs`.
+4. **No secrets in audit.** Enforced by a unit test in `packages/core/test/audit.test.ts`.
 5. **Verified stripping.** `privacy.metadata-strip` re-scans its output and
    fails if metadata remains, including under `--dry-run`.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel
@@ -97,8 +97,12 @@ what a container can say, only how much work a stranger can ask for.
 
 ## Cryptographic posture
 
-- **No primitives are written here.** AES-256-GCM, ChaCha20-Poly1305, Argon2id,
-  Ed25519, and SHA-256 come from the RustCrypto and dalek crates.
+- **No primitives are written here.** AES-256-GCM, ChaCha20-Poly1305, Ed25519,
+  X25519, HKDF, and SHA-256 come from OpenSSL through `node:crypto`; Argon2id is
+  the one gap in Node's own API, and comes from `@noble/hashes`.
+- **Key material is zeroed as far as JavaScript allows.** Node's `Buffer`s are
+  overwritten after use; this is weaker than Rust's `zeroize`, and the ADR says
+  so rather than claiming otherwise.
 - Password generation uses the OS CSPRNG with rejection sampling (no modulo
   bias) and guarantees at least one character from each enabled class.
 - Keys, derived keys, passphrases, and decrypted plaintext are held in
@@ -126,9 +130,9 @@ known limitations.
 |---|---|---|
 | *None.* The two that used to be listed here — `GHSA-wrw7-89jp-8q8g` (glib `VariantStrIter` unsoundness) and `RUSTSEC-2024-0370` (proc-macro-error unmaintained) — came from Tauri's GTK3 stack and left the tree with it, when the window moved to Electron. Dependabot alert #1 closes with them. | — | — |
 
-The remaining Rust graph is the engine alone, and the `dependency policy` job in
-CI runs `cargo deny` over it, so a new advisory fails the build rather than going
-unnoticed.
+There is one dependency graph now, and the `dependency policy` job in CI runs
+`npm audit` over the shipped runtime dependency set, so a new advisory fails the
+build rather than going unnoticed.
 
 ## Release signing
 

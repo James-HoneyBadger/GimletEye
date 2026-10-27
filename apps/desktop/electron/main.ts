@@ -22,13 +22,6 @@ import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
 import type { Args } from '@gimlet-eye/core';
 import { createApi } from './api.js';
 
-// A packaged app cannot rely on the environment, so the engine it ships with is
-// named here before the first runtime is created.
-if (app.isPackaged) {
-  const binary = process.platform === 'win32' ? 'gimlet-sidecar.exe' : 'gimlet-sidecar';
-  process.env['GIMLET_SIDECAR'] ??= join(process.resourcesPath, 'bin', binary);
-}
-
 let window: BrowserWindow | null = null;
 let runtimePromise: Promise<Runtime> | undefined;
 

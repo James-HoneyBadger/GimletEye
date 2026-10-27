@@ -1,6 +1,7 @@
 # Fedora packaging for Gimlet Eye.
 #
-# The version is checked against Cargo.toml by scripts/check-packaging.sh.
+# The version is checked against packages/core/src/version.ts by
+# scripts/check-packaging.sh.
 Name:           gimlet-eye-toolkit
 Version:        0.7.0
 Release:        1%{?dist}
@@ -8,15 +9,10 @@ Summary:        Local workbench for system, crypto, and metadata tasks
 License:        MIT
 URL:            https://github.com/James-HoneyBadger/GimletEye
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
-BuildRequires:  cargo
-BuildRequires:  rust
 BuildRequires:  nodejs >= 20
 BuildRequires:  npm
 # The staging script is bash.
 Requires:       bash
-# The unit suite needs only the toolchain; it runs in CI, not here, so that a
-# package build stays a build.
-%global __cargo_skip_test 1
 Recommends:     gnupg
 Requires:       glibc
 Requires:       nodejs >= 20
@@ -27,16 +23,13 @@ and one interface for system administration, file encryption and signing, and
 metadata removal.
 
 Everything runs locally: no network calls, no telemetry, no auto-update. The
-package contains the command line and the engine it spawns; the desktop app is
-packaged separately.
+package contains the command line, which runs every tool in process; the desktop
+app is packaged separately.
 
 %prep
 %autosetup -n %{name}-%{version}
 
 %build
-export CARGO_INCREMENTAL=0
-export RUSTFLAGS="--remap-path-prefix=%{_builddir}/%{name}-%{version}=."
-cargo build --release --locked -p gimlet-eye-sidecar
 npm ci
 npm run build
 

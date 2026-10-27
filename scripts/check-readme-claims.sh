@@ -25,12 +25,8 @@ if [ ! -x "$M" ]; then
     echo "build the CLI first: npm run build" >&2
     exit 1
 fi
-# The crypto and metadata tools live in the engine; point the CLI at this build.
-export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/target/debug/gimlet-sidecar}"
-if [ ! -x "$GIMLET_SIDECAR" ]; then
-    echo "build the engine first: cargo build -p gimlet-eye-sidecar" >&2
-    exit 1
-fi
+# The CLI needs no engine: every tool it names is built in.
+unset GIMLET_SIDECAR || true
 
 pass=0
 fail=0
@@ -46,7 +42,7 @@ check() {
 
 echo "== the front page, run as written"
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+version="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
 $M --version | grep -qF "$version"
 check "gimlet --version reports $version" $?
 
@@ -117,7 +113,7 @@ $M tools show crypto.sha256 --format json | grep -q '"id": "crypto.sha256"'
 check "tools show prints one manifest" $?
 
 $M crypto.sha256 text=hello --format json | grep -q '"sha256"'
-check "an engine tool runs through the CLI" $?
+check "a crypto tool runs through the CLI" $?
 
 $M doctor >/dev/null
 check "doctor runs" $?
@@ -142,8 +138,11 @@ Claims this script cannot settle, and their evidence:
   signed releases            .github/workflows/release.yml "Sign the checksums"
   package builds             ci.yml "packaging"; scripts/rehearse-upgrade.sh
   upgrade survives rollback  ci.yml "rehearsal"
-  no telemetry, no uploads   the absence of a network dependency: `cargo deny`
-  parsers are fuzzed         .github/workflows/fuzz.yml; crates/scrub/tests/
+  no telemetry, no uploads   `npm audit --omit=dev` over the runtime dependency
+                             set, in ci.yml "dependency policy"
+  parsers are fuzzed         packages/engine/test/corpus.test.ts replays the seed
+                             corpus the Rust targets saved; the nightly soak is
+                             not replaced (ADR 0010)
   the desktop app works      apps/desktop/src/**/*.test.ts (vitest, jsdom)
   the UI matches the CLI     packages/core is the implementation both import
 EOF

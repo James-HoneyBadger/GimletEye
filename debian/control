@@ -2,10 +2,9 @@ Source: gimlet-eye-toolkit
 Section: utils
 Priority: optional
 Maintainer: Gimlet Eye maintainers <maintainers@example.invalid>
-# The engine is Rust and the command line is TypeScript, so a build needs both
-# toolchains. scripts/rehearse-upgrade.sh installs rustup and Node 20 into a
-# container to prove that.
-Build-Depends: debhelper-compat (= 13), cargo, rustc, nodejs (>= 20), npm
+# One toolchain: the build is TypeScript. scripts/rehearse-upgrade.sh installs
+# Node 20 into a container to prove that.
+Build-Depends: debhelper-compat (= 13), nodejs (>= 20), npm
 Standards-Version: 4.6.2
 Homepage: https://github.com/James-HoneyBadger/GimletEye
 Vcs-Git: https://github.com/James-HoneyBadger/GimletEye.git
@@ -18,7 +17,7 @@ Recommends: gnupg
 Description: local workbench for system, crypto, and metadata tasks
  One tool registry, one report format, one configuration file, one audit trail,
  and one command line for system administration, file encryption and signing,
- and metadata removal, plus the engine it runs those tools in.
+ and metadata removal.
  .
  Everything runs locally: no network calls, no telemetry, no auto-update. There
  is no daemon and no listening port.

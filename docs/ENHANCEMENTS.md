@@ -7,6 +7,10 @@ guessed at.
 Effort: **S** ≤ 1 day · **M** ≤ 1 week · **L** > 1 week.
 Risk is about user-visible damage if the work goes wrong, not difficulty.
 
+> Items written before [ADR 0010](adr/0010-retire-rust.md) name crates and
+> `cargo` commands; the engine is TypeScript now. The proposals are kept because
+> the problems are real — read `packages/engine` where they say `crates/`.
+
 ---
 
 ## The next five
@@ -220,12 +224,12 @@ reasonable design but it is currently only documented in code.
 
 | Item | Why | Effort |
 |---|---|---|
-| MSRV CI job | `rust-version` is declared but never enforced. | S |
+| ~~MSRV CI job~~ | gone with the Rust; the Node floor is `engines.node` and `setup-node`. | — |
 | End-to-end UI tests against a live engine | The vitest suite mocks the API; a Playwright pass would catch wire-format drift. | M |
 | Conformance tests in CI for packs | The Perl pack is exercised; a general harness keeps the SDK honest. | M |
 | Benchmarks for large files | Catches accidental quadratic behaviour in scan/strip. | S |
 | Docs site | Markdown is fine now; linked HTML with search pays off past ~10 documents. | M |
-| Reproducible release artifacts | Signed binaries, SBOM, and `cargo auditable` metadata. | M |
+| Reproducible release artifacts | Signed artifacts and an SBOM over the npm tree. | M |
 
 ---
 

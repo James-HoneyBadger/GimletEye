@@ -22,7 +22,7 @@
    protocol.
 3. The smallest complete example of each kind of tool:
    - TypeScript: `packages/core/src/tools/disk-usage.ts`
-   - Rust: `crates/crypto/src/hash.rs`
+   - engine: `packages/engine/src/signing.ts`
 4. `ADR 0008` before proposing a new surface or a new extension point.
 
 ## Conventions

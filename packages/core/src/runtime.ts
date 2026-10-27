@@ -72,7 +72,17 @@ export class Runtime {
       registry.register(tool.manifest);
     }
 
-    const sidecar = await Sidecar.open(host);
+    // The engine is optional. Every tool is built in, so a missing engine is a
+    // supported install, not a broken one — but a present engine that speaks the
+    // wrong protocol is still an error, because that is a real mismatch.
+    let sidecar: Sidecar;
+    try {
+      sidecar = await Sidecar.open(host);
+    } catch (error) {
+      const failure = asGimletError(error);
+      if (failure.code !== 'not_found') throw failure;
+      sidecar = Sidecar.unavailable(failure.message);
+    }
     for (const manifest of await sidecar.list()) {
       if (!registry.get(manifest.id)) registry.register(manifest);
     }

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# End-to-end: the command line against the real engine.
+# End-to-end: the command line against real files.
 #
-# Everything here runs the shipped code path — the CLI resolves a tool, the
-# engine performs it, the report is rendered, and the audit trail records it.
-# If this passes, the two halves of the product agree with each other.
+# Everything here runs the shipped code path — the CLI resolves a tool, the tool
+# performs it, the report is rendered, and the audit trail records it. Nothing is
+# stubbed or imported directly from a test file, which is the point: this is the
+# only check that proves the pieces a user gets agree with each other.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +14,6 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 export GIMLET_HOME="$work/home"
-export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/target/debug/gimlet-sidecar}"
 export NOTES_PASS="smoke-passphrase"
 export KEY_PASS="smoke-key-passphrase"
 
@@ -22,7 +22,6 @@ CLI="$root/packages/cli/bin/gimlet"
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 fail() { printf '\033[31msmoke: %s\033[0m\n' "$*" >&2; exit 1; }
 
-[ -x "$GIMLET_SIDECAR" ] || fail "build the engine first: cargo build -p gimlet-eye-sidecar"
 [ -x "$CLI" ] || fail "build the CLI first: npm run build"
 command -v node >/dev/null || fail "node 20+ is required"
 
@@ -79,7 +78,7 @@ let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
 printf '   keystore ok\n'
 
 step "metadata"
-cp crates/scrub/tests/golden/fixtures/photo-gps.jpg "$work/photo.jpg"
+cp packages/engine/test/fixtures/photo-exif-gps.jpg "$work/photo.jpg"
 "$CLI" metadata-scan input="$work/photo.jpg" >/dev/null
 "$CLI" metadata-strip input="$work/photo.jpg" output="$work/clean.jpg" >/dev/null
 "$CLI" metadata-verify input="$work/clean.jpg" >/dev/null
@@ -87,8 +86,8 @@ printf '   scan, strip, verify ok\n'
 
 step "batch"
 mkdir -p "$work/batch"
-cp crates/scrub/tests/golden/fixtures/photo-gps.jpg "$work/batch/a.jpg"
-cp crates/scrub/tests/golden/fixtures/photo-gps.jpg "$work/batch/b.jpg"
+cp packages/engine/test/fixtures/photo-exif-gps.jpg "$work/batch/a.jpg"
+cp packages/engine/test/fixtures/photo-exif-gps.jpg "$work/batch/b.jpg"
 "$CLI" batch metadata-scan "$work/batch" --fail-fast > "$work/batch.txt"
 grep -q "2 of 2 file(s)" "$work/batch.txt" || fail "batch summary missing"
 printf '   batch ok\n'

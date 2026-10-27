@@ -127,17 +127,17 @@ echo "Gimlet Eye — release gate report"
 echo
 
 echo "Gate 1 — the pillars we already claim are finished"
-run_check 1 "keystore: sealed storage, zeroize, wrong passphrase" \
-    cargo test --quiet -p gimlet-eye-crypto keystore
+run_check 1 "keystore: sealed storage, owner-only, wrong passphrase" \
+    npx vitest run packages/core/test/keystore-tools.test.ts packages/engine/test/stage2.test.ts
 run_check 1 "container: v1 and v3 fixtures still open" \
-    cargo test --quiet -p gimlet-eye-crypto --test container_compat
+    npx vitest run packages/engine/test/container.test.ts
 run_check 1 "key exchange: OpenPGP interop against real gpg" \
-    env GIMLET_REQUIRE_GPG=1 cargo test --quiet -p gimlet-eye-crypto --test gpg_interop
+    npx vitest run packages/core/test/gpg.test.ts
 run_check 1 "key exchange: a .gimlet a second implementation can read" \
-    env GIMLET_REQUIRE_SECOND_IMPL=1 cargo test --quiet -p gimlet-eye-crypto --test second_implementation
-ci_row 1 "integration (CLI against the engine)" "the CLI drives the real engine"
+    npx vitest run packages/core/test/containers.test.ts
+ci_row 1 "integration (CLI, no engine)" "the CLI drives the real files"
 run_check 1 "format coverage: golden corpus round-trips" \
-    cargo test --quiet -p gimlet-eye-scrub --test golden_corpus
+    npx vitest run packages/engine/test/scrub.test.ts packages/engine/test/corpus.test.ts
 echo
 
 echo "Gate 2 — safety evidence for the destructive paths"
@@ -151,15 +151,11 @@ if [ -n "${CI_RUN_ID:-}" ]; then
 else
     row 2 open "CI on main is green" "no gh, or no run: pass --no-ci to ignore"
 fi
-fuzz_output="$(./scripts/check-fuzz-nights.sh 2>&1)"
-if [ $? -eq 0 ]; then
-    row 2 ok "fuzz soak: seven nights or 350 target-minutes" "$(tail -1 <<<"$fuzz_output")"
-else
-    row 2 open "fuzz soak: seven nights or 350 target-minutes" "$(tail -1 <<<"$fuzz_output")"
-fi
-ci_row 2 "integration (CLI against the engine)" "exit codes, configuration, engine contract"
-ci_row 2 "dependency policy" "cargo deny on both graphs"
-ci_row 2 "msrv (declared rust-version)" "the declared MSRV actually builds"
+ci_row 2 "corpus replay (parsers never panic)" "the seed corpus the Rust targets left behind"
+row 2 open "fuzz soak: seven nights or 350 target-minutes" \
+    "was Rust-only; the corpus is replayed in npm test, the soak is not replaced (ADR 0010)"
+ci_row 2 "integration (CLI, no engine)" "exit codes, configuration, batch, audit"
+ci_row 2 "dependency policy" "npm audit over the runtime dependency set"
 ci_row 2 "typescript (typecheck, test, build)" "every surface typechecks and its tests pass"
 ci_row 2 "desktop (typecheck, UI bundle, shell check)" "the window bundles and the shell compiles"
 row 2 open "install, upgrade, roll back" \

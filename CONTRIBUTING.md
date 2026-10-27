@@ -10,23 +10,21 @@ than three without.
 git clone https://github.com/James-HoneyBadger/GimletEye
 cd GimletEye
 
-cargo build --release -p gimlet-eye-sidecar   # the engine
 npm install                                   # CLI + desktop + tests
-npm run build                                 # packages/core and packages/cli
+npm run build                                 # every package and the CLI
 ./packages/cli/bin/gimlet doctor
 ```
 
 `./run.sh --cli system-info` builds whatever is out of date first, if you would
 rather not think about the order.
 
-Requirements: Rust 1.85+ and Node 20+. `gpg` is only needed for the OpenPGP
-interop tools.
+Requirements: Node 20+. `gpg` is only needed for the OpenPGP interop tools.
 
 ## Before you push
 
 ```bash
-make check        # cargo fmt --check, clippy -D warnings, tsc, cargo test, vitest
-make smoke        # the CLI against the real engine
+make check        # tsc, vitest, and the documentation gates
+make smoke        # the CLI against real files
 ```
 
 `make check` is what CI runs. A pull request that fails it will not be reviewed
@@ -47,17 +45,18 @@ Two rules decide most placement questions:
 
 1. **The surfaces hold no logic.** If both the CLI and the window need it, it
    belongs in `packages/core`.
-2. **Risk follows the evidence.** Crypto and format parsing stay in Rust because
-   that is where the fuzz corpora, the fixtures, and the second implementation
-   live. Moving them to TypeScript means rebuilding that evidence, not just
-   translating the code.
+2. **Risk follows the evidence.** Crypto and format parsing live in
+   `packages/engine`, next to the fixtures, the corpus, and the Python second
+   implementation that pin them. A change there has to keep those passing; the
+   evidence is the point, not the language.
 
 ## Adding a tool
 
-A host-inspection tool is a `LocalTool` in `packages/core/src/tools`, registered
-in `Runtime.load`. An engine tool is a `Tool` in `crates/crypto` or
-`crates/scrub`, added to that crate's `tools()`; both surfaces pick it up from
-the catalogue at start, so there is no frontend change either way.
+A tool is a `LocalTool` in `packages/core/src/tools`, and it must be added to
+`NODE_TOOLS` in `packages/core/src/node.ts` — a tool that is written but not
+listed keeps resolving to whatever else serves that id, which
+`node-tools.test.ts` exists to catch. Both surfaces pick it up from the
+catalogue at start, so there is no frontend change either way.
 [ARCHITECTURE.md](docs/ARCHITECTURE.md) §8 has the details.
 
 Either way: give the manifest a summary worth reading, and add a test at the
@@ -65,8 +64,6 @@ level where the behaviour lives.
 
 ## Style
 
-- Rust: `cargo fmt`, no `unsafe` (the workspace forbids it), and clippy warnings
-  are errors.
 - TypeScript: `strict`, and no new runtime dependency without a reason in the
   pull request — the CLI has exactly one.
 - Comments explain *why*. A comment that restates the line is noise.
@@ -85,11 +82,10 @@ the same change that updates the ruleset. The current set:
 
 | Required check | What it proves |
 |---|---|
-| `rust (fmt, clippy, test)` | formatting, lints, and the engine's tests |
-| `msrv (declared rust-version)` | the promised minimum still compiles |
 | `quiet period (frozen surfaces)` | no versioned surface moved (see below) |
 | `typescript (typecheck, test, build)` | the shared core, the CLI, and the UI |
-| `integration (CLI against the engine)` | the two halves agree, end to end |
+| `integration (CLI, no engine)` | the whole command line works, end to end |
+| `corpus replay (parsers never panic)` | the saved fuzz inputs still behave |
 | `docs (claims, surface, reference)` | the docs still describe this build |
 | `desktop (typecheck, UI bundle, shell check)` | the window builds |
 | `packaging (version agreement, staged layout)` | a package runs after install |

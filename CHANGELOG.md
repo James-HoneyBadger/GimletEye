@@ -6,6 +6,28 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Removed
+
+- **Rust is gone.** The engine — the `.gimlet` container, key handling, signing,
+  the sealed keystore, passphrase generation, and the JPEG/PNG/WebP metadata
+  parser and scrubber — is TypeScript in `packages/engine`, and `crates/`, both
+  Cargo manifests, `rust-toolchain.toml`, `rustfmt.toml`, the two `deny.toml`
+  files, the `rust`, `msrv`, and `dependency-policy` CI jobs, and the fuzz
+  workflow are deleted. A checkout needs Node and nothing else; `gimlet tools
+  list` answers without any second binary on the machine.
+
+  The format did not move with the language. Files written by 0.2.0 and 0.5.0
+  still open, a container this build writes is still read by the Python
+  implementation written from `docs/CONTAINER.md` alone, and the metadata scrub
+  still reproduces the golden corpus byte for byte. Both remaining engine tools
+  were ported last — OpenPGP interop, checked against a real `gpg`, and GPS
+  redaction, where 33 runs over every image fixture at all three precisions
+  produced byte-identical files from the old and new implementations.
+
+  Two things were lost with the Rust and are recorded rather than glossed over:
+  the nightly fuzz soak (the seed corpus it saved is replayed on every test run
+  instead, but fuzzing is not a test suite), and `zeroize`. ADR 0010 has both.
+
 ### Security
 
 - **The dev toolchain no longer carries known vulnerabilities.** `npm audit`

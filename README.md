@@ -38,11 +38,11 @@ telemetry, no auto-update, and no remote logging.
                     ├─ catalogue · report ─┤
                     │  config · audit      │
                     └──────────┬───────────┘
-                               │ one line of JSON per request
+                               │ in-process calls, no boundary
                     ┌──────────┴───────────┐
-                    │    gimlet-sidecar    │
+                    │    packages/engine   │
                     │  crypto + metadata   │
-                    │  (Rust, fuzz-tested) │
+                    │      (TypeScript)    │
                     └──────────────────────┘
 ```
 
@@ -53,16 +53,16 @@ Three rules keep it maintainable:
    app and the CLI are thin hosts around it, so a behaviour cannot differ between
    them.
 2. **One implementation of the risky parts.** Cryptography and file-format
-   parsing live in one Rust engine with the fuzz corpora, the golden fixtures, and
-   a second implementation in Python that pins the container format. It is spawned
-   by both surfaces and speaks a versioned protocol — it is not an extension
-   point.
+   parsing live in one engine package with the fuzz corpora, the golden fixtures,
+   and a second implementation in Python that pins the container format. Both
+   surfaces import it directly; there is no second process to keep in step, and
+   no way for the two to disagree.
 3. **Surfaces hold no logic.** They render a catalogue, run a tool, and draw a
    `Report`.
 
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and the
-trade-offs behind it, and [ADR 0008](docs/adr/0008-typescript-surfaces-rust-engine.md)
-for why the surfaces moved out of Rust.
+trade-offs behind it, and [ADR 0010](docs/adr/0010-retire-rust.md) for how the
+last of the Rust left the tree.
 
 ## Interface
 
@@ -109,7 +109,6 @@ From a checkout:
 Or by hand:
 
 ```bash
-cargo build --release -p gimlet-eye-sidecar
 npm install && npm run build
 node packages/cli/bin/gimlet tools list
 node packages/cli/bin/gimlet system-info
@@ -156,10 +155,11 @@ the batch still runs unless `--fail-fast` is given.
 | Report as one self-contained page (`--format html`) | ✅ |
 | Desktop app (Electron): catalogue, generated forms, reports, history | ✅ |
 | `sysadmin.system-info`, `sysadmin.disk-usage`, `sysadmin.kernel-hardening`, `sysadmin.network` | ✅ TypeScript |
-| `crypto.*`, `privacy.metadata-*` | ✅ Rust engine |
-| Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ Rust engine |
-| Sealed keystore (`crypto.key-*`), X25519 recipients in container v3 | ✅ Rust engine |
-| OpenPGP interop (`crypto.gpg-verify`, `crypto.gpg-encrypt`) via system `gpg` | ✅ Rust engine |
+| `crypto.*`, `privacy.metadata-*` | ✅ TypeScript |
+| Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ TypeScript |
+| Sealed keystore (`crypto.key-*`), X25519 recipients in container v3 | ✅ TypeScript |
+| GPS redaction to country, region, or city precision | ✅ TypeScript |
+| OpenPGP interop (`crypto.gpg-verify`, `crypto.gpg-encrypt`) via system `gpg` | ✅ TypeScript |
 | Secret sharing, shredding, QR | ⏳ roadmap |
 | HEIC, AVIF, TIFF, PDF, MP4, RAW, GIF, SVG | ⏳ roadmap |
 | WASM target, scheduler | ⏳ roadmap |
@@ -171,15 +171,10 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for acceptance criteria and
 
 ```
 packages/
-  core/       catalogue, report contract, args, config, audit, sidecar client (TS)
-  engine/     the .gimlet container in TypeScript — ADR 0010 stage 1
+  core/       catalogue, report, args, config, audit, and the tools themselves
+  engine/     the .gimlet container, keys, keystore, signing, and the metadata scrub
   cli/        `gimlet` — a Node CLI over packages/core
 apps/desktop/ Electron shell (TS) + frontend; the main process owns the OS boundary
-crates/
-  core/       contracts the engine needs: report, manifest, args, config, paths
-  crypto/     cryptographic tools + the CryptoBackend seam
-  scrub/      metadata inspection, redaction, removal
-  sidecar/    `gimlet-sidecar`: the engine both surfaces spawn
 docs/         architecture, compatibility, roadmap, ADRs
 scripts/      developer tooling
 ```
@@ -187,16 +182,15 @@ scripts/      developer tooling
 ## Development
 
 ```bash
-make check         # fmt, clippy, type-check, and every test suite
-make test          # engine (cargo) and TypeScript (vitest) suites
-make build         # engine, CLI, and the UI bundle
+make check         # type-check, every test suite, and the documentation gates
+make test          # the vitest suites
+make build         # every package and the UI bundle
 make desktop       # the desktop app for this platform
-make smoke         # end-to-end: CLI against the real engine
+make smoke         # end-to-end: the CLI against real files
 make doctor
 ```
 
-Requirements: Rust 1.85+ (engine), Node 20+ (CLI and desktop), and `gpg` only if
-you use `crypto.gpg-*`.
+Requirements: Node 20+, and `gpg` only if you use `crypto.gpg-*`.
 
 ## Documentation
 

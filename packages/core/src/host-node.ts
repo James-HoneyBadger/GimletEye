@@ -127,12 +127,13 @@ function execOnce(program: string, args: readonly string[]): Promise<ExecResult>
  * `GIMLET_SIDECAR` wins, then the install layout, then the build tree, then
  * `PATH`.
  *
- * The install layout is found from *this module*, not from `process.execPath`:
- * a packaged CLI runs as `/usr/bin/node /usr/lib/gimlet/cli/main.js`, so the
- * directory holding `node` says nothing about where the engine is. The layout a
- * package creates is:
+ * This only matters for the optional engine: every tool is built in, so an
+ * install with no `gimlet-sidecar` anywhere is normal and complete. The install
+ * layout is found from *this module*, not from `process.execPath`: a packaged CLI
+ * runs as `/usr/bin/node /usr/lib/gimlet/cli/main.js`, so the directory holding
+ * `node` says nothing about where an engine would be:
  *
- *     /usr/lib/gimlet/gimlet-sidecar
+ *     /usr/lib/gimlet/gimlet-sidecar           (optional)
  *     /usr/lib/gimlet/core/dist/host-node.js   <- this file
  *     /usr/bin/gimlet -> ../lib/gimlet/bin/gimlet
  */
@@ -210,7 +211,7 @@ function spawnEngine(): Promise<EngineTransport> {
       if (error.code === 'ENOENT') {
         reject(
           notFound(
-            `engine not found at ${binary}. Build it with \`cargo build -p gimlet-eye-sidecar\` or set GIMLET_SIDECAR.`,
+            `no engine at ${binary}; every tool is built in, so this is only needed to compare against a separate engine`,
           ),
         );
         return;
@@ -274,6 +275,10 @@ function spawnEngine(): Promise<EngineTransport> {
         child.kill();
       },
     };
-    resolve(transport);
+
+    // Resolving here, at the end of the executor, would hand back a transport
+    // whose process never started: the `error` event fires afterwards and the
+    // first request would report "the engine exited" instead of "no engine".
+    child.on('spawn', () => resolve(transport));
   });
 }

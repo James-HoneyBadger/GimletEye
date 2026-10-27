@@ -42,7 +42,7 @@ if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
     exit 0
 fi
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+version="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
 next="${version%.*}.$(( ${version##*.} + 1 ))"
 echo "old = $version, new = $next"
 
@@ -58,20 +58,35 @@ for kind in old new; do
         --exclude=dist --exclude=external --exclude=test-results \
         -cf - . | tar -xf - -C "$work/$kind"
 done
-python3 - "$work/new/Cargo.toml" "$work/new/debian/changelog" "$next" <<'PY'
-import re, sys
-manifest, changelog, next_version = sys.argv[1], sys.argv[2], sys.argv[3]
-text = open(manifest).read()
-text = re.sub(r'^version = ".*"$', f'version = "{next_version}"', text, count=1, flags=re.M)
-open(manifest, 'w').write(text)
-log = open(changelog).read()
-log = re.sub(r'^gimlet-eye-toolkit \([^)]*\)', f'gimlet-eye-toolkit ({next_version})', log, count=1, flags=re.M)
-open(changelog, 'w').write(log)
+# The version lives in one constant; the npm manifests copy it for their own
+# benefit, and the packaging files are checked against it.
+python3 - "$work/new" "$next" <<'PY'
+import json, pathlib, re, sys
+root, next_version = pathlib.Path(sys.argv[1]), sys.argv[2]
+
+constant = root / "packages/core/src/version.ts"
+constant.write_text(re.sub(r"^export const VERSION = '.*';$",
+                           f"export const VERSION = '{next_version}';",
+                           constant.read_text(), count=1, flags=re.M))
+
+for manifest in ["packages/cli/package.json", "packages/core/package.json",
+                 "packages/engine/package.json", "apps/desktop/package.json"]:
+    path = root / manifest
+    data = json.loads(path.read_text())
+    data["version"] = next_version
+    path.write_text(json.dumps(data, indent=2) + "\n")
+
+changelog = root / "debian/changelog"
+changelog.write_text(re.sub(r'^gimlet-eye-toolkit \([^)]*\)',
+                            f'gimlet-eye-toolkit ({next_version})',
+                            changelog.read_text(), count=1, flags=re.M))
+
+for recipe, pattern in [("packaging/arch/PKGBUILD", r'^pkgver=.*$'),
+                        ("packaging/fedora/gimlet-eye-toolkit.spec", r'^Version: .*$')]:
+    path = root / recipe
+    replacement = "pkgver=" + next_version if recipe.endswith("PKGBUILD") else "Version:        " + next_version
+    path.write_text(re.sub(pattern, replacement, path.read_text(), count=1, flags=re.M))
 PY
-# The bumped version is in Cargo.toml, so the lock file has to name it too or
-# `--locked` (correctly) refuses to build. The refresh happens inside the build
-# container, which has a warm registry and network; a CI runner's cargo cache is
-# empty, so doing it here would fail on a cold machine.
 for kind in old new; do
     rm -rf "$work/$kind/packaging/arch" # makepkg is irrelevant inside Debian
 done
@@ -82,20 +97,13 @@ step "build the packages"
 docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
     apt-get update -qq
     apt-get install -y -qq build-essential debhelper curl ca-certificates >/dev/null
-    curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable >/dev/null
-    . "$HOME/.cargo/env"
-    # The CLI is TypeScript: the package build needs Node 20 and npm.
+    # The package is TypeScript: the build needs Node 20 and npm, and nothing else.
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null
     apt-get install -y -qq nodejs >/dev/null
     for kind in old new; do
         cd "/w/$kind"
-        # Only the bumped tree needs its lock refreshed, and only for the
-        # workspace members whose version changed.
-        if [ "$kind" = new ]; then cargo update --workspace -q; fi
-        # `-d` skips the build-dependency check on purpose: the Debian archive
-        # ships a rustc older than this project MSRV, so the build uses rustup.
-        # The control file still names cargo and rustc, which is what a
-        # distribution build with a new enough toolchain needs.
+        # `-d` skips the build-dependency check on purpose: the container
+        # installs the toolchain by hand rather than through apt.
         dpkg-buildpackage -b -uc -us -d >/tmp/$kind.log 2>&1 || { tail -30 /tmp/$kind.log; exit 1; }
         # `gimlet_*.deb` is the binary package; a `-dbgsym` build is not it.
         mv /w/gimlet_[0-9]*.deb "/w/$kind.deb"

@@ -228,8 +228,11 @@ async function doctor(runtime: Runtime): Promise<number> {
     writeLine(`  ${category.padEnd(12)} ${count}`);
   }
 
-  writeLine(`engine      v${runtime.engineVersion}`);
-  writeLine(`  verified  crypto + metadata tools run in the Rust engine`);
+  if (runtime.engineVersion === 'none') {
+    writeLine('engine      built in (every tool runs in this process)');
+  } else {
+    writeLine(`engine      v${runtime.engineVersion} (optional; used for tool ids this build lacks)`);
+  }
 
   if (runtime.config.audit.enabled) {
     const entries = await runtime.audit.readAll();

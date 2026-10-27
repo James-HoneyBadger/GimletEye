@@ -190,6 +190,6 @@ every outcome.
 | Symptom | Cause |
 |---|---|
 | `unsupported: … runs on linux, this is macos` | the tool declared `platforms`; it reads `/proc` or `df` |
-| `engine not found at …` | the CLI cannot find `gimlet-sidecar`; keep it beside the CLI or set `GIMLET_SIDECAR` |
-| `the engine speaks protocol N` | the CLI and the engine came from different builds; rebuild both |
+| `no engine at …` | a tool that is not built in needed the optional engine; the standard install has every tool built in |
+| `the engine speaks protocol N` | the optional engine you pointed at came from a different build; rebuild it or unset `GIMLET_SIDECAR` |
 | `unsupported: unrecognised container` | JPEG, PNG, and WebP are supported; another format is refused rather than guessed |

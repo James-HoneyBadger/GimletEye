@@ -3,6 +3,11 @@
 Each milestone is a shippable increment. Every item has an acceptance
 criterion so "done" is not a matter of opinion.
 
+> **The Rust era is history.** [ADR 0010](adr/0010-retire-rust.md) moved the
+> engine to TypeScript and deleted `crates/`. Items below that name a crate, a
+> `cargo` command, or an MSRV describe what was done *at the time* and are kept
+> as a record; where an item is still open, the note says what it became.
+
 ## Path to 1.0
 
 [ADR 0006](adr/0006-what-1.0-promises.md) decides *what* 1.0 promises; this is
@@ -415,8 +420,9 @@ minor without a breaking change.
 - Native ports of `FailedLoginDetector`, `FilePermissions`, `UserAudit` — the
   pack already serves them behind the same manifest.
 - `automation` module: scheduled runs, dry-run default, cron or systemd backend.
-- `crates/wasm`: browser-safe tools (scan/strip, hash, passgen).
-- TUI (`gimlet tui`) for terminals.
+- A browser-safe subset of `packages/engine` for a web build (scan/strip, hash,
+  passgen); the barrel is already free of `node:*`, so the work is the primitives.
+- ~~TUI (`gimlet tui`) for terminals~~ — shipped.
 - Windows and macOS parity for the `/proc`- and `df`-based sysadmin tools.
 - Random access into a large `.gimlet` container (today a seek means decrypting
   from the start).

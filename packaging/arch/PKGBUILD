@@ -11,16 +11,13 @@ arch=('x86_64' 'aarch64')
 url="https://github.com/James-HoneyBadger/GimletEye"
 license=('MIT')
 depends=('gcc-libs' 'nodejs>=20')
-makedepends=('cargo' 'rust' 'npm')
+makedepends=('npm')
 optdepends=('gnupg: OpenPGP interop (crypto.gpg-*)')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
     cd "$pkgname-$pkgver"
-    export CARGO_INCREMENTAL=0
-    export RUSTFLAGS="--remap-path-prefix=$srcdir/$pkgname-$pkgver=."
-    cargo build --release --locked -p gimlet-eye-sidecar
     npm ci
     npm run build
 }

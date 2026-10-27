@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The three packaging files must name the version the binary actually reports.
+# The packaging files must name the version the CLI actually reports.
 #
 # A release that ships a PKGBUILD or a .spec with a stale version produces a
 # package whose name lies about its contents, and it is the kind of drift that
@@ -9,13 +9,26 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
+# The version has one home: the constant the CLI prints. `packages/*/package.json`
+# copies it for npm's benefit, and this reads the real one.
+version="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
 if [ -z "$version" ]; then
-    echo "no version in [workspace.package] of Cargo.toml" >&2
+    echo "no version in packages/core/src/version.ts" >&2
     exit 1
 fi
 
 fail=0
+
+# The private workspace root declares no version of its own, so only the
+# published packages are compared.
+for manifest in packages/cli/package.json packages/core/package.json \
+                packages/engine/package.json apps/desktop/package.json; do
+    declared="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "$manifest" | head -1)"
+    if [ "$declared" != "$version" ]; then
+        printf 'STALE   %s: %s (version.ts says %s)\n' "$manifest" "${declared:-<none>}" "$version" >&2
+        fail=1
+    fi
+done
 
 check() {
     local file="$1" pattern="$2" found
@@ -26,7 +39,7 @@ check() {
     fi
     found="$(sed -n "$pattern" "$file" | head -1)"
     if [ "$found" != "$version" ]; then
-        printf 'STALE   %s: %s (Cargo.toml says %s)\n' "$file" "${found:-<none>}" "$version" >&2
+        printf 'STALE   %s: %s (version.ts says %s)\n' "$file" "${found:-<none>}" "$version" >&2
         fail=1
     else
         printf 'ok      %s %s\n' "$file" "$found"
@@ -55,9 +68,10 @@ done
 if [ "$fail" -ne 0 ]; then
     cat >&2 <<EOF
 
-Packaging is out of step with the workspace version ($version).
+Packaging is out of step with the product version ($version).
 
-Update the version in every file above in the same commit that bumps Cargo.toml.
+Update the version in every file above in the same commit that bumps
+packages/core/src/version.ts.
 EOF
     exit 1
 fi

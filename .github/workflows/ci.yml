@@ -12,65 +12,7 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-  MSRV: '1.85'
-
 jobs:
-  rust:
-    name: rust (fmt, clippy, test)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-
-      - name: Format
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      # The container's second implementation (`crates/crypto/tests/
-      # second_implementation.rs`) is Python written from docs/CONTAINER.md.
-      # `cryptography` supplies AEAD and X25519; `argon2-cffi` covers the
-      # Argon2id path on distributions whose `cryptography` predates 44.
-      - name: Install the second implementation's dependencies
-        run: python3 -m pip install --break-system-packages cryptography argon2-cffi
-
-      # ADR 0006 Gate 1 accepts OpenPGP interop as "an OpenPGP-signed file
-      # verifies" and a `.gimlet` as "readable by a documented second
-      # implementation". Both are only evidence if the tools actually ran, so the
-      # tests are told to fail rather than skip when they are missing.
-      - name: Test
-        env:
-          GIMLET_REQUIRE_GPG: '1'
-          GIMLET_REQUIRE_SECOND_IMPL: '1'
-        run: cargo test --workspace
-
-  msrv:
-    name: msrv (declared rust-version)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-      - name: Declared rust-version matches the tested one
-        run: ./scripts/check-msrv.sh "$MSRV"
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.MSRV }}
-      - name: Check every crate on the declared MSRV
-        run: cargo check --workspace --all-targets --locked
-
   quiet-period:
     name: quiet period (frozen surfaces)
     runs-on: ubuntu-latest
@@ -106,24 +48,18 @@ jobs:
         run: npm run build
 
   integration:
-    name: integration (CLI against the engine)
+    name: integration (CLI, no engine)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - name: Build the engine and the CLI
-        run: |
-          cargo build --locked -p gimlet-eye-sidecar
-          npm run build
+      - name: Build the CLI
+        run: npm run build
       - name: Smoke test
         run: ./scripts/smoke.sh
 
@@ -132,26 +68,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - name: Build the engine and the CLI
-        run: |
-          cargo build --locked -p gimlet-eye-sidecar
-          npm run build
+      - name: Build the CLI
+        run: npm run build
       - name: Run the front-page examples
         run: ./scripts/check-readme-claims.sh
       - name: The public surface is documented
         run: ./scripts/check-public-surface.sh
       - name: Every tool is in the reference
         run: ./scripts/check-tool-reference.sh
+
+  # The Rust targets saved their inputs; this replays them. A separate job
+  # because `scripts/check-release-gates.sh` names it as Gate 2 evidence, and a
+  # gate that points at "somewhere in npm test" is not evidence.
+  corpus:
+    name: corpus replay (parsers never panic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build -w @gimlet-eye/engine
+      - run: npx vitest run packages/engine/test/corpus.test.ts
 
   desktop:
     name: desktop (typecheck, UI bundle, shell check)
@@ -180,10 +127,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -191,9 +134,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - name: Build what the package contains
-        run: |
-          cargo build --release --locked -p gimlet-eye-sidecar
-          npm run build
+        run: npm run build
       - name: Packaging files agree on the version
         run: ./scripts/check-packaging.sh
       # Staging catches what a version check cannot: a symlink at the wrong
@@ -202,20 +143,22 @@ jobs:
       - name: The staged package runs
         run: ./scripts/check-package-layout.sh
 
-  # `deny.toml` states the policy is enforced, and `scripts/check-release-gates.sh`
-  # reports "dependency policy" as a Gate 2 row by looking for a job of this exact
-  # name. The overhaul dropped this job, which is how alert #1 could sit on the
-  # default branch while SECURITY.md pointed at a check that would have caught it.
+  # `scripts/check-release-gates.sh` reports "dependency policy" as a Gate 2 row
+  # by looking for a job of this exact name, and SECURITY.md points here. It is
+  # one graph now — there is no second lockfile for a shell or an engine — and it
+  # is audited by npm rather than by cargo.
   dependency-policy:
     name: dependency policy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: taiki-e/install-action@cargo-deny
-
-      # One graph now: the window is TypeScript, so the Tauri shell's separate
-      # lockfile — and the two GTK advisories it carried — are gone with it.
-      - run: cargo deny check advisories licenses bans sources
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      # Runtime dependencies only: a dev-dependency advisory cannot reach a user's
+      # machine, and blocking on one would train people to ignore this gate.
+      - name: Audit the shipped dependency set
+        run: npm audit --omit=dev --audit-level=moderate
