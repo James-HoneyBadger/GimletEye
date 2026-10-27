@@ -1,4 +1,4 @@
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 
 use crate::format::{Format, FormatHandler, ScanResult, Segment, SegmentCategory};
 
@@ -20,7 +20,7 @@ impl FormatHandler for PngHandler {
 
     fn scan(&self, bytes: &[u8]) -> Result<ScanResult> {
         if !bytes.starts_with(&SIGNATURE) {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "not a PNG (bad signature)".into(),
             ));
         }
@@ -36,7 +36,7 @@ impl FormatHandler for PngHandler {
             let kind = String::from_utf8_lossy(&bytes[pos + 4..pos + 8]).to_string();
             let total = 12 + length;
             if pos + total > bytes.len() {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "malformed PNG: truncated '{kind}' chunk at offset {pos}"
                 )));
             }
@@ -54,7 +54,7 @@ impl FormatHandler for PngHandler {
         }
 
         if segments.is_empty() {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "malformed PNG: no chunks found".into(),
             ));
         }

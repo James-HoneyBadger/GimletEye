@@ -1,4 +1,4 @@
-//! Mellivora ToolKit — core contracts.
+//! Gimlet Eye — core contracts.
 //!
 //! Every capability in the toolkit, whether it lives in a Rust module or in a
 //! pack written in any language, is expressed as a [`Tool`] that returns a
@@ -19,7 +19,7 @@ pub mod util;
 
 pub use audit::{AuditEntry, AuditLog};
 pub use config::{Config, Defaults, PluginSettings};
-pub use error::{MellivoraError, Result};
+pub use error::{GimletEyeError, Result};
 pub use paths::AppPaths;
 pub use plugin::{PackFailure, PackManifest, PackSummary, PluginHost, PluginTool};
 pub use registry::{similarity, Registry};

@@ -26,7 +26,7 @@ function packsBody(state: AppState): string {
       <p class="muted">No packs are loaded. Every tool listed is native.</p>
       <p class="muted">Packs add capabilities written in any language:
         <code>scripts/link-sources.sh</code> fetches the compatibility sources,
-        then <code>mellivora plugins doctor</code> reports what loaded.</p>`;
+        then <code>gimlet plugins doctor</code> reports what loaded.</p>`;
   }
 
   return `

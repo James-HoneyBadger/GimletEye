@@ -1,13 +1,13 @@
 # Security policy
 
-Mellivora ToolKit handles credentials, private keys, and files that people
+Gimlet Eye handles credentials, private keys, and files that people
 expect to be deleted. Two rules follow: nothing leaves the machine, and nothing
 sensitive is written down.
 
 ## Reporting a vulnerability
 
 Open a private security advisory on
-[GitHub](https://github.com/James-HoneyBadger/Mellivora_ToolKit/security/advisories/new)
+[GitHub](https://github.com/James-HoneyBadger/GimletEye/security/advisories/new)
 rather than a public issue. Include the tool id, the input, and the expected
 versus actual behaviour. Please do not include real credentials in a report.
 
@@ -16,12 +16,12 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Data | Where it goes |
 |---|---|
 | Tool input files | Read locally; written only to the path you specify |
-| Passwords, keys | Never logged, never audited, never placed in `summary` or `data`; the keystore is a sealed `.melv` file with mode 0600 |
-| Keystore (`keystore.melv`) | Argon2id → AEAD, so a wrong passphrase fails before any JSON is parsed; rotation re-seals the document and does not touch key material |
+| Passwords, keys | Never logged, never audited, never placed in `summary` or `data`; the keystore is a sealed `.gimlet` file with mode 0600 |
+| Keystore (`keystore.gimlet`) | Argon2id → AEAD, so a wrong passphrase fails before any JSON is parsed; rotation re-seals the document and does not touch key material |
 | Recipient containers (v3) | The recipient list and ephemeral public key are visible in the header; the payload key is wrapped per recipient and the plaintext is not |
 | `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` and are off in a `--no-default-features` build |
-| Audit entries | `$MELLIVORA_HOME/audit.jsonl` — tool, status, duration, argument **names** |
-| API token | `$MELLIVORA_HOME/api-token`, mode 0600, printed once by `serve` so it can be pasted |
+| Audit entries | `$GIMLET_HOME/audit.jsonl` — tool, status, duration, argument **names** |
+| API token | `$GIMLET_HOME/api-token`, mode 0600, printed once by `serve` so it can be pasted |
 | Network | Only tools that declare `network` may use it |
 | Plugins | Separate processes; see below |
 
@@ -47,7 +47,7 @@ There is no telemetry, no auto-update check, and no remote logging.
 
 ### A hostile container and what it may cost
 
-A `.melv` header carries its own Argon2id parameters, and the format accepts up
+A `.gimlet` header carries its own Argon2id parameters, and the format accepts up
 to 1 GiB of memory and 16 iterations — a peer may legitimately have used strong
 settings, and refusing to open their file would be worse than the wait. The cost
 of honouring those numbers belongs to whoever asks, so `crypto.decrypt` refuses a
@@ -82,10 +82,10 @@ what a container can say, only how much work a stranger can ask for.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel
    data is never re-encoded (which would both degrade quality and risk new
    metadata).
-7. **Authenticated, loopback-only API.** `mellivora serve` binds `127.0.0.1`,
+7. **Authenticated, loopback-only API.** `gimlet serve` binds `127.0.0.1`,
    requires `Authorization: Bearer <token>` on every `/api/` route, and refuses a
    non-loopback bind unless `--allow-remote` is passed. The token is generated on
-   first run into `$MELLIVORA_HOME/api-token` (0600), compared in constant time,
+   first run into `$GIMLET_HOME/api-token` (0600), compared in constant time,
    and never written to a report, a log line, or the audit trail. CORS answers
    only the desktop window, the local dev server, and loopback origins, so a page
    the user visits can neither read nor drive the API.
@@ -105,7 +105,7 @@ what a container can say, only how much work a stranger can ask for.
 - Keys, derived keys, passphrases, and decrypted plaintext are held in
   zeroizing buffers; the secret half of a generated keypair is written with mode
   `0600`.
-- The `.melv` container authenticates its own header, so altering the cipher,
+- The `.gimlet` container authenticates its own header, so altering the cipher,
   the KDF parameters, or the salt fails decryption instead of weakening it.
   KDF parameters are validated *before* key derivation, so a crafted file
   cannot demand unbounded memory.
@@ -141,7 +141,7 @@ untrusted comment: minisign public key 5F87CFD4343B9B84
 RWSEmzs01M+HX6BEgq9OUX4naG53feGQ01VTaT3SP6Xz1VbX4TXU6ojG
 ```
 
-Anything claiming to be a Mellivora ToolKit release and not signed by that key is
+Anything claiming to be a Gimlet Eye release and not signed by that key is
 not one. `scripts/verify-release.sh` uses it by default and fails when the
 signature is missing, when the key does not match, or when any listed file does
 not match its checksum — a partial verification is not a verification.

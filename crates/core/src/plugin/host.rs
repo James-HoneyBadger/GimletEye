@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::error::{MellivoraError, Result};
-use crate::plugin::manifest::{manifest_dirs, PackManifest, MANIFEST_FILENAME};
+use crate::error::{GimletEyeError, Result};
+use crate::plugin::manifest::{find_manifest, manifest_dirs, manifest_path, PackManifest};
 use crate::plugin::protocol::{
     ClientInfo, InitializeResult, ListToolsResult, Request, Response, METHOD_INITIALIZE,
     METHOD_LIST_TOOLS, METHOD_RUN_TOOL, METHOD_SHUTDOWN, PROTOCOL_VERSION,
@@ -18,7 +18,7 @@ use crate::plugin::protocol::{
 use crate::report::Report;
 use crate::tool::{Args, Capability, Tool, ToolContext, ToolManifest};
 
-/// A pack that failed to load, retained so `mellivora doctor` can explain why.
+/// A pack that failed to load, retained so `gimlet doctor` can explain why.
 #[derive(Debug, Clone, Serialize)]
 pub struct PackFailure {
     pub manifest_path: PathBuf,
@@ -72,29 +72,29 @@ impl RunningPack {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
-            .env("MELLIVORA_PROTOCOL_VERSION", PROTOCOL_VERSION.to_string())
-            .env("MELLIVORA_PACK_DIR", &dir);
+            .env("GIMLET_PROTOCOL_VERSION", PROTOCOL_VERSION.to_string())
+            .env("GIMLET_PACK_DIR", &dir);
         for (key, value) in &manifest.env {
             command.env(key, value);
         }
 
         let mut child = command.spawn().map_err(|err| {
-            MellivoraError::Plugin(format!(
+            GimletEyeError::Plugin(format!(
                 "failed to start pack '{}' ({}): {err}",
                 manifest.name, program
             ))
         })?;
 
         let stdout = child.stdout.take().ok_or_else(|| {
-            MellivoraError::Plugin(format!("pack '{}' has no stdout", manifest.name))
+            GimletEyeError::Plugin(format!("pack '{}' has no stdout", manifest.name))
         })?;
         let stdin = child.stdin.take().ok_or_else(|| {
-            MellivoraError::Plugin(format!("pack '{}' has no stdin", manifest.name))
+            GimletEyeError::Plugin(format!("pack '{}' has no stdin", manifest.name))
         })?;
 
         let (sender, responses) = mpsc::channel();
         std::thread::Builder::new()
-            .name(format!("mellivora-pack-{}", manifest.name))
+            .name(format!("gimlet-pack-{}", manifest.name))
             .spawn(move || {
                 for line in BufReader::new(stdout).lines() {
                     let Ok(line) = line else { break };
@@ -123,17 +123,17 @@ impl RunningPack {
     pub fn handshake(&mut self) -> Result<()> {
         let params = json!({
             "protocol_version": PROTOCOL_VERSION,
-            "client": ClientInfo { name: "mellivora".into(), version: crate::VERSION.into() },
+            "client": ClientInfo { name: "gimlet".into(), version: crate::VERSION.into() },
         });
         let result = self.request(METHOD_INITIALIZE, params)?;
         let init: InitializeResult = serde_json::from_value(result).map_err(|err| {
-            MellivoraError::Plugin(format!(
+            GimletEyeError::Plugin(format!(
                 "pack '{}' returned an invalid initialize result: {err}",
                 self.manifest.name
             ))
         })?;
         if init.protocol_version != PROTOCOL_VERSION {
-            return Err(MellivoraError::Plugin(format!(
+            return Err(GimletEyeError::Plugin(format!(
                 "pack '{}' negotiated protocol {}, host speaks {PROTOCOL_VERSION}",
                 self.manifest.name, init.protocol_version
             )));
@@ -141,7 +141,7 @@ impl RunningPack {
 
         let listed = self.request(METHOD_LIST_TOOLS, Value::Null)?;
         let mut tools: ListToolsResult = serde_json::from_value(listed).map_err(|err| {
-            MellivoraError::Plugin(format!(
+            GimletEyeError::Plugin(format!(
                 "pack '{}' returned an invalid tool list: {err}",
                 self.manifest.name
             ))
@@ -163,7 +163,7 @@ impl RunningPack {
         if let Some((tool, capability)) =
             undeclared_capabilities(&self.manifest, &tools.tools).first()
         {
-            return Err(MellivoraError::Plugin(format!(
+            return Err(GimletEyeError::Plugin(format!(
                 "pack '{}' exposes '{tool}' which requests {capability} that its manifest does not declare",
                 self.manifest.name
             )));
@@ -186,15 +186,15 @@ impl RunningPack {
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
-                return Err(MellivoraError::Timeout(self.timeout.as_millis() as u64));
+                return Err(GimletEyeError::Timeout(self.timeout.as_millis() as u64));
             }
             let raw = match self.responses.recv_timeout(remaining) {
                 Ok(raw) => raw,
                 Err(RecvTimeoutError::Timeout) => {
-                    return Err(MellivoraError::Timeout(self.timeout.as_millis() as u64))
+                    return Err(GimletEyeError::Timeout(self.timeout.as_millis() as u64))
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(MellivoraError::Plugin(format!(
+                    return Err(GimletEyeError::Plugin(format!(
                         "pack '{}' exited before answering '{method}'",
                         self.manifest.name
                     )))
@@ -223,13 +223,13 @@ impl RunningPack {
                 continue;
             }
             if let Some(error) = response.error {
-                return Err(MellivoraError::Plugin(format!(
+                return Err(GimletEyeError::Plugin(format!(
                     "pack '{}' error {}: {}",
                     self.manifest.name, error.code, error.message
                 )));
             }
             return response.result.ok_or_else(|| {
-                MellivoraError::Plugin(format!(
+                GimletEyeError::Plugin(format!(
                     "pack '{}' returned neither result nor error for '{method}'",
                     self.manifest.name
                 ))
@@ -320,7 +320,7 @@ impl Tool for PluginTool {
         let mut pack = self
             .pack
             .lock()
-            .map_err(|_| MellivoraError::Internal("plugin host lock poisoned".to_string()))?;
+            .map_err(|_| GimletEyeError::Internal("plugin host lock poisoned".to_string()))?;
 
         // Dispatch needs the pack's own declaration *and* the tool's narrower
         // one to be granted, so `plugins.allow` constrains what the pack as a
@@ -338,7 +338,7 @@ impl Tool for PluginTool {
             }
         }
         if !missing.is_empty() {
-            return Err(MellivoraError::CapabilityDenied(format!(
+            return Err(GimletEyeError::CapabilityDenied(format!(
                 "pack '{}' needs {}",
                 pack.manifest.name,
                 missing
@@ -355,7 +355,7 @@ impl Tool for PluginTool {
         let params = run_tool_params(&self.tool_id, args.as_map(), ctx.dry_run);
         let value = pack.request(METHOD_RUN_TOOL, params)?;
         serde_json::from_value(value).map_err(|err| {
-            MellivoraError::Plugin(format!(
+            GimletEyeError::Plugin(format!(
                 "pack '{}' returned an invalid report: {err}",
                 pack.manifest.name
             ))
@@ -378,7 +378,9 @@ pub fn discover(dirs: &[PathBuf]) -> (Vec<(PathBuf, PackManifest)>, Vec<PackFail
                 continue;
             }
             seen.push(manifest_dir.clone());
-            let path = manifest_dir.join(MANIFEST_FILENAME);
+            let Some(path) = find_manifest(&manifest_dir) else {
+                continue;
+            };
             match PackManifest::load(&path) {
                 Ok(manifest) => found.push((manifest_dir, manifest)),
                 Err(err) => failures.push(PackFailure {
@@ -449,7 +451,7 @@ impl PluginHost {
                 Err(err) => {
                     tracing::warn!(pack_dir = %dir.display(), %err, "pack failed to load");
                     failures.push(PackFailure {
-                        manifest_path: dir.join(MANIFEST_FILENAME),
+                        manifest_path: manifest_path(&dir),
                         error: err.to_string(),
                     });
                 }
@@ -530,8 +532,7 @@ mod tests {
     use std::fs;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("mellivora-host-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-host-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("temp dir");
         dir
@@ -543,7 +544,7 @@ mod tests {
         let pack_dir = dir.join("broken");
         fs::create_dir_all(&pack_dir).expect("pack dir");
         fs::write(
-            pack_dir.join(MANIFEST_FILENAME),
+            pack_dir.join(crate::plugin::manifest::MANIFEST_FILENAME),
             "name = \"\"\nversion = \"1\"\ncommand = []\n",
         )
         .expect("write");
@@ -557,7 +558,7 @@ mod tests {
 
     #[test]
     fn missing_pack_directory_is_not_an_error() {
-        let (found, failures) = discover(&[PathBuf::from("/nonexistent/mellivora/packs")]);
+        let (found, failures) = discover(&[PathBuf::from("/nonexistent/gimlet/packs")]);
         assert!(found.is_empty());
         assert!(failures.is_empty());
     }

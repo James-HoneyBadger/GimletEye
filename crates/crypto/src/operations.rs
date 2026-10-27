@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use mellivora_core::{
-    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Tool,
+use gimlet_eye_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report, Result, Tool,
     ToolContext, ToolManifest,
 };
 use serde_json::{json, Value};
@@ -38,10 +38,10 @@ pub(crate) fn input_arg(help: &str) -> ArgSpec {
 pub(crate) fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
     if let Some(variable) = args.opt_str("passphrase_env")? {
         let value = std::env::var(&variable).map_err(|_| {
-            MellivoraError::InvalidArgs(format!("environment variable '{variable}' is not set"))
+            GimletEyeError::InvalidArgs(format!("environment variable '{variable}' is not set"))
         })?;
         if value.is_empty() {
-            return Err(MellivoraError::InvalidArgs(format!(
+            return Err(GimletEyeError::InvalidArgs(format!(
                 "environment variable '{variable}' is empty"
             )));
         }
@@ -50,19 +50,19 @@ pub(crate) fn passphrase(args: &Args) -> Result<Zeroizing<Vec<u8>>> {
 
     if let Some(value) = args.opt_str("passphrase")? {
         if value.is_empty() {
-            return Err(MellivoraError::InvalidArgs("passphrase is empty".into()));
+            return Err(GimletEyeError::InvalidArgs("passphrase is empty".into()));
         }
         return Ok(Zeroizing::new(value.into_bytes()));
     }
 
-    Err(MellivoraError::InvalidArgs(
+    Err(GimletEyeError::InvalidArgs(
         "provide 'passphrase_env' (preferred) or 'passphrase'".into(),
     ))
 }
 
 pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>> {
     if !path.exists() {
-        return Err(MellivoraError::NotFound(path.display().to_string()));
+        return Err(GimletEyeError::NotFound(path.display().to_string()));
     }
     Ok(fs::read(path)?)
 }
@@ -70,7 +70,7 @@ pub(crate) fn read_file(path: &Path) -> Result<Vec<u8>> {
 /// Refuse to clobber an existing file unless the caller asked for it.
 pub(crate) fn ensure_writable(context: &ToolContext, target: &Path, overwrite: bool) -> Result<()> {
     if !context.dry_run && target.exists() && !overwrite {
-        return Err(MellivoraError::Config(format!(
+        return Err(GimletEyeError::Config(format!(
             "{} already exists (use overwrite=true to replace it)",
             target.display()
         )));
@@ -116,7 +116,7 @@ pub(crate) fn ensure_distinct(input: &Path, target: &Path) -> Result<()> {
         _ => input == target,
     };
     if same {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "output {} is the input file; choose another path",
             target.display()
         )));
@@ -150,22 +150,22 @@ fn resolve_recipients(value: &str) -> Result<Vec<[u8; 32]>> {
         let bytes = if item.len() == 64 && item.chars().all(|c| c.is_ascii_hexdigit()) {
             keys::hex_decode(item)?
                 .try_into()
-                .map_err(|_| MellivoraError::InvalidArgs("recipient key is not 32 bytes".into()))?
+                .map_err(|_| GimletEyeError::InvalidArgs("recipient key is not 32 bytes".into()))?
         } else {
             let path = Path::new(item);
             if !path.is_file() {
-                return Err(MellivoraError::NotFound(format!(
+                return Err(GimletEyeError::NotFound(format!(
                     "recipient key {item} is neither a 64-character hex key nor a file"
                 )));
             }
             let text = String::from_utf8(read_file(path)?)
-                .map_err(|_| MellivoraError::InvalidArgs(format!("key file {item} is not text")))?;
+                .map_err(|_| GimletEyeError::InvalidArgs(format!("key file {item} is not text")))?;
             keys::decode_x25519_public(&text)?
         };
         recipients.push(bytes);
     }
     if recipients.is_empty() {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "provide at least one recipient key with 'to'".into(),
         ));
     }
@@ -178,14 +178,19 @@ fn encrypted_path(input: &Path) -> PathBuf {
 }
 
 fn decrypted_path(input: &Path) -> PathBuf {
-    if input.extension().and_then(|ext| ext.to_str()) == Some(container::EXTENSION) {
+    let extension = input.extension().and_then(|ext| ext.to_str());
+    // A container written before the rename is still a container.
+    if matches!(
+        extension,
+        Some(container::EXTENSION) | Some(container::LEGACY_EXTENSION)
+    ) {
         return input.with_extension("");
     }
     let stem = input.file_stem().unwrap_or_default().to_string_lossy();
     input.with_file_name(format!("{stem}.decrypted"))
 }
 
-/// Encrypt a file into a `.melv` container.
+/// Encrypt a file into a `.gimlet` container.
 pub struct Encrypt {
     manifest: ToolManifest,
     backend: Arc<dyn CryptoBackend>,
@@ -204,7 +209,7 @@ impl Encrypt {
             .with_args([
                 input_arg("File to encrypt"),
                 ArgSpec::new("output", ArgKind::Path)
-                    .help("Destination path (default: <input>.melv)"),
+                    .help("Destination path (default: <input>.gimlet)"),
                 ArgSpec::new(
                     "algorithm",
                     ArgKind::Enum {
@@ -241,7 +246,7 @@ impl Tool for Encrypt {
 
         let input = args.require_path("input")?;
         if !input.is_file() {
-            return Err(MellivoraError::NotFound(input.display().to_string()));
+            return Err(GimletEyeError::NotFound(input.display().to_string()));
         }
         let algorithm = match args.opt_str("algorithm")? {
             Some(value) => AeadAlgorithm::parse(&value)?,
@@ -337,7 +342,7 @@ impl Tool for Encrypt {
     }
 }
 
-/// Decrypt a `.melv` container.
+/// Decrypt a `.gimlet` container.
 pub struct Decrypt {
     manifest: ToolManifest,
     backend: Arc<dyn CryptoBackend>,
@@ -356,7 +361,7 @@ impl Decrypt {
             .with_args([
                 input_arg("Container to decrypt"),
                 ArgSpec::new("output", ArgKind::Path)
-                    .help("Destination path (default: input without the .melv suffix)"),
+                    .help("Destination path (default: input without the .gimlet suffix)"),
                 ArgSpec::new("key", ArgKind::Path).help(
                     "Recipient secret key file (<label>.key); required for version 3 containers",
                 ),
@@ -411,7 +416,7 @@ fn refuse_expensive_header(input: &Path, allow_expensive: bool) -> Result<()> {
         return Ok(());
     };
     if params.m_cost_kib > DEFAULT_KDF_SLACK_KIB || params.t_cost > DEFAULT_KDF_SLACK_ITERATIONS {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "this container asks for {} MiB and {} iteration(s) of Argon2id, more than this tool \
              will spend unasked ({} MiB, {} iteration(s)). Pass allow_expensive=true if you trust \
              the file, or use `crypto.inspect` to see the parameters without decrypting",
@@ -436,7 +441,7 @@ impl Tool for Decrypt {
 
         let input = args.require_path("input")?;
         if !input.is_file() {
-            return Err(MellivoraError::NotFound(input.display().to_string()));
+            return Err(GimletEyeError::NotFound(input.display().to_string()));
         }
         let target = args
             .opt_path("output")?
@@ -444,7 +449,7 @@ impl Tool for Decrypt {
         let recipient = match args.opt_path("key")? {
             Some(path) => {
                 let text = String::from_utf8(read_file(&path)?)
-                    .map_err(|_| MellivoraError::InvalidArgs("key file is not text".into()))?;
+                    .map_err(|_| GimletEyeError::InvalidArgs("key file is not text".into()))?;
                 Some(Zeroizing::new(keys::decode_x25519_secret(&text)?))
             }
             None => None,
@@ -538,7 +543,7 @@ impl Tool for Inspect {
         let started = Instant::now();
         let input = args.require_path("input")?;
         if !input.is_file() {
-            return Err(MellivoraError::NotFound(input.display().to_string()));
+            return Err(GimletEyeError::NotFound(input.display().to_string()));
         }
         let bytes = fs::metadata(&input)?.len();
         let mut file = BufReader::new(File::open(&input)?);
@@ -658,7 +663,7 @@ impl Tool for KeyGen {
 
         let label = args.str_or("label", "default")?;
         if label.contains('/') || label.contains('\\') || label == "." || label == ".." {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "label must be a plain file name".into(),
             ));
         }
@@ -692,7 +697,7 @@ impl Tool for KeyGen {
                 kind,
                 public_key: keys::hex_encode(&public),
                 secret_key: keys::hex_encode(&secret),
-                created_at: mellivora_core::util::now_rfc3339(),
+                created_at: gimlet_eye_core::util::now_rfc3339(),
             })?;
             if !ctx.dry_run {
                 ctx.require(Capability::FsWrite)?;
@@ -734,7 +739,7 @@ impl Tool for KeyGen {
         let secret_path = dir.join(format!("{label}.{}", keys::SECRET_EXTENSION));
         let public_path = dir.join(format!("{label}.{}", keys::PUBLIC_EXTENSION));
         if !overwrite && (secret_path.exists() || public_path.exists()) {
-            return Err(MellivoraError::Config(format!(
+            return Err(GimletEyeError::Config(format!(
                 "{} already exists (use overwrite=true to replace it)",
                 secret_path.display()
             )));
@@ -827,7 +832,7 @@ impl Tool for Sign {
         let bytes = read_file(&input)?;
         let secret = keys::decode_secret(
             &fs::read_to_string(&key_path)
-                .map_err(|_| MellivoraError::NotFound(key_path.display().to_string()))?,
+                .map_err(|_| GimletEyeError::NotFound(key_path.display().to_string()))?,
         )?;
 
         let target = args.opt_path("output")?.unwrap_or_else(|| {
@@ -910,14 +915,14 @@ impl Tool for Verify {
         let bytes = read_file(&input)?;
         let signature_bytes = read_file(&signature_path)?;
         let signature: [u8; 64] = signature_bytes.as_slice().try_into().map_err(|_| {
-            MellivoraError::InvalidArgs(format!(
+            GimletEyeError::InvalidArgs(format!(
                 "{} is not a 64-byte signature",
                 signature_path.display()
             ))
         })?;
         let public = keys::decode_public(
             &fs::read_to_string(&key_path)
-                .map_err(|_| MellivoraError::NotFound(key_path.display().to_string()))?,
+                .map_err(|_| GimletEyeError::NotFound(key_path.display().to_string()))?,
         )?;
 
         self.backend.ed25519_verify(&public, &bytes, &signature)?;
@@ -940,7 +945,7 @@ impl Tool for Verify {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     /// Unique per call, so repeated runs and parallel tests cannot collide.
     fn workspace() -> PathBuf {
@@ -948,7 +953,7 @@ mod tests {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let index = COUNTER.fetch_add(1, Ordering::Relaxed);
         let dir =
-            std::env::temp_dir().join(format!("mellivora-crypto-{}-{index}", std::process::id()));
+            std::env::temp_dir().join(format!("gimlet-eye-crypto-{}-{index}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("dir");
         dir
@@ -973,7 +978,7 @@ mod tests {
         args.insert("passphrase", "correct horse");
         tool(Encrypt::new).run(&context(), &args).expect("encrypt");
 
-        let sealed = dir.join("secret.txt.melv");
+        let sealed = dir.join("secret.txt.gimlet");
         assert!(sealed.exists());
         assert!(!fs::read(&sealed)
             .expect("read")
@@ -1032,7 +1037,7 @@ mod tests {
         let mut decrypt_args = Args::new();
         decrypt_args.insert(
             "input",
-            dir.join("wrong-pass.txt.melv").display().to_string(),
+            dir.join("wrong-pass.txt.gimlet").display().to_string(),
         );
         decrypt_args.insert("output", out.display().to_string());
         decrypt_args.insert("passphrase", "wrong");
@@ -1072,7 +1077,7 @@ mod tests {
         let input = dir.join("env-pass.txt");
         fs::write(&input, b"data").expect("write");
 
-        let variable = "MELLIVORA_TEST_PASSPHRASE";
+        let variable = "GIMLET_TEST_PASSPHRASE";
         std::env::set_var(variable, "from-the-environment");
 
         let mut args = Args::new();
@@ -1081,7 +1086,10 @@ mod tests {
         tool(Encrypt::new).run(&context(), &args).expect("encrypt");
 
         let mut decrypt_args = Args::new();
-        decrypt_args.insert("input", dir.join("env-pass.txt.melv").display().to_string());
+        decrypt_args.insert(
+            "input",
+            dir.join("env-pass.txt.gimlet").display().to_string(),
+        );
         decrypt_args.insert("passphrase_env", variable);
         decrypt_args.insert("overwrite", true);
         tool(Decrypt::new)
@@ -1119,7 +1127,7 @@ mod tests {
             .expect("dry run");
 
         assert_eq!(report.data["dry_run"], Value::Bool(true));
-        assert!(!dir.join("dry.txt.melv").exists());
+        assert!(!dir.join("dry.txt.gimlet").exists());
     }
 
     #[test]
@@ -1135,7 +1143,10 @@ mod tests {
         tool(Encrypt::new).run(&context(), &args).expect("encrypt");
 
         let mut inspect_args = Args::new();
-        inspect_args.insert("input", dir.join("inspect.txt.melv").display().to_string());
+        inspect_args.insert(
+            "input",
+            dir.join("inspect.txt.gimlet").display().to_string(),
+        );
         let report = tool(|_| Inspect::new())
             .run(&context(), &inspect_args)
             .expect("inspect");
@@ -1175,7 +1186,7 @@ mod tests {
         let verified = tool(Verify::new)
             .run(&context(), &verify_args)
             .expect("verify");
-        assert_eq!(verified.status, mellivora_core::Status::Ok);
+        assert_eq!(verified.status, gimlet_eye_core::Status::Ok);
 
         // A changed file must fail verification.
         fs::write(&input, b"agreed, but edited").expect("write");

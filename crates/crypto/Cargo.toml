@@ -1,6 +1,6 @@
 [package]
-name = "mellivora-crypto"
-description = "Cryptographic tools for Mellivora ToolKit"
+name = "gimlet-eye-crypto"
+description = "Cryptographic tools for Gimlet Eye"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,7 +15,7 @@ default = ["openpgp"]
 openpgp = []
 
 [dependencies]
-mellivora-core = { workspace = true }
+gimlet-eye-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rand = { workspace = true }

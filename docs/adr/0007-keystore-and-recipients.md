@@ -27,7 +27,7 @@ and what does a file encrypted *for a recipient* look like on disk?
 
 ## Decision 1 — the keystore is one sealed container
 
-`$MELLIVORA_HOME/keystore.melv` holds a JSON document sealed with the container
+`$GIMLET_HOME/keystore.gimlet` holds a JSON document sealed with the container
 format that already exists (Argon2id → AEAD, chunked framing). Mode 0600, written
 through a temporary file and renamed into place, like every other write this
 toolkit makes.
@@ -162,7 +162,7 @@ Both are RustCrypto/Apache-2.0-or-MIT and both are covered by `deny.toml`:
 - v3 files can only be opened with a key entry, so a recipient must import one.
   `crypto.key-export` of a *public* key is how that is distributed; exporting a
   secret requires an explicit flag.
-- Frozen surfaces grow: `keystore.melv`'s `schema_version` and the v3 header join
+- Frozen surfaces grow: `keystore.gimlet`'s `schema_version` and the v3 header join
   `report.rs`, `protocol.rs`, `config.rs`, and the container constants in the
   quiet-period check. That is the point of doing it now, in the last minor
   allowed to move.

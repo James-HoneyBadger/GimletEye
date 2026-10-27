@@ -123,21 +123,21 @@ ci_row() {
     esac
 }
 
-echo "Mellivora ToolKit — release gate report"
+echo "Gimlet Eye — release gate report"
 echo
 
 echo "Gate 1 — the pillars we already claim are finished"
 run_check 1 "keystore: sealed storage, zeroize, wrong passphrase" \
-    cargo test --quiet -p mellivora-crypto keystore
+    cargo test --quiet -p gimlet-eye-crypto keystore
 run_check 1 "container: v1 and v3 fixtures still open" \
-    cargo test --quiet -p mellivora-crypto --test container_compat
+    cargo test --quiet -p gimlet-eye-crypto --test container_compat
 run_check 1 "key exchange: OpenPGP interop against real gpg" \
-    env MELLIVORA_REQUIRE_GPG=1 cargo test --quiet -p mellivora-crypto --test gpg_interop
-run_check 1 "key exchange: a .melv a second implementation can read" \
-    env MELLIVORA_REQUIRE_SECOND_IMPL=1 cargo test --quiet -p mellivora-crypto --test second_implementation
+    env GIMLET_REQUIRE_GPG=1 cargo test --quiet -p gimlet-eye-crypto --test gpg_interop
+run_check 1 "key exchange: a .gimlet a second implementation can read" \
+    env GIMLET_REQUIRE_SECOND_IMPL=1 cargo test --quiet -p gimlet-eye-crypto --test second_implementation
 ci_row 1 "integration (CLI, API, Perl pack)" "platform contract and pack behaviour"
 run_check 1 "format coverage: golden corpus round-trips" \
-    cargo test --quiet -p mellivora-scrub --test golden_corpus
+    cargo test --quiet -p gimlet-eye-scrub --test golden_corpus
 echo
 
 echo "Gate 2 — safety evidence for the destructive paths"

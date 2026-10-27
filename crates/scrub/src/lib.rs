@@ -18,7 +18,7 @@ pub use tools::{MetadataScan, MetadataStrip, MetadataVerify};
 
 use std::sync::Arc;
 
-use mellivora_core::{Result, Tool};
+use gimlet_eye_core::{Result, Tool};
 
 pub fn tools() -> Result<Vec<Arc<dyn Tool>>> {
     Ok(vec![

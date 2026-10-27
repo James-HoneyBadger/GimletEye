@@ -1,7 +1,7 @@
 use std::fs;
 use std::time::Instant;
 
-use mellivora_core::{
+use gimlet_eye_core::{
     Args, Capability, Category, Report, Result, Severity, Tool, ToolContext, ToolManifest,
 };
 use serde_json::{json, Map, Value};
@@ -167,7 +167,7 @@ impl Tool for SystemInfo {
         }
 
         if data.is_empty() {
-            return Err(mellivora_core::MellivoraError::Unsupported(
+            return Err(gimlet_eye_core::GimletEyeError::Unsupported(
                 "no readable /proc entries; system-info targets Linux".into(),
             ));
         }
@@ -218,16 +218,14 @@ fn round1(value: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     #[test]
     fn runs_on_linux_and_reports_host_data() {
         if !std::path::Path::new("/proc/uptime").exists() {
             return;
         }
-        let ctx = ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-sysinfo"),
-        ));
+        let ctx = ToolContext::new(AppPaths::under(std::env::temp_dir().join("gimlet-sysinfo")));
         let report = SystemInfo::new().run(&ctx, &Args::new()).expect("run");
 
         assert_eq!(report.tool, "sysadmin.system-info");
@@ -239,9 +237,9 @@ mod tests {
     #[test]
     fn missing_capability_is_denied() {
         let ctx = ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-sysinfo2"),
+            std::env::temp_dir().join("gimlet-sysinfo2"),
         ))
-        .with_capabilities(mellivora_core::CapabilitySet::none());
+        .with_capabilities(gimlet_eye_core::CapabilitySet::none());
         let err = SystemInfo::new()
             .run(&ctx, &Args::new())
             .expect_err("denied");

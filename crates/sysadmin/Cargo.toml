@@ -1,6 +1,6 @@
 [package]
-name = "mellivora-sysadmin"
-description = "Linux system administration tools for Mellivora ToolKit"
+name = "gimlet-eye-sysadmin"
+description = "Linux system administration tools for Gimlet Eye"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-mellivora-core = { workspace = true }
+gimlet-eye-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

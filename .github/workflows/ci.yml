@@ -45,13 +45,13 @@ jobs:
         run: python3 -m pip install --break-system-packages cryptography argon2-cffi
 
       # ADR 0006 Gate 1 accepts OpenPGP interop as "an OpenPGP-signed file
-      # verifies" and a `.melv` as "readable by a documented second
+      # verifies" and a `.gimlet` as "readable by a documented second
       # implementation". Both are only evidence if the tools actually ran, so the
       # tests are told to fail rather than skip when they are missing.
       - name: Test
         env:
-          MELLIVORA_REQUIRE_GPG: '1'
-          MELLIVORA_REQUIRE_SECOND_IMPL: '1'
+          GIMLET_REQUIRE_GPG: '1'
+          GIMLET_REQUIRE_SECOND_IMPL: '1'
         run: cargo test --workspace
 
       - name: Build release binaries
@@ -168,7 +168,7 @@ jobs:
       - name: Install the browser
         run: npx playwright install --with-deps chromium
 
-      # Builds the bundle, then drives a real `mellivora serve`: browse ->
+      # Builds the bundle, then drives a real `gimlet serve`: browse ->
       # validate -> run -> read the report, including the token path. The vitest
       # suite mocks the API, so this is the only job that would notice wire drift.
       - name: Run against a live engine
@@ -197,7 +197,7 @@ jobs:
       # catches an accidental quadratic, not a slow runner.
       - name: Measure throughput
         run: |
-          cargo run --release -p mellivora-toolkit --example bench -- --assert-floor-mib 20 \
+          cargo run --release -p gimlet-eye-toolkit --example bench -- --assert-floor-mib 20 \
             | tee bench-results.txt
 
       - uses: actions/upload-artifact@v4
@@ -218,7 +218,7 @@ jobs:
           workspaces: '. -> target'
 
       - name: Build the CLI
-        run: cargo build -p mellivora-cli
+        run: cargo build -p gimlet-eye-cli
 
       # ADR 0006 Gate 5: every capability statement in the README is backed by a
       # test, a CI job, or a command. This runs the commands.
@@ -264,8 +264,8 @@ jobs:
       - name: Collect and inspect the package
         run: |
           mkdir -p dist
-          cp ../mellivora_*.deb dist/
-          deb=$(ls -1 dist/mellivora_*.deb | head -1)
+          cp ../gimlet_*.deb dist/
+          deb=$(ls -1 dist/gimlet_*.deb | head -1)
           echo "built $deb"
           dpkg-deb -c "$deb" | sed -n '1,12p'
           dpkg-deb -f "$deb" Package Version Depends
@@ -274,7 +274,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: deb-package
-          path: dist/mellivora_*.deb
+          path: dist/gimlet_*.deb
           if-no-files-found: error
 
   rehearsal:

@@ -1,4 +1,4 @@
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::formats::{jpeg, png, webp};
@@ -174,7 +174,7 @@ impl RemovalPolicy {
             // Archive keeps everything; pair it with GPS redaction to remove
             // location without losing camera and date information.
             "archive" => Ok(Self::none()),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown profile '{other}' (use privacy, sharing, or archive)"
             ))),
         }
@@ -306,7 +306,7 @@ pub trait FormatHandler {
 /// Resolve a handler or explain precisely what is supported.
 pub fn handler_for(bytes: &[u8]) -> Result<Box<dyn FormatHandler>> {
     Format::detect(bytes).map(Format::handler).ok_or_else(|| {
-        MellivoraError::Unsupported(
+        GimletEyeError::Unsupported(
             "unrecognised container; native support covers JPEG, PNG, and WebP \
              (install a metadata pack for HEIC, AVIF, TIFF, PDF, MP4, RAW, and others)"
                 .to_string(),

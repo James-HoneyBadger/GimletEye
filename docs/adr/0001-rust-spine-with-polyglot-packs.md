@@ -25,7 +25,7 @@ Build a Rust workspace as the single engine, and let other languages join as
 **packs**: separate executables speaking a line-delimited JSON-RPC protocol over
 stdio.
 
-- The Rust crates own the contract (`mellivora-core`), the crypto and privacy
+- The Rust crates own the contract (`gimlet-eye-core`), the crypto and privacy
   primitives, and every performance-critical path.
 - A pack is how a capability ships before it is worth writing in Rust — whether
   that is a contributor's existing library, an adapter around another runtime,
@@ -57,7 +57,7 @@ stdio.
 - One schema (`ToolManifest`, `Report`) is shared by both paths, so a port is a
   new implementation of an existing contract, not a new API.
 - Protocol conformance checklist in [PLUGIN_SDK.md](../PLUGIN_SDK.md).
-- `mellivora plugins doctor` plus a live CI slice catch framing regressions.
+- `gimlet plugins doctor` plus a live CI slice catch framing regressions.
 
 ## Alternatives rejected
 

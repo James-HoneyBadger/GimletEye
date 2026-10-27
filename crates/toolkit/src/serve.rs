@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 
 use crate::Runtime;
 
@@ -9,7 +9,7 @@ fn engine() -> Result<tokio::runtime::Runtime> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .map_err(|err| MellivoraError::Internal(err.to_string()))
+        .map_err(|err| GimletEyeError::Internal(err.to_string()))
 }
 
 /// Serve the API (and optionally the UI) until the process exits.
@@ -21,7 +21,7 @@ pub fn serve_blocking(
     api_token: Option<String>,
 ) -> Result<()> {
     let (state, _packs) = runtime.into_app_state(dry_run, ui_dir, api_token);
-    engine()?.block_on(mellivora_server::serve(state, address))
+    engine()?.block_on(gimlet_eye_server::serve(state, address))
 }
 
 /// Serve on an already-bound listener, which lets a caller discover the port
@@ -38,9 +38,9 @@ pub fn serve_on_listener(
     engine.block_on(async move {
         listener
             .set_nonblocking(true)
-            .map_err(|err| MellivoraError::Io(format!("cannot configure listener: {err}")))?;
+            .map_err(|err| GimletEyeError::Io(format!("cannot configure listener: {err}")))?;
         let listener = tokio::net::TcpListener::from_std(listener)
-            .map_err(|err| MellivoraError::Io(format!("cannot adopt listener: {err}")))?;
-        mellivora_server::serve_listener(state, listener).await
+            .map_err(|err| GimletEyeError::Io(format!("cannot adopt listener: {err}")))?;
+        gimlet_eye_server::serve_listener(state, listener).await
     })
 }

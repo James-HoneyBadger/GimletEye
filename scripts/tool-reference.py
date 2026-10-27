@@ -35,7 +35,7 @@ OUTPUT_LINES = 14
 # entry is refused, so adding a tool means writing down how to show it.
 EXAMPLES: dict[str, list[str]] = {
     "crypto.decrypt": ["input={container}", "passphrase_env=DEMO_PASSPHRASE", "output={work}/decrypted.jpg"],
-    "crypto.encrypt": ["input={fixture}", "output={work}/example.melv", "passphrase_env=DEMO_PASSPHRASE"],
+    "crypto.encrypt": ["input={fixture}", "output={work}/example.gimlet", "passphrase_env=DEMO_PASSPHRASE"],
     "crypto.gpg-encrypt": ["input={fixture}", "recipient={gpg_recipient}", "output={work}/photo.gpg"],
     "crypto.gpg-verify": ["input={fixture}", "signature={gpg_signature}"],
     "crypto.inspect": ["input={container}"],
@@ -126,15 +126,15 @@ def main() -> int:
 
     binary = args.binary
     if binary is None:
-        for candidate in ("target/release/mellivora", "target/debug/mellivora"):
+        for candidate in ("target/release/gimlet", "target/debug/gimlet"):
             if (ROOT / candidate).exists():
                 binary = str(ROOT / candidate)
                 break
     if binary is None:
-        sys.stderr.write("build the CLI first: cargo build -p mellivora-cli\n")
+        sys.stderr.write("build the CLI first: cargo build -p gimlet-eye-cli\n")
         return 2
 
-    work = pathlib.Path(tempfile.mkdtemp(prefix="mellivora-reference-"))
+    work = pathlib.Path(tempfile.mkdtemp(prefix="gimlet-reference-"))
     home = work / "home"
     home.mkdir()
     gnupg = work / "gnupg"
@@ -142,7 +142,7 @@ def main() -> int:
 
     env = {
         **os.environ,
-        "MELLIVORA_HOME": str(home),
+        "GIMLET_HOME": str(home),
         "DEMO_PASSPHRASE": "reference-passphrase",
         "DEMO_NEW_PASSPHRASE": "reference-passphrase-rotated",
         "GNUPGHOME": str(gnupg),
@@ -211,7 +211,7 @@ def main() -> int:
             binary,
             "crypto.encrypt",
             f"input={FIXTURE}",
-            f"output={work}/photo.melv",
+            f"output={work}/photo.gimlet",
             "passphrase_env=DEMO_PASSPHRASE",
         ],
     )
@@ -262,7 +262,7 @@ def main() -> int:
         "fixture": str(FIXTURE),
         "work": str(work),
         "home": str(home),
-        "container": str(work / "photo.melv"),
+        "container": str(work / "photo.gimlet"),
         "gpg_recipient": fingerprint,
         "gpg_signature": str(work / "photo.gpg.sig"),
         "binary": binary,
@@ -304,7 +304,7 @@ def main() -> int:
         for tool in sorted(by_category[category], key=lambda entry: entry["id"]):
             placement = EXAMPLES[tool["id"]]
             arguments = [argument.format(**placeholders) for argument in placement]
-            shown = " ".join(["mellivora", tool["id"], *arguments])
+            shown = " ".join(["gimlet", tool["id"], *arguments])
             code, output = run([binary, tool["id"], *arguments], env, args.timeout)
             body = strip_ansi(output).strip().splitlines()
             keep = body[:OUTPUT_LINES]
@@ -327,7 +327,7 @@ def main() -> int:
                 lines.append(f"… {len(body) - OUTPUT_LINES} more line(s)")
             lines.append("```")
             lines.append("")
-            produced_report = len(body) > 1 and not body[0].startswith("mellivora: ")
+            produced_report = len(body) > 1 and not body[0].startswith("gimlet: ")
             if code != 0 and not produced_report:
                 failed.append(f"{tool['id']} (exit {code})")
 

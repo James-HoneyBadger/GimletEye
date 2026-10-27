@@ -186,7 +186,7 @@ function tokenGate(): string {
     <section class="panel result--idle token-gate">
       <h1 class="tool-name">API token required</h1>
       <p class="muted">This engine was started with <code>[api] require_token</code> on.
-        Paste the token printed by <code>mellivora serve</code>, or the contents of
+        Paste the token printed by <code>gimlet serve</code>, or the contents of
         <code>api-token</code> in the toolkit home.</p>
       <form id="token-form" class="token-form" autocomplete="off">
         <input class="input input--mono" id="api-token-input" name="token" type="password"

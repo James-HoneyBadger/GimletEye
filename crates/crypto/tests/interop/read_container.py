@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""A second implementation of the `.melv` container, written from the spec.
+"""A second implementation of the `.gimlet` container, written from the spec.
 
-ADR 0006 Gate 1 asks that a `.melv` file be "readable by a documented second
+ADR 0006 Gate 1 asks that a `.gimlet` file be "readable by a documented second
 implementation", because a format nobody else can implement is a format that is
 only documented by its own source. This reader is written against
 `docs/CONTAINER.md` alone — it shares no code with the Rust writer — and the test
@@ -13,7 +13,7 @@ Supported: version 1 (whole-file AEAD), version 2 (chunked), version 3
 recipients take `--key-hex`.
 
 Usage:
-  read_melv.py FILE [--passphrase-env VAR | --passphrase VALUE | --key-hex HEX] [-o OUT]
+  read_container.py FILE [--passphrase-env VAR | --passphrase VALUE | --key-hex HEX] [-o OUT]
 
 Prints the plaintext to stdout, or writes it to `-o`. Reports the header it read
 on stderr, so a mismatch is visible rather than silent.
@@ -26,7 +26,9 @@ import os
 import struct
 import sys
 
-MAGIC = b"MELV"
+MAGIC = b"GIML"
+# Containers written before the rename carry the old magic and still open.
+LEGACY_MAGIC = b"MELV"
 TAG_LEN = 16
 NONCE_LEN = 12
 HEADER_LEN = 49
@@ -45,7 +47,7 @@ X25519_HKDF_SHA256 = 3
 
 
 def fail(message: str) -> None:
-    sys.stderr.write(f"read_melv: {message}\n")
+    sys.stderr.write(f"read_container: {message}\n")
     raise SystemExit(2)
 
 
@@ -187,8 +189,8 @@ def unwrap_file_key(cipher, prefix: bytes, secret: bytes) -> tuple[bytes, bytes]
 
 
 def read_container(blob: bytes, passphrase: bytes | None, secret: bytes | None) -> tuple[bytes, dict]:
-    if len(blob) < HEADER_LEN or blob[:4] != MAGIC:
-        fail("not a .melv container: bad magic")
+    if len(blob) < HEADER_LEN or blob[:4] not in (MAGIC, LEGACY_MAGIC):
+        fail("not a .gimlet container: bad magic")
     version, cipher_id, kdf_id, reserved = blob[4], blob[5], blob[6], blob[7]
     if reserved != 0:
         fail("reserved byte is not zero: written by a reader-unknown feature")
@@ -231,7 +233,7 @@ def read_container(blob: bytes, passphrase: bytes | None, secret: bytes | None) 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Read a .melv container without the Rust code.")
+    parser = argparse.ArgumentParser(description="Read a .gimlet container without the Rust code.")
     parser.add_argument("file")
     parser.add_argument("--passphrase")
     parser.add_argument("--passphrase-env")
@@ -257,7 +259,7 @@ def main() -> int:
 
     plaintext, summary = read_container(blob, passphrase, secret)
     fields = " ".join(f"{key}={value}" for key, value in summary.items())
-    sys.stderr.write(f"read_melv: {fields} plaintext={len(plaintext)}\n")
+    sys.stderr.write(f"read_container: {fields} plaintext={len(plaintext)}\n")
 
     if args.out:
         with open(args.out, "wb") as handle:

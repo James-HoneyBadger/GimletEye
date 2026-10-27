@@ -34,17 +34,17 @@ check() {
 }
 
 check packaging/arch/PKGBUILD      's/^pkgver=\(.*\)$/\1/p'
-check packaging/fedora/mellivora-toolkit.spec 's/^Version: *\(.*\)$/\1/p'
-check debian/changelog             's/^mellivora-toolkit (\(.*\)) .*$/\1/p'
+check packaging/fedora/gimlet-eye-toolkit.spec 's/^Version: *\(.*\)$/\1/p'
+check debian/changelog             's/^gimlet-eye-toolkit (\(.*\)) .*$/\1/p'
 
 # The Debian package name and the Arch package name are allowed to differ, but
 # both must install the same binary name - that is what users type.
-grep -q '^Package: mellivora$' debian/control || {
-    echo "debian/control must ship a package named 'mellivora'" >&2
+grep -q '^Package: gimlet$' debian/control || {
+    echo "debian/control must ship a package named 'gimlet'" >&2
     fail=1
 }
-grep -q 'usr/bin/mellivora' debian/rules || {
-    echo "debian/rules must install usr/bin/mellivora" >&2
+grep -q 'usr/bin/gimlet' debian/rules || {
+    echo "debian/rules must install usr/bin/gimlet" >&2
     fail=1
 }
 

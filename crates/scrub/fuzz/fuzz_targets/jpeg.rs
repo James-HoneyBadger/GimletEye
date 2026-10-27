@@ -3,7 +3,7 @@
 //! JPEG: scan, strip everything removable, and re-scan what came out.
 
 use libfuzzer_sys::fuzz_target;
-use mellivora_scrub::{handler_for, Format, RemovalPolicy};
+use gimlet_eye_scrub::{handler_for, Format, RemovalPolicy};
 
 fuzz_target!(|data: &[u8]| {
     if Format::detect(data) != Some(Format::Jpeg) {

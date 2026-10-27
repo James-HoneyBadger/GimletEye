@@ -9,8 +9,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use mellivora_core::{AppPaths, Args, Tool, ToolContext};
-use mellivora_crypto::{GpgEncrypt, GpgVerify};
+use gimlet_eye_core::{AppPaths, Args, Tool, ToolContext};
+use gimlet_eye_crypto::{GpgEncrypt, GpgVerify};
 
 /// `a_missing_gpg...` changes PATH, which is process-wide, so these tests take
 /// turns instead of racing each other's environment.
@@ -26,7 +26,7 @@ fn serial() -> std::sync::MutexGuard<'static, ()> {
 ///
 /// A missing `gpg` makes this file skip, which on a developer machine is the
 /// right call and in CI is not: a skipped interop test is an unverified claim
-/// dressed as a green one. `MELLIVORA_REQUIRE_GPG` turns the skip into a failure,
+/// dressed as a green one. `GIMLET_REQUIRE_GPG` turns the skip into a failure,
 /// and the workflow sets it.
 fn gpg_available() -> bool {
     let works = Command::new("gpg")
@@ -34,8 +34,8 @@ fn gpg_available() -> bool {
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false);
-    if !works && std::env::var_os("MELLIVORA_REQUIRE_GPG").is_some() {
-        panic!("MELLIVORA_REQUIRE_GPG is set but gpg did not run: the interop claim is unverified");
+    if !works && std::env::var_os("GIMLET_REQUIRE_GPG").is_some() {
+        panic!("GIMLET_REQUIRE_GPG is set but gpg did not run: the interop claim is unverified");
     }
     works
 }
@@ -46,7 +46,7 @@ struct Keyring {
 
 impl Keyring {
     fn new(name: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("mellivora-gpg-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-gpg-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("gpg home");
         #[cfg(unix)]
@@ -60,7 +60,7 @@ impl Keyring {
             "--passphrase",
             "",
             "--quick-generate-key",
-            "Mellivora Test <test@example.invalid>",
+            "Gimlet Test <test@example.invalid>",
             "default",
             "default",
             "never",
@@ -107,7 +107,7 @@ struct EmptyPath {
 impl EmptyPath {
     fn new() -> Self {
         let previous = std::env::var_os("PATH");
-        let dir = std::env::temp_dir().join(format!("mellivora-empty-path-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-empty-path-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("mkdir");
         std::env::set_var("PATH", &dir);
         Self { previous, dir }
@@ -125,7 +125,7 @@ impl Drop for EmptyPath {
 }
 
 fn context() -> ToolContext {
-    let root = std::env::temp_dir().join(format!("mellivora-gpg-work-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("gimlet-gpg-work-{}", std::process::id()));
     let _ = fs::create_dir_all(&root);
     ToolContext::new(AppPaths::under(root))
 }
@@ -216,7 +216,7 @@ fn encrypts_something_gpg_itself_can_read() {
             &ctx,
             &args(&[
                 ("input", plain.display().to_string()),
-                ("recipient", "Mellivora Test".to_string()),
+                ("recipient", "Gimlet Test".to_string()),
                 ("homedir", keyring.dir().display().to_string()),
             ]),
         )
@@ -255,7 +255,7 @@ fn a_dry_run_writes_nothing() {
             &ctx,
             &args(&[
                 ("input", plain.display().to_string()),
-                ("recipient", "Mellivora Test".to_string()),
+                ("recipient", "Gimlet Test".to_string()),
                 ("homedir", keyring.dir().display().to_string()),
             ]),
         )
@@ -270,7 +270,7 @@ fn a_missing_gpg_is_reported_as_missing_not_as_a_bad_signature() {
     // Point PATH at an empty directory so the lookup fails the same way it would
     // on a machine without gpg. The mutex is what keeps the other tests in this
     // file from seeing that world: without it they read a machine with no `gpg`
-    // and, under `MELLIVORA_REQUIRE_GPG`, fail with a message about an unverified
+    // and, under `GIMLET_REQUIRE_GPG`, fail with a message about an unverified
     // claim rather than the race that actually happened.
     let _guard = serial();
     let _path = EmptyPath::new();

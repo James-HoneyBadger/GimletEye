@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::plugin::host::{discover, RunningPack};
 use crate::plugin::manifest::PackManifest;
 use crate::plugin::protocol::codes;
@@ -113,13 +113,13 @@ pub fn check(dir: &Path, timeout: Duration) -> Result<ConformanceReport> {
         checks: Vec::new(),
     };
 
-    let manifest_path = dir.join(crate::plugin::manifest::MANIFEST_FILENAME);
-    let manifest = match PackManifest::load(&manifest_path) {
+    let path = crate::plugin::manifest::manifest_path(dir);
+    let manifest = match PackManifest::load(&path) {
         Ok(manifest) => manifest,
         Err(error) => {
             report.checks.push(Check::new(
                 "manifest-loads",
-                "mellivora-pack.toml parses and speaks this host's protocol",
+                "gimlet-pack.toml parses and speaks this host's protocol",
                 Outcome::Fail,
                 error.to_string(),
             ));
@@ -132,7 +132,7 @@ pub fn check(dir: &Path, timeout: Duration) -> Result<ConformanceReport> {
     // differs, so parsing and the protocol promise are one check, not two.
     report.checks.push(Check::new(
         "manifest-loads",
-        "mellivora-pack.toml parses and speaks this host's protocol",
+        "gimlet-pack.toml parses and speaks this host's protocol",
         Outcome::Pass,
         format!("{} {}, protocol 1", manifest.name, manifest.version),
     ));
@@ -446,10 +446,7 @@ fn check_language_syntax(dir: &Path, manifest: &PackManifest) -> Check {
 
 /// Discover the pack in `dir` (or the first one below it) and check it.
 pub fn check_first_below(dir: &Path, timeout: Duration) -> Result<ConformanceReport> {
-    if dir
-        .join(crate::plugin::manifest::MANIFEST_FILENAME)
-        .is_file()
-    {
+    if crate::plugin::manifest::find_manifest(dir).is_some() {
         return check(dir, timeout);
     }
     let (found, failures) = discover(&[dir.to_path_buf()]);
@@ -457,15 +454,15 @@ pub fn check_first_below(dir: &Path, timeout: Duration) -> Result<ConformanceRep
         return check(pack_dir, timeout);
     }
     if let Some(failure) = failures.first() {
-        return Err(MellivoraError::Plugin(format!(
+        return Err(GimletEyeError::Plugin(format!(
             "{}: {}",
             failure.manifest_path.display(),
             failure.error
         )));
     }
-    Err(MellivoraError::NotFound(format!(
-        "no pack ({} ) found under {}",
-        crate::plugin::manifest::MANIFEST_FILENAME,
+    Err(GimletEyeError::NotFound(format!(
+        "no pack ({}) found under {}",
+        crate::plugin::manifest::MANIFEST_FILENAMES.join(" or "),
         dir.display()
     )))
 }
@@ -477,10 +474,8 @@ mod tests {
     use std::path::PathBuf;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "mellivora-conformance-{name}-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("gimlet-conformance-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("mkdir");
         dir

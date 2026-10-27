@@ -11,8 +11,8 @@
 use std::io::Cursor;
 use std::time::{Duration, Instant};
 
-use mellivora_core::{AppPaths, Args, Tool, ToolContext};
-use mellivora_crypto::{seal_stream, AeadAlgorithm, Decrypt, KdfParams, NativeBackend};
+use gimlet_eye_core::{AppPaths, Args, Tool, ToolContext};
+use gimlet_eye_crypto::{seal_stream, AeadAlgorithm, Decrypt, KdfParams, NativeBackend};
 
 struct Sandbox {
     root: std::path::PathBuf,
@@ -22,7 +22,7 @@ struct Sandbox {
 impl Sandbox {
     fn new(name: &str) -> Self {
         let root =
-            std::env::temp_dir().join(format!("mellivora-budget-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("gimlet-budget-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("sandbox");
         let paths = AppPaths::under(root.clone());
@@ -78,7 +78,7 @@ fn over_budget() -> KdfParams {
 #[test]
 fn an_over_budget_header_is_refused_before_the_key_is_derived() {
     let sandbox = Sandbox::new("refused");
-    let container = sandbox.expensive_container("expensive.melv", over_budget());
+    let container = sandbox.expensive_container("expensive.gimlet", over_budget());
 
     let (message, elapsed) = sandbox.run(&container, &[]).expect_err("refused");
     assert!(
@@ -99,7 +99,7 @@ fn an_over_budget_header_is_refused_before_the_key_is_derived() {
 #[test]
 fn allow_expensive_opens_the_file_the_operator_vouched_for() {
     let sandbox = Sandbox::new("allowed");
-    let container = sandbox.expensive_container("allowed.melv", over_budget());
+    let container = sandbox.expensive_container("allowed.gimlet", over_budget());
 
     sandbox
         .run(&container, &[("allow_expensive", "true")])
@@ -114,6 +114,6 @@ fn a_default_container_is_under_the_budget() {
     // The defaults must stay openable without the flag, or the fix would break
     // every file the tool writes.
     let sandbox = Sandbox::new("default");
-    let container = sandbox.expensive_container("default.melv", KdfParams::default());
+    let container = sandbox.expensive_container("default.gimlet", KdfParams::default());
     sandbox.run(&container, &[]).expect("defaults open");
 }

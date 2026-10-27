@@ -22,7 +22,7 @@ crates/scrub/fuzz/artifacts/
 crates/scrub/fuzz/corpus/
 
 # Runtime state
-/.mellivora/
+/.gimlet/
 *.hbzf
 *.hbzf.tmp
 

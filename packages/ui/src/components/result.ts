@@ -76,7 +76,7 @@ export function renderResult(state: AppState): string {
   }
 
   const json = JSON.stringify(report, null, 2);
-  const command = state.runs.get(report.tool) ?? `mellivora run ${report.tool}`;
+  const command = state.runs.get(report.tool) ?? `gimlet run ${report.tool}`;
 
   const details = `
     ${findings(report)}

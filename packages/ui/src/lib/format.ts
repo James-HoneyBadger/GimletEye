@@ -99,7 +99,7 @@ function shellArg(value: unknown): string {
  * CLI are two views of one engine, so a run is never trapped in the window.
  */
 export function cliCommand(toolId: string, args: Record<string, unknown>, dryRun: boolean): string {
-  const parts = ['mellivora', 'run', toolId];
+  const parts = ['gimlet', 'run', toolId];
   for (const [key, value] of Object.entries(args)) {
     if (value === undefined || value === '') continue;
     parts.push(shellArg(`${key}=${String(value)}`));

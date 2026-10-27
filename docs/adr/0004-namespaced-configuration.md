@@ -17,8 +17,8 @@ about that module's settings.
 
 ## Decision
 
-One versioned TOML file at `$MELLIVORA_HOME/config.toml` (default
-`~/.config/mellivora/config.toml`), with:
+One versioned TOML file at `$GIMLET_HOME/config.toml` (default
+`~/.config/gimlet/config.toml`), with:
 
 - core sections (`defaults`, `plugins`, `audit`), and
 - a free-form `modules` table, keyed by module namespace:
@@ -37,7 +37,7 @@ Modules read their own namespace via `ctx.config.module("sysadmin")`.
 
 **Positive**
 
-- Adding a module never edits `mellivora-core`, which keeps core dependency-free
+- Adding a module never edits `gimlet-eye-core`, which keeps core dependency-free
   by construction.
 - One discovery rule, one place for users to look, one file to back up.
 - Schema version is checked on load; a newer schema is rejected rather than

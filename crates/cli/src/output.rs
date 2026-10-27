@@ -1,6 +1,6 @@
 //! Stdout that survives a closed pipe.
 //!
-//! `mellivora tools list | head` must finish quietly. `println!` panics when
+//! `gimlet tools list | head` must finish quietly. `println!` panics when
 //! the reader goes away (`EPIPE`), which turns an ordinary shell pipeline into
 //! a backtrace, so every line goes through these macros instead.
 
@@ -13,7 +13,7 @@ pub fn write(args: std::fmt::Arguments<'_>) {
         // The reader stopped listening; that is how `| head` ends.
         Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {}
         Err(err) => {
-            let _ = writeln!(io::stderr(), "mellivora: cannot write output: {err}");
+            let _ = writeln!(io::stderr(), "gimlet: cannot write output: {err}");
         }
     }
 }

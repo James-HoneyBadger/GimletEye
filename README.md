@@ -1,4 +1,4 @@
-# Mellivora ToolKit
+# Gimlet Eye
 
 **One workbench for system administration, cryptography, and metadata privacy.**
 
@@ -7,15 +7,15 @@ trail, and one interface — instead of a CLI, a GUI, and a configuration file p
 task.
 
 ```bash
-mellivora system-info                       # what is this host doing?
-mellivora disk-usage --format json          # what is filling the disk?
-mellivora passgen length=32                 # generate a secret
-mellivora crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
-mellivora keygen kind=x25519 label=alice keystore=true passphrase_env=KEY_PASS
-mellivora crypto.encrypt input=notes.txt to=alice.pub   # for Alice, no shared secret
-mellivora metadata-strip input=photo.jpg profile=sharing
-mellivora metadata-strip input=photo.jpg profile=archive redact_gps=city
-mellivora serve --ui-dir packages/ui/dist   # same tools, in a browser or desktop window
+gimlet system-info                       # what is this host doing?
+gimlet disk-usage --format json          # what is filling the disk?
+gimlet passgen length=32                 # generate a secret
+gimlet crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
+gimlet keygen kind=x25519 label=alice keystore=true passphrase_env=KEY_PASS
+gimlet crypto.encrypt input=notes.txt to=alice.pub   # for Alice, no shared secret
+gimlet metadata-strip input=photo.jpg profile=sharing
+gimlet metadata-strip input=photo.jpg profile=archive redact_gps=city
+gimlet serve --ui-dir packages/ui/dist   # same tools, in a browser or desktop window
 ```
 
 ## What it does
@@ -35,19 +35,20 @@ its manifest declared.
 ## Design
 
 ```
-                    ┌────────────── surfaces ──────────────┐
-   CLI (mellivora)  │  HTTP API  │  Tauri desktop  │  WASM   │
-                    └─────────────┬────────────────────────┘
-                                  │  Report / ToolManifest
-                    ┌─────────────┴────────────────────────┐
-                    │            mellivora-core            │
-                    │  Tool · Report · Registry · Config   │
-                    │  Audit · Capabilities · Plugin host  │
-                    └─────────────┬────────────────────────┘
-              ┌───────────────────┼───────────────────┐
-        mellivora-sysadmin  mellivora-crypto   mellivora-scrub
-              │                   │                   │
-              └──────── packs (any language, JSON-RPC over stdio) ────────┘
+                       ┌────────────────────── surfaces ────────────────────────┐
+   CLI (gimlet)        │     HTTP API     │  Tauri desktop   │       WASM       │
+                       └────────────────────────────┬───────────────────────────┘
+                                                    │ Report / ToolManifest
+                       ┌────────────────────────────┴───────────────────────────┐
+                       │                   gimlet-eye-core                      │
+                       │          Tool · Report · Registry · Config             │
+                       │          Audit · Capabilities · Plugin host            │
+                       └────────────────────────────┬───────────────────────────┘
+                                ┌───────────────────┼──────────────────┐
+                       gimlet-eye-sysadmin  gimlet-eye-crypto  gimlet-eye-scrub
+                                │                   │                  │
+                                └───────────────────┴──────────────────┘
+                                packs (any language, JSON-RPC over stdio)
 ```
 
 Four rules keep it maintainable:
@@ -66,7 +67,7 @@ trade-offs behind each decision.
 
 ## Interface
 
-`mellivora serve` opens a local workbench — no cloud, no account, no uploads:
+`gimlet serve` opens a local workbench — no cloud, no account, no uploads:
 
 - **Start** from the three pillars — System, Crypto, Privacy — which are buttons:
   each one narrows the catalogue and opens its first tool. Your last tool is
@@ -83,7 +84,7 @@ trade-offs behind each decision.
 - **Run** with `Ctrl/⌘ ↵`; tools that write are marked `writes`, and only they
   offer **dry run**. Read-only tools say so instead.
 - **Repeat** the run anywhere: every report carries the equivalent
-  `mellivora run …` command, ready to copy.
+  `gimlet run …` command, ready to copy.
 - **Audit** what happened: the packs button lists every loaded pack with its
   tools and capabilities, and the clock button lists recent runs from the local
   audit trail (argument names only, never values).
@@ -93,22 +94,22 @@ trade-offs behind each decision.
 The desktop app (`apps/desktop`) is the same bundle in a native window, with the
 engine running inside the app: no server to start, no port to configure. The
 window loads that bundle from the engine's own listener, so the page and the API
-share one origin; `MELLIVORA_DESKTOP_UI_DIR` points it at a different build when
+share one origin; `GIMLET_DESKTOP_UI_DIR` points it at a different build when
 you are working on the UI.
 
 ## Install a release
 
 Tagged releases carry prebuilt binaries:
 
-- `mellivora-<version>-<target>.tar.gz` / `.zip` — the CLI, with `README.md`,
+- `gimlet-<version>-<target>.tar.gz` / `.zip` — the CLI, with `README.md`,
   `LICENSE`, and `CHANGELOG.md`, for Linux (x86_64, aarch64), macOS (x86_64,
   aarch64), and Windows (x86_64)
 - `.deb`, `.AppImage`, `.dmg`, and NSIS `.exe` — the desktop app, engine included
 - `SHA256SUMS` for all of the above
 
 ```bash
-tar -xzf mellivora-0.2.0-x86_64-unknown-linux-gnu.tar.gz
-cd mellivora-0.2.0-x86_64-unknown-linux-gnu && ./mellivora doctor
+tar -xzf gimlet-0.2.0-x86_64-unknown-linux-gnu.tar.gz
+cd gimlet-0.2.0-x86_64-unknown-linux-gnu && ./gimlet doctor
 ```
 
 ## Quick start
@@ -128,16 +129,16 @@ Or work with the crates directly:
 cargo test --workspace
 cargo build --release
 
-./target/release/mellivora tools list
-./target/release/mellivora system-info
-./target/release/mellivora run privacy.metadata-scan input=photo.jpg
+./target/release/gimlet tools list
+./target/release/gimlet system-info
+./target/release/gimlet run privacy.metadata-scan input=photo.jpg
 ```
 
 Optional compatibility packs add capabilities from other implementations:
 
 ```bash
 ./scripts/link-sources.sh          # fetches sources the packs wrap
-./target/release/mellivora plugins doctor
+./target/release/gimlet plugins doctor
 ```
 
 ## Status
@@ -172,7 +173,7 @@ crates/
   scrub/      metadata inspection, redaction, removal
   server/     HTTP API
   toolkit/    composition root: modules wired into a runtime, serve helpers
-  cli/        `mellivora` binary
+  cli/        `gimlet` binary
 packages/ui/  one TypeScript UI for browser and desktop
 apps/desktop/ Tauri 2 shell with the engine embedded
 plugins/      compatibility packs (optional)
@@ -183,17 +184,17 @@ scripts/      developer tooling
 ## Commands
 
 ```bash
-mellivora tools list [--category sysadmin] [--format json]
-mellivora tools show disk-usage
-mellivora run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run] [--strict]
-mellivora <tool> [key=value ...]        # shorthand for `run`
-mellivora batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
+gimlet tools list [--category sysadmin] [--format json]
+gimlet tools show disk-usage
+gimlet run <tool> [key=value ...] [--format text|json|markdown|csv] [--dry-run] [--strict]
+gimlet <tool> [key=value ...]        # shorthand for `run`
+gimlet batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
                 [--concurrency 4] [--fail-fast] [--no-recursive]
-mellivora plugins list|doctor
-mellivora config show|init|path
-mellivora audit [--limit N]
-mellivora doctor
-mellivora serve [--host 127.0.0.1] [--port 7878] [--ui-dir DIR] [--allow-remote]
+gimlet plugins list|doctor
+gimlet config show|init|path
+gimlet audit [--limit N]
+gimlet doctor
+gimlet serve [--host 127.0.0.1] [--port 7878] [--ui-dir DIR] [--allow-remote]
 ```
 
 Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
@@ -201,13 +202,13 @@ Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
 than only on failures.
 
 `serve` generates an API token on first run — owner-only at
-`$MELLIVORA_HOME/api-token` — prints it, and answers `401` to any `/api/` request
+`$GIMLET_HOME/api-token` — prints it, and answers `401` to any `/api/` request
 that does not carry it. The URL it prints carries the token in its fragment, so
 the workbench signs itself in; for `curl`, send the header:
 
 ```bash
 curl -X POST http://127.0.0.1:7878/api/v1/run \
-     -H "Authorization: Bearer $(cat "$MELLIVORA_HOME/api-token")" \
+     -H "Authorization: Bearer $(cat "$GIMLET_HOME/api-token")" \
      -d '{"tool":"sha256","args":{"text":"abc"}}'
 ```
 
@@ -219,8 +220,8 @@ once per file with the path bound to `--input-arg` (default `input`), and prints
 one aggregate report with a per-file entry:
 
 ```bash
-mellivora batch privacy.metadata-strip ~/Pictures --ext jpg --ext png --dry-run
-mellivora batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
+gimlet batch privacy.metadata-strip ~/Pictures --ext jpg --ext png --dry-run
+gimlet batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
 ```
 
 A failing file names itself in the report and sets exit code `1`, but the rest of
@@ -238,7 +239,7 @@ npm run build -- --no-bundle                      # or just the standalone binar
 npm run dev                                       # or run it hot-reloading
 ```
 
-The release binary (`src-tauri/target/release/mellivora-desktop`) is
+The release binary (`src-tauri/target/release/gimlet-desktop`) is
 self-contained: UI embedded, engine in-process, no server and no port to
 configure.
 
@@ -269,7 +270,7 @@ pack from an empty directory.
 
 - [Architecture](docs/ARCHITECTURE.md) — layers, contracts, dependency rules
 - [Plugin SDK](docs/PLUGIN_SDK.md) — write a pack in any language
-- [Container format](docs/CONTAINER.md) — byte layout of the `.melv` file
+- [Container format](docs/CONTAINER.md) — byte layout of the `.gimlet` file
 - [Compatibility](docs/COMPATIBILITY.md) — versioning, deprecation, rollback
 - [Roadmap](docs/ROADMAP.md) — phases and acceptance criteria
 - [Enhancements](docs/ENHANCEMENTS.md) — proposed features with effort and risk

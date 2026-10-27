@@ -15,8 +15,8 @@ use std::process::Command;
 use std::sync::Arc;
 use std::time::Instant;
 
-use mellivora_core::{
-    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Tool,
+use gimlet_eye_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report, Result, Tool,
     ToolContext, ToolManifest,
 };
 use serde_json::{json, Value};
@@ -60,11 +60,11 @@ fn run_gpg(home: &[std::ffi::OsString], args: &[std::ffi::OsString]) -> Result<G
         .output()
         .map_err(|err| {
             if err.kind() == std::io::ErrorKind::NotFound {
-                MellivoraError::NotFound(format!(
+                GimletEyeError::NotFound(format!(
                     "'{PROGRAM}' is not installed; OpenPGP interop needs it on PATH"
                 ))
             } else {
-                MellivoraError::Tool(format!("{PROGRAM} could not be started: {err}"))
+                GimletEyeError::Tool(format!("{PROGRAM} could not be started: {err}"))
             }
         })?;
     Ok(GpgRun {
@@ -142,7 +142,7 @@ impl Tool for GpgVerify {
         let signature = args.require_path("signature")?;
         for path in [&input, &signature] {
             if !path.is_file() {
-                return Err(MellivoraError::NotFound(path.display().to_string()));
+                return Err(GimletEyeError::NotFound(path.display().to_string()));
             }
         }
         let home = gpg_home_args(args.opt_path("homedir")?.as_deref());
@@ -173,7 +173,7 @@ impl Tool for GpgVerify {
             } else {
                 "gpg did not report a valid signature".to_string()
             };
-            return Err(MellivoraError::Tool(problem));
+            return Err(GimletEyeError::Tool(problem));
         };
 
         let fingerprint = fingerprint.to_string();
@@ -258,7 +258,7 @@ impl Tool for GpgEncrypt {
 
         let input = args.require_path("input")?;
         if !input.is_file() {
-            return Err(MellivoraError::NotFound(input.display().to_string()));
+            return Err(GimletEyeError::NotFound(input.display().to_string()));
         }
         let recipient = args.require_str("recipient")?;
         let overwrite = args.bool_or("overwrite", false)?;
@@ -313,7 +313,7 @@ impl Tool for GpgEncrypt {
         ctx.require(Capability::FsWrite)?;
         let run = run_gpg(&home, &command)?;
         if !run.success {
-            return Err(MellivoraError::Tool(format!(
+            return Err(GimletEyeError::Tool(format!(
                 "{PROGRAM} failed: {}",
                 run.complaint()
             )));

@@ -50,25 +50,25 @@ describe('searchText', () => {
 
 describe('cliCommand', () => {
   it('renders a copyable invocation', () => {
-    expect(cliCommand('crypto.passgen', { length: 32 }, false)).toBe('mellivora run crypto.passgen length=32');
+    expect(cliCommand('crypto.passgen', { length: 32 }, false)).toBe('gimlet run crypto.passgen length=32');
   });
 
   it('quotes values that need it', () => {
     expect(cliCommand('privacy.metadata-strip', { input: '/tmp/my photos/a.jpg' }, false)).toBe(
-      "mellivora run privacy.metadata-strip 'input=/tmp/my photos/a.jpg'",
+      "gimlet run privacy.metadata-strip 'input=/tmp/my photos/a.jpg'",
     );
   });
 
   it('escapes embedded single quotes', () => {
-    expect(cliCommand('demo', { note: "it's" }, false)).toBe("mellivora run demo 'note=it'\\''s'");
+    expect(cliCommand('demo', { note: "it's" }, false)).toBe("gimlet run demo 'note=it'\\''s'");
   });
 
   it('appends --dry-run only when asked', () => {
-    expect(cliCommand('demo', {}, true)).toBe('mellivora run demo --dry-run');
+    expect(cliCommand('demo', {}, true)).toBe('gimlet run demo --dry-run');
   });
 
   it('skips empty values', () => {
-    expect(cliCommand('demo', { a: '', b: 'x' }, false)).toBe('mellivora run demo b=x');
+    expect(cliCommand('demo', { a: '', b: 'x' }, false)).toBe('gimlet run demo b=x');
   });
 });
 

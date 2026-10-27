@@ -73,19 +73,19 @@ export interface AuditTrail {
 
 declare global {
   interface Window {
-    __MELLIVORA_API__?: string;
-    __MELLIVORA_TOKEN__?: string;
+    __GIMLET_API__?: string;
+    __GIMLET_TOKEN__?: string;
   }
 }
 
-const TOKEN_KEY = 'mellivora.api.token';
+const TOKEN_KEY = 'gimlet.api.token';
 
 /**
  * The token arrives from the desktop shell (injected), from the fragment of the
- * URL `mellivora serve` prints, or from a previous session.
+ * URL `gimlet serve` prints, or from a previous session.
  */
 function bootToken(): string {
-  if (window.__MELLIVORA_TOKEN__) return window.__MELLIVORA_TOKEN__;
+  if (window.__GIMLET_TOKEN__) return window.__GIMLET_TOKEN__;
 
   const fromHash = /(?:^#|&)token=([^&]*)/.exec(location.hash);
   if (fromHash) {
@@ -132,7 +132,7 @@ function defaultApiBase(): string {
 }
 
 export const API_BASE: string =
-  window.__MELLIVORA_API__ ?? (import.meta.env.VITE_API_BASE as string | undefined) ?? defaultApiBase();
+  window.__GIMLET_API__ ?? (import.meta.env.VITE_API_BASE as string | undefined) ?? defaultApiBase();
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -143,7 +143,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   } catch {
-    throw new Error(`Cannot reach the toolkit API at ${API_BASE || location.origin}. Is "mellivora serve" running?`);
+    throw new Error(`Cannot reach the toolkit API at ${API_BASE || location.origin}. Is "gimlet serve" running?`);
   }
 
   if (response.status === 401) throw new UnauthorizedError();

@@ -3,7 +3,7 @@
 //! WebP: scan, strip, and re-scan, with the `VP8X` flag-clearing path included.
 
 use libfuzzer_sys::fuzz_target;
-use mellivora_scrub::{handler_for, Format, RemovalPolicy};
+use gimlet_eye_scrub::{handler_for, Format, RemovalPolicy};
 
 fuzz_target!(|data: &[u8]| {
     if Format::detect(data) != Some(Format::Webp) {

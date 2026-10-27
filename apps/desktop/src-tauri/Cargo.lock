@@ -2047,7 +2047,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
-name = "mellivora-core"
+name = "gimlet-eye-core"
 version = "0.7.0"
 dependencies = [
  "dirs 5.0.1",
@@ -2059,7 +2059,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mellivora-crypto"
+name = "gimlet-eye-crypto"
 version = "0.7.0"
 dependencies = [
  "aes-gcm",
@@ -2067,7 +2067,7 @@ dependencies = [
  "chacha20poly1305",
  "ed25519-dalek",
  "hkdf",
- "mellivora-core",
+ "gimlet-eye-core",
  "rand",
  "serde",
  "serde_json",
@@ -2077,30 +2077,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "mellivora-desktop"
+name = "gimlet-desktop"
 version = "0.7.0"
 dependencies = [
- "mellivora-toolkit",
+ "gimlet-eye-toolkit",
  "serde_json",
  "tauri",
  "tauri-build",
 ]
 
 [[package]]
-name = "mellivora-scrub"
+name = "gimlet-eye-scrub"
 version = "0.7.0"
 dependencies = [
- "mellivora-core",
+ "gimlet-eye-core",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "mellivora-server"
+name = "gimlet-eye-server"
 version = "0.7.0"
 dependencies = [
  "axum",
- "mellivora-core",
+ "gimlet-eye-core",
  "serde",
  "serde_json",
  "tokio",
@@ -2108,23 +2108,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "mellivora-sysadmin"
+name = "gimlet-eye-sysadmin"
 version = "0.7.0"
 dependencies = [
- "mellivora-core",
+ "gimlet-eye-core",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "mellivora-toolkit"
+name = "gimlet-eye-toolkit"
 version = "0.7.0"
 dependencies = [
- "mellivora-core",
- "mellivora-crypto",
- "mellivora-scrub",
- "mellivora-server",
- "mellivora-sysadmin",
+ "gimlet-eye-core",
+ "gimlet-eye-crypto",
+ "gimlet-eye-scrub",
+ "gimlet-eye-server",
+ "gimlet-eye-sysadmin",
  "tokio",
  "tracing",
 ]

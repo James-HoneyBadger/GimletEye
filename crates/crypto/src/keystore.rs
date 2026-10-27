@@ -1,6 +1,6 @@
 //! The sealed key store: one container file holding every key the user keeps.
 //!
-//! The file is a `.melv` container (Argon2id → AEAD, chunked) whose plaintext is
+//! The file is a `.gimlet` container (Argon2id → AEAD, chunked) whose plaintext is
 //! a JSON document, so the seal *is* the wrapping: a wrong passphrase fails the
 //! AEAD tag before any JSON is parsed, and there is only one format to keep
 //! compatible. See `docs/adr/0007-keystore-and-recipients.md`.
@@ -14,7 +14,7 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -45,7 +45,7 @@ impl KeyKind {
         match value.trim().to_ascii_lowercase().as_str() {
             "ed25519" | "sign" | "signing" => Ok(Self::Ed25519),
             "x25519" | "encrypt" | "encryption" | "recipient" => Ok(Self::X25519),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown key kind '{other}' (use ed25519 or x25519)"
             ))),
         }
@@ -73,14 +73,14 @@ impl Entry {
     pub fn public_bytes(&self) -> Result<[u8; 32]> {
         crate::keys::hex_decode(&self.public_key)?
             .try_into()
-            .map_err(|_| MellivoraError::InvalidArgs("stored public key is not 32 bytes".into()))
+            .map_err(|_| GimletEyeError::InvalidArgs("stored public key is not 32 bytes".into()))
     }
 
     /// 32-byte secret key. The caller owns the copy and should drop it promptly.
     pub fn secret_bytes(&self) -> Result<Zeroizing<[u8; 32]>> {
         let bytes: [u8; 32] = crate::keys::hex_decode(&self.secret_key)?
             .try_into()
-            .map_err(|_| MellivoraError::InvalidArgs("stored secret key is not 32 bytes".into()))?;
+            .map_err(|_| GimletEyeError::InvalidArgs("stored secret key is not 32 bytes".into()))?;
         Ok(Zeroizing::new(bytes))
     }
 }
@@ -162,10 +162,10 @@ impl Keystore {
             .collect();
         match matches.len() {
             1 => Ok(matches[0]),
-            0 => Err(MellivoraError::NotFound(format!(
+            0 => Err(GimletEyeError::NotFound(format!(
                 "no key '{selector}' in the keystore"
             ))),
-            _ => Err(MellivoraError::Config(format!(
+            _ => Err(GimletEyeError::Config(format!(
                 "several keys are labelled '{selector}'; use the id instead"
             ))),
         }
@@ -174,7 +174,7 @@ impl Keystore {
     /// Add an entry, refusing a duplicate id or label.
     pub fn insert(&mut self, entry: Entry) -> Result<()> {
         if self.entries.iter().any(|existing| existing.id == entry.id) {
-            return Err(MellivoraError::Internal(
+            return Err(GimletEyeError::Internal(
                 "generated a key id that already exists".into(),
             ));
         }
@@ -183,7 +183,7 @@ impl Keystore {
             .iter()
             .any(|existing| existing.label == entry.label)
         {
-            return Err(MellivoraError::Config(format!(
+            return Err(GimletEyeError::Config(format!(
                 "a key labelled '{}' already exists (choose another label or replace it)",
                 entry.label
             )));
@@ -215,7 +215,7 @@ pub fn new_id(backend: &dyn CryptoBackend) -> String {
 /// Load and unseal the keystore.
 pub fn load(backend: &dyn CryptoBackend, path: &Path, passphrase: &[u8]) -> Result<Keystore> {
     if !path.is_file() {
-        return Err(MellivoraError::NotFound(format!(
+        return Err(GimletEyeError::NotFound(format!(
             "no keystore at {} (create one with crypto.keygen keystore=true)",
             path.display()
         )));
@@ -223,12 +223,12 @@ pub fn load(backend: &dyn CryptoBackend, path: &Path, passphrase: &[u8]) -> Resu
     let sealed = fs::read(path)?;
     let plaintext = container::open(backend, passphrase, &sealed)?;
     let document: Keystore = serde_json::from_slice(&plaintext).map_err(|err| {
-        MellivoraError::Tool(format!(
+        GimletEyeError::Tool(format!(
             "the keystore could not be read after opening: {err}"
         ))
     })?;
     if document.schema_version > SCHEMA_VERSION {
-        return Err(MellivoraError::Unsupported(format!(
+        return Err(GimletEyeError::Unsupported(format!(
             "keystore schema {} is newer than this build understands ({SCHEMA_VERSION})",
             document.schema_version
         )));
@@ -245,7 +245,7 @@ pub fn save(
 ) -> Result<()> {
     let mut plaintext = Zeroizing::new(
         serde_json::to_vec(store)
-            .map_err(|err| MellivoraError::Internal(format!("keystore encode failed: {err}")))?,
+            .map_err(|err| GimletEyeError::Internal(format!("keystore encode failed: {err}")))?,
     );
     let mut sealed = Vec::new();
     container::seal_stream(
@@ -319,10 +319,10 @@ mod tests {
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir =
-            std::env::temp_dir().join(format!("mellivora-keystore-{}-{name}", std::process::id()));
+            std::env::temp_dir().join(format!("gimlet-keystore-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("mkdir");
-        dir.join("keystore.melv")
+        dir.join("keystore.gimlet")
     }
 
     fn sample_store(backend: &NativeBackend) -> Keystore {

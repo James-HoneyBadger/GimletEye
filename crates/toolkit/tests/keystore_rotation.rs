@@ -8,8 +8,8 @@
 
 use std::path::PathBuf;
 
-use mellivora_core::{Args, ToolContext};
-use mellivora_toolkit::Runtime;
+use gimlet_eye_core::{Args, ToolContext};
+use gimlet_eye_toolkit::Runtime;
 
 struct Store {
     root: PathBuf,
@@ -20,7 +20,7 @@ struct Store {
 impl Store {
     fn new(name: &str) -> Self {
         let root =
-            std::env::temp_dir().join(format!("mellivora-rotate-{name}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("gimlet-rotate-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("sandbox");
         let runtime = Runtime::load(Some(root.clone()), false).expect("runtime");
@@ -92,7 +92,7 @@ fn rotation_keeps_the_keys_and_retires_the_old_passphrase() {
         "rotation changed the key material"
     );
     assert!(
-        store.root.join("keystore.melv").is_file(),
+        store.root.join("keystore.gimlet").is_file(),
         "the store should still be a sealed file"
     );
 }

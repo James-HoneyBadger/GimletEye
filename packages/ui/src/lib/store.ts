@@ -35,7 +35,7 @@ export interface AppState {
   historyLoaded: boolean;
 }
 
-const STORAGE_KEY = 'mellivora.ui.v1';
+const STORAGE_KEY = 'gimlet.ui.v1';
 
 interface Persisted {
   theme?: Theme;

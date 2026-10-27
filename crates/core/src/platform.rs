@@ -5,7 +5,7 @@
 //! the failure mode on macOS or Windows is an empty or half-filled report, so a
 //! tool states where it runs and the registry refuses it everywhere else.
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::tool::ToolManifest;
 
 /// The identifier a manifest uses for this host, matching `std::env::consts::OS`
@@ -27,7 +27,7 @@ pub fn check(manifest: &ToolManifest) -> Result<()> {
     if matches(&manifest.platforms, current()) {
         return Ok(());
     }
-    Err(MellivoraError::Unsupported(format!(
+    Err(GimletEyeError::Unsupported(format!(
         "{} runs on {}; this host is {}",
         manifest.id,
         manifest.platforms.join(", "),

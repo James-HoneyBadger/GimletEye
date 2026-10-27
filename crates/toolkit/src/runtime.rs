@@ -3,12 +3,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::plugin_trust;
-use mellivora_core::{
+use gimlet_eye_core::{
     token, AppPaths, AuditLog, Capability, CapabilitySet, Config, PackFailure, PackSummary,
     PluginHost, Registry, Result, Tool, ToolContext,
 };
-use mellivora_crypto::{CryptoBackend, NativeBackend};
-use mellivora_server::AppState;
+use gimlet_eye_crypto::{CryptoBackend, NativeBackend};
+use gimlet_eye_server::AppState;
 
 /// Everything a surface needs: configuration, the tool catalogue, and any packs.
 pub struct Runtime {
@@ -43,7 +43,7 @@ fn context_for(paths: &AppPaths, config: &Config, dry_run: bool) -> ToolContext 
 /// The credential `/api/v1` should require, or `None` when
 /// `[api] require_token` is off.
 ///
-/// Reads `MELLIVORA_API_TOKEN` first (the test suite and CI use it), then the
+/// Reads `GIMLET_API_TOKEN` first (the test suite and CI use it), then the
 /// token file, and generates one — with the platform RNG, which is why this
 /// lives here and not in `core` — on first use.
 pub fn issue_api_token(paths: &AppPaths, config: &Config) -> Result<Option<String>> {
@@ -85,7 +85,7 @@ impl Runtime {
             let dirs = config.effective_plugin_dirs(&paths);
             // Trust is checked here rather than in the host: a digest needs a
             // hash function, and core stays free of crypto.
-            let (found, discovered_failures) = mellivora_core::plugin::discover(&dirs);
+            let (found, discovered_failures) = gimlet_eye_core::plugin::discover(&dirs);
             let (trusted, trust_failures) = plugin_trust::filter(found, &config.trust);
             for failure in &trust_failures {
                 tracing::warn!(path = %failure.manifest_path.display(), %failure.error, "pack refused");
@@ -199,8 +199,7 @@ mod tests {
     use super::*;
 
     fn paths(name: &str) -> AppPaths {
-        let dir =
-            std::env::temp_dir().join(format!("mellivora-token-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-token-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("dir");
         AppPaths::under(dir)

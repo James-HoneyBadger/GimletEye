@@ -43,10 +43,10 @@ something on this machine, then explain what happened:
 
 | Pillar | Questions it answers | Module |
 |---|---|---|
-| **System** | What is this host doing? What is filling the disk? Which service is failing? | `mellivora-sysadmin` |
-| **Crypto** | Is this secret protected? Who signed this? Where are my keys? | `mellivora-crypto` |
-| **Privacy** | What does this file reveal about me? How do I remove it without breaking the file? | `mellivora-scrub` |
-| **Automation** *(planned)* | Run those checks on a schedule and report drift. | `mellivora-automation` |
+| **System** | What is this host doing? What is filling the disk? Which service is failing? | `gimlet-eye-sysadmin` |
+| **Crypto** | Is this secret protected? Who signed this? Where are my keys? | `gimlet-eye-crypto` |
+| **Privacy** | What does this file reveal about me? How do I remove it without breaking the file? | `gimlet-eye-scrub` |
+| **Automation** *(planned)* | Run those checks on a schedule and report drift. | `gimlet-automation` |
 
 Three properties cut across all of them, and they are what the architecture
 optimises for:
@@ -99,7 +99,7 @@ cannot be written in Rust today.
 
 Rules, enforced by review and by `cargo` itself:
 
-1. **`mellivora-core` depends on no domain crate.** It knows what a `Tool` is,
+1. **`gimlet-eye-core` depends on no domain crate.** It knows what a `Tool` is,
    not what a password is. This is why config uses namespaced `modules` keys
    instead of typed fields per domain.
 2. **Modules never depend on each other.** If two modules need the same thing,
@@ -113,9 +113,9 @@ Rules, enforced by review and by `cargo` itself:
    `Runtime`:
 
 ```rust
-registry.register_all(mellivora_sysadmin::tools()?)?;
-registry.register_all(mellivora_crypto::tools()?)?;
-registry.register_all(mellivora_scrub::tools()?)?;
+registry.register_all(gimlet_eye_sysadmin::tools()?)?;
+registry.register_all(gimlet_eye_crypto::tools()?)?;
+registry.register_all(gimlet_eye_scrub::tools()?)?;
 ```
 
 Adding a module is one line. Adding a surface never touches a module: the CLI
@@ -127,7 +127,7 @@ that assembled its own registry could drift; this one cannot.
 
 - Compile isolation: changing `scrub` does not rebuild `crypto`.
 - Boundary enforcement: a dependency that should not exist fails to compile.
-- Test scoping: `cargo test -p mellivora-scrub` runs in seconds.
+- Test scoping: `cargo test -p gimlet-eye-scrub` runs in seconds.
 
 ### Why not a single binary crate with feature flags
 
@@ -214,7 +214,7 @@ wins over a pack** — a pack must not be able to silently take over
 
 | Surface | Crate | Responsibility |
 |---|---|---|
-| `mellivora` CLI | `crates/cli` | parse, resolve, run, render, audit |
+| `gimlet` CLI | `crates/cli` | parse, resolve, run, render, audit |
 | Composition root | `crates/toolkit` | wire modules into a `Runtime`, serve it |
 | HTTP API | `crates/server` | resolve, run, serialize |
 | Desktop | `apps/desktop` | window, embedded engine, port hand-off |
@@ -223,8 +223,8 @@ wins over a pack** — a pack must not be able to silently take over
 
 The desktop shell is self-contained. It binds a loopback port, starts the same
 `Runtime` the CLI uses on a background thread, and hands the port to the window
-through an initialization script (`window.__MELLIVORA_API__`). There is no
-second process to start and no port to configure; `mellivora serve` remains for
+through an initialization script (`window.__GIMLET_API__`). There is no
+second process to start and no port to configure; `gimlet serve` remains for
 browser and LAN use.
 
 The HTTP API is intentionally boring:
@@ -283,13 +283,17 @@ sections for the rest. Raw JSON is always one click away.
 One TOML file, one state root:
 
 ```
-$MELLIVORA_HOME (default: ~/.config/mellivora)
+$GIMLET_HOME (default: ~/.config/gimlet)
 ├── config.toml
 ├── audit.jsonl
 ├── data/
 ├── cache/
 └── plugins/          # drop-in packs
 ```
+
+A home written before the rename, `~/.config/mellivora`, is used when
+`~/.config/gimlet` does not exist, and a `keystore.melv` inside it is opened
+where it is: renaming the project must not strand a keystore or an audit trail.
 
 ```toml
 schema_version = 1
@@ -381,7 +385,7 @@ The full protocol is in [PLUGIN_SDK.md](PLUGIN_SDK.md).
 
 Rules that keep this cheap:
 
-- **Parsers are separate from I/O.** The `parse.rs` in `mellivora-sysadmin` has
+- **Parsers are separate from I/O.** The `parse.rs` in `gimlet-eye-sysadmin` has
   no filesystem access, so every branch is testable with a string. The EXIF
   reader in `crates/scrub/src/exif.rs` works the same way: it takes a byte slice
   and a shared fixture builder produces valid structures for tests.
@@ -421,7 +425,7 @@ Rules that keep this cheap:
 Where each pillar stands, in the toolkit's own terms. The roadmap carries the
 acceptance criteria; this is the honest inventory.
 
-### System — `mellivora-sysadmin`
+### System — `gimlet-eye-sysadmin`
 
 | Capability | Status |
 |---|---|
@@ -433,13 +437,13 @@ acceptance criteria; this is the honest inventory.
 Read-only checks land first; anything that mutates state needs `--dry-run` and a
 test before it ships. Thresholds live in the `modules.sysadmin` config namespace.
 
-### Crypto — `mellivora-crypto`
+### Crypto — `gimlet-eye-crypto`
 
 | Capability | Status |
 |---|---|
 | OS randomness, SHA-256, password generation | native |
-| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) + Argon2id | native, `.melv` container v2 |
-| Recipient encryption (X25519 + HKDF-SHA256) | native, `.melv` container v3 |
+| Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305) + Argon2id | native, `.gimlet` container v2 |
+| Recipient encryption (X25519 + HKDF-SHA256) | native, `.gimlet` container v3 |
 | Sealed keystore with passphrase rotation | native (`crypto.key-*`) |
 | Signatures (Ed25519) | native |
 | OpenPGP verify/encrypt | native, by driving the system `gpg` |
@@ -450,7 +454,7 @@ one trait, not a change to any tool or surface. The container format is
 specified in [CONTAINER.md](CONTAINER.md) and versioned like any other public
 API.
 
-### Privacy — `mellivora-scrub`
+### Privacy — `gimlet-eye-scrub`
 
 | Capability | Status |
 |---|---|

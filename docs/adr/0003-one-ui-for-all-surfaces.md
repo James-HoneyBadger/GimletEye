@@ -22,7 +22,7 @@ All four render the same thing: a list of operations, a form, and a result.
 One TypeScript UI in `packages/ui`, built by Vite, rendered by:
 
 - **Tauri 2** for the desktop app (`apps/desktop`, thin shell),
-- **`mellivora serve --ui-dir`** for the browser,
+- **`gimlet serve --ui-dir`** for the browser,
 - the Vite dev server during development.
 
 The UI is driven entirely by `ToolManifest`: it renders argument forms from the

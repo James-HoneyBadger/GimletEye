@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use mellivora_core::{
-    util::now_rfc3339, ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report,
+use gimlet_eye_core::{
+    util::now_rfc3339, ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report,
     Result, Tool, ToolContext, ToolManifest,
 };
 use serde_json::{json, Value};
@@ -155,7 +155,7 @@ impl Tool for KeyImport {
 
         let source = args.require_path("key")?;
         let text = String::from_utf8(crate::operations::read_file(&source)?)
-            .map_err(|_| MellivoraError::InvalidArgs("key file is not text".into()))?;
+            .map_err(|_| GimletEyeError::InvalidArgs("key file is not text".into()))?;
 
         let declared = keys::algorithm_of(&text)?;
         let kind = match args.opt_str("kind")? {
@@ -163,7 +163,7 @@ impl Tool for KeyImport {
             None => KeyKind::parse(&declared)?,
         };
         if KeyKind::parse(&declared)? != kind {
-            return Err(MellivoraError::InvalidArgs(format!(
+            return Err(GimletEyeError::InvalidArgs(format!(
                 "the file holds a {declared} key, not {kind}"
             )));
         }
@@ -173,7 +173,7 @@ impl Tool for KeyImport {
             None => source
                 .file_stem()
                 .map(|stem| stem.to_string_lossy().to_string())
-                .ok_or_else(|| MellivoraError::InvalidArgs("provide a label".into()))?,
+                .ok_or_else(|| GimletEyeError::InvalidArgs("provide a label".into()))?,
         };
         let public_only = args.bool_or("public_only", false)?;
 
@@ -188,7 +188,7 @@ impl Tool for KeyImport {
                 } else {
                     let secret = keys::decode_secret(&text)?;
                     if self.backend.ed25519_public(&secret) != public {
-                        return Err(MellivoraError::InvalidArgs(
+                        return Err(GimletEyeError::InvalidArgs(
                             "the key file's public key is not the one its secret produces".into(),
                         ));
                     }
@@ -202,7 +202,7 @@ impl Tool for KeyImport {
                 } else {
                     let secret = keys::decode_x25519_secret(&text)?;
                     if self.backend.x25519_public(&secret) != public {
-                        return Err(MellivoraError::InvalidArgs(
+                        return Err(GimletEyeError::InvalidArgs(
                             "the key file's public key is not the one its secret produces".into(),
                         ));
                     }
@@ -331,7 +331,7 @@ impl Tool for KeyExport {
         ensure_writable(ctx, &target, args.bool_or("overwrite", false)?)?;
 
         if with_secret && entry.secret_key.is_empty() {
-            return Err(MellivoraError::Config(format!(
+            return Err(GimletEyeError::Config(format!(
                 "key '{}' was imported without its secret, so it cannot be exported",
                 entry.label
             )));
@@ -431,23 +431,23 @@ impl Tool for KeyRotate {
         let current = passphrase(args)?;
         let next = if let Some(variable) = args.opt_str("new_passphrase_env")? {
             let value = std::env::var(&variable).map_err(|_| {
-                MellivoraError::InvalidArgs(format!("environment variable '{variable}' is not set"))
+                GimletEyeError::InvalidArgs(format!("environment variable '{variable}' is not set"))
             })?;
             zeroize::Zeroizing::new(value.into_bytes())
         } else if let Some(value) = args.opt_str("new_passphrase")? {
             zeroize::Zeroizing::new(value.into_bytes())
         } else {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "provide 'new_passphrase_env' (preferred) or 'new_passphrase'".into(),
             ));
         };
         if next.is_empty() {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "the new passphrase is empty".into(),
             ));
         }
         if *next == *current {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "the new passphrase is the current one".into(),
             ));
         }

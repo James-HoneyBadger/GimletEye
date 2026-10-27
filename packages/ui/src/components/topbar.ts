@@ -17,7 +17,7 @@ export function renderTopbar(state: AppState): string {
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">M</span>
-        <span class="brand-name">Mellivora<em>ToolKit</em></span>
+        <span class="brand-name">Gimlet<em>Eye</em></span>
       </div>
 
       <div class="search" role="search">

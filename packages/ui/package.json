@@ -1,9 +1,9 @@
 {
-  "name": "@mellivora/ui",
+  "name": "@gimlet-eye/ui",
   "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "Shared UI for the Mellivora ToolKit desktop shell and browser",
+  "description": "Shared UI for the Gimlet Eye desktop shell and browser",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

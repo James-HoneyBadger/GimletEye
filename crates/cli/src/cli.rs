@@ -1,23 +1,23 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use mellivora_core::OutputFormat;
+use gimlet_eye_core::OutputFormat;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "mellivora",
+    name = "gimlet",
     version,
-    about = "Mellivora ToolKit — one workbench for system, crypto, and privacy operations",
-    long_about = "Mellivora ToolKit is one workbench for system administration, \
+    about = "Gimlet Eye — one workbench for system, crypto, and privacy operations",
+    long_about = "Gimlet Eye is one workbench for system administration, \
                   cryptography, and metadata privacy — one registry, one report format, \
                   one configuration, one audit trail.\n\n\
-                  Any tool can be invoked directly: `mellivora system-info` is shorthand for \
-                  `mellivora run system-info`.",
+                  Any tool can be invoked directly: `gimlet system-info` is shorthand for \
+                  `gimlet run system-info`.",
     disable_help_subcommand = true
 )]
 pub struct Cli {
     /// Override the toolkit home directory (config, audit, plugins)
-    #[arg(long, global = true, env = "MELLIVORA_HOME", value_name = "DIR")]
+    #[arg(long, global = true, env = "GIMLET_HOME", value_name = "DIR")]
     pub home: Option<PathBuf>,
 
     /// Output format for tool reports (default: the configured [defaults] output, then text)

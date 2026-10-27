@@ -138,7 +138,7 @@ describe('workbench shell', () => {
     await vi.waitFor(() => expect(document.querySelector('.status--ok')).not.toBeNull());
     expect(document.querySelector('.result-summary')?.textContent).toContain('read 4 bytes');
     const copyCommand = document.querySelector('#result-region [data-copy]');
-    expect(copyCommand?.getAttribute('data-copy')).toBe('mellivora run demo.echo input=/tmp/a.txt');
+    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.echo input=/tmp/a.txt');
   });
 
   it('keeps a typed value when the tool is re-selected', async () => {
@@ -181,7 +181,7 @@ describe('workbench shell', () => {
 
     await vi.waitFor(() => expect(document.querySelector('.callout--info')?.textContent).toContain('Nothing was written'));
     const copyCommand = document.querySelector('#result-region [data-copy]');
-    expect(copyCommand?.getAttribute('data-copy')).toBe('mellivora run demo.write --dry-run');
+    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.write --dry-run');
   });
 
   it('moves focus into the form after a pointer selection, not the list', async () => {

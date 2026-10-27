@@ -4,7 +4,7 @@ use serde::{Serialize, Serializer};
 
 /// The single error type crossing every layer of the toolkit.
 #[derive(Debug, thiserror::Error)]
-pub enum MellivoraError {
+pub enum GimletEyeError {
     #[error("configuration error: {0}")]
     Config(String),
     #[error("invalid arguments: {0}")]
@@ -27,7 +27,7 @@ pub enum MellivoraError {
     Internal(String),
 }
 
-impl MellivoraError {
+impl GimletEyeError {
     /// Stable, machine-readable identifier. Used by the HTTP API and the
     /// plugin protocol, so these strings are part of the public contract.
     pub fn code(&self) -> &'static str {
@@ -46,45 +46,45 @@ impl MellivoraError {
     }
 }
 
-impl Serialize for MellivoraError {
+impl Serialize for GimletEyeError {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
 
-        let mut state = serializer.serialize_struct("MellivoraError", 2)?;
+        let mut state = serializer.serialize_struct("GimletEyeError", 2)?;
         state.serialize_field("code", self.code())?;
         state.serialize_field("message", &self.to_string())?;
         state.end()
     }
 }
 
-impl From<std::io::Error> for MellivoraError {
+impl From<std::io::Error> for GimletEyeError {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err.to_string())
     }
 }
 
-impl From<serde_json::Error> for MellivoraError {
+impl From<serde_json::Error> for GimletEyeError {
     fn from(err: serde_json::Error) -> Self {
         Self::Internal(format!("json: {err}"))
     }
 }
 
-impl From<toml::de::Error> for MellivoraError {
+impl From<toml::de::Error> for GimletEyeError {
     fn from(err: toml::de::Error) -> Self {
         Self::Config(err.to_string())
     }
 }
 
-impl From<toml::ser::Error> for MellivoraError {
+impl From<toml::ser::Error> for GimletEyeError {
     fn from(err: toml::ser::Error) -> Self {
         Self::Config(err.to_string())
     }
 }
 
-impl From<fmt::Error> for MellivoraError {
+impl From<fmt::Error> for GimletEyeError {
     fn from(err: fmt::Error) -> Self {
         Self::Internal(err.to_string())
     }
 }
 
-pub type Result<T> = std::result::Result<T, MellivoraError>;
+pub type Result<T> = std::result::Result<T, GimletEyeError>;

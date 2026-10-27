@@ -11,8 +11,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use mellivora_core::{AppPaths, Args, Report, ToolContext};
-use mellivora_toolkit::Runtime;
+use gimlet_eye_core::{AppPaths, Args, Report, ToolContext};
+use gimlet_eye_toolkit::Runtime;
 use serde_json::Value;
 
 /// Deepest allowed path: `data.a.b` and `data.a[].b`.
@@ -24,8 +24,7 @@ struct Workspace {
 
 impl Workspace {
     fn new(name: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("mellivora-data-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("gimlet-data-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("workspace");
         Self {
@@ -108,8 +107,7 @@ fn gpg_keyring(name: &str) -> Option<PathBuf> {
     {
         return None;
     }
-    let home =
-        std::env::temp_dir().join(format!("mellivora-shape-gpg-{name}-{}", std::process::id()));
+    let home = std::env::temp_dir().join(format!("gimlet-shape-gpg-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&home);
     fs::create_dir_all(&home).expect("gpg home");
     #[cfg(unix)]
@@ -190,7 +188,7 @@ fn every_native_tool_answers_with_data_of_the_documented_shape() {
             ("passphrase", "test-only".into()),
         ]),
     );
-    let container = plaintext.with_file_name("note.txt.melv");
+    let container = plaintext.with_file_name("note.txt.gimlet");
     samples.run(
         "crypto.inspect",
         args(&[("input", container.display().to_string())]),
@@ -282,7 +280,7 @@ fn every_native_tool_answers_with_data_of_the_documented_shape() {
             ("input", plaintext.display().to_string()),
             (
                 "output",
-                dir.join("for-recipient.melv").display().to_string(),
+                dir.join("for-recipient.gimlet").display().to_string(),
             ),
             ("to", recipient_public.display().to_string()),
         ]),
@@ -292,7 +290,7 @@ fn every_native_tool_answers_with_data_of_the_documented_shape() {
         args(&[
             (
                 "input",
-                dir.join("for-recipient.melv").display().to_string(),
+                dir.join("for-recipient.gimlet").display().to_string(),
             ),
             (
                 "output",

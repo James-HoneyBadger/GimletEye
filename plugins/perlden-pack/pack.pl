@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 # ============================================================================
-# Mellivora ToolKit pack adapter for Perl Den.
+# Gimlet Eye pack adapter for Perl Den.
 #
-# Speaks the Mellivora JSON-RPC protocol on stdin/stdout (one object per line).
+# Speaks the Gimlet Eye JSON-RPC protocol on stdin/stdout (one object per line).
 # Perl Den's own module contract -- run(%args) -> \%result plus
 # format_report(\%result) -> $string -- is preserved, so the 20 existing scripts
 # join the toolkit without being rewritten.
 #
-# Set MELLIVORA_PERLDEN_HOME to point at a Perl Den checkout. Otherwise the pack
+# Set GIMLET_PERLDEN_HOME to point at a Perl Den checkout. Otherwise the pack
 # searches external/Perl_Den next to the toolkit sources, then ~/Perl_Den.
 # ============================================================================
 use strict;
@@ -92,9 +92,9 @@ exit 0;
 
 sub find_perlden_root {
     my @candidates;
-    push @candidates, $ENV{MELLIVORA_PERLDEN_HOME} if $ENV{MELLIVORA_PERLDEN_HOME};
+    push @candidates, $ENV{GIMLET_PERLDEN_HOME} if $ENV{GIMLET_PERLDEN_HOME};
 
-    my $pack_dir = $ENV{MELLIVORA_PACK_DIR};
+    my $pack_dir = $ENV{GIMLET_PACK_DIR};
     if (defined $pack_dir && length $pack_dir) {
         # The host starts the pack inside its own directory, so a relative pack
         # dir must be anchored before walking up to the toolkit root.

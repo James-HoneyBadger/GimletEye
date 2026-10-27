@@ -65,14 +65,14 @@ shippable and none of them adds a feature users have to learn.
 - [x] Privacy profiles and GPS redaction (see [ENHANCEMENTS.md](ENHANCEMENTS.md)).
 - [ ] `hb-scrub` Node pack exposing the formats that are still unsupported.
   *Scheduled in v0.5.*
-  *Acceptance:* HEIC/PDF/MP4 round-trip through `mellivora metadata-strip`;
+  *Acceptance:* HEIC/PDF/MP4 round-trip through `gimlet metadata-strip`;
   unsupported constructs produce warnings, not silent success.
 - [x] Privacy profiles (`privacy`, `sharing`, `archive`) and field-level `keep`/`remove`.
   *Acceptance:* `--profile` changes the removable set; a unit test pins each set.
 - [x] Batch execution across files with a concurrency limit.
   *Acceptance:* 100 files processed with a per-file report and one aggregate
   summary; failures do not abort the run.
-  *Landed as* `mellivora batch` with `--concurrency`, `--fail-fast`, `--ext`,
+  *Landed as* `gimlet batch` with `--concurrency`, `--fail-fast`, `--ext`,
   and `--input-arg`; covered by unit tests and the smoke suite.
 - [x] GPS redaction (truncate to region) for JPEG/PNG/WebP.
   *Acceptance:* coordinates reduced to the requested precision; verify mode
@@ -83,7 +83,7 @@ shippable and none of them adds a feature users have to learn.
 - [x] A native engine implements `CryptoBackend`.
   *Acceptance:* known-answer tests for AES-256-GCM, ChaCha20-Poly1305, Argon2id,
   and Ed25519 (RFC 8032 vector).
-- [x] `crypto.encrypt` / `crypto.decrypt` over the `.melv` container.
+- [x] `crypto.encrypt` / `crypto.decrypt` over the `.gimlet` container.
   *Acceptance:* round-trip both ciphers; header tampering and wrong passphrases
   fail closed; header readable without the passphrase.
 - [x] `crypto.sign` / `crypto.verify` (Ed25519).
@@ -172,7 +172,7 @@ the two release stretches after this one must be still.
 - [x] **X25519 recipients and container v3** (ADR 0007). Ephemeral X25519, HKDF
   per file, a recipient block in the header, `crypto.encrypt to=`.
   *Acceptance:* v1 and v2 still open; another key cannot decrypt; a committed v3
-  fixture pins the format the way `container-v1.melv` pins v1.
+  fixture pins the format the way `container-v1.gimlet` pins v1.
   `crates/crypto/tests/container_compat.rs` holds all three versions side by side.
 - [x] **OpenPGP interop**: `crypto.gpg-verify`, `crypto.gpg-encrypt`, behind a
   feature flag (`openpgp`, on by default).
@@ -209,7 +209,7 @@ container constants is a bug fix with a test.
   compare whole documents — so a change in what `metadata-strip` decides shows up
   as a diff. Writing the fixtures caught a wrong ICC segment in the fixture
   itself, which is the corpus doing its job on day one.
-- [x] **Pack trust**: `[trust] sha256` pinning and `mellivora plugins conformance
+- [x] **Pack trust**: `[trust] sha256` pinning and `gimlet plugins conformance
   <dir>` running the SDK checklist. The runner rejects a deliberately broken pack
   in six tests, and it found a real deviation in the reference pack: it answered
   an unknown tool with `-32003` instead of `-32001`.
@@ -244,7 +244,7 @@ fixed, and the test that would catch a regression if it were not:
 | 8 | `container::open` reads chunked containers | `open_accepts_a_chunked_container` |
 | 9 | An id-less plugin reply is not taken as the answer in flight | `a_notification_before_the_reply_does_not_consume_it` |
 | 10 | Audit pruning is atomic and serialised | `concurrent_records_keep_the_trail_capped_and_parseable` |
-| 11 | `mellivora batch` reports wall-clock duration | `aggregate_counts_every_outcome` |
+| 11 | `gimlet batch` reports wall-clock duration | `aggregate_counts_every_outcome` |
 | 12 | GPS altitude below sea level is negative | `a_below_sea_level_altitude_is_reported_as_negative` |
 
 Also checked: `cargo deny` is clean on both dependency graphs; the tree resolves
@@ -277,7 +277,7 @@ the host never told a pack that a run was a dry run, so the SDK rule "honour
   release job rebuilds the tag from a second directory and refuses to publish on
   a mismatch.
 - [x] **Packaging**: `debian/`, `packaging/arch/PKGBUILD` (parsed by `makepkg
-  --printsrcinfo`), `packaging/fedora/mellivora-toolkit.spec`, and `cargo install`
+  --printsrcinfo`), `packaging/fedora/gimlet-eye-toolkit.spec`, and `cargo install`
   from a tag. `scripts/check-packaging.sh` fails when any of them names a version
   other than the workspace's, and CI builds the `.deb` on every push.
 - [x] **Install → upgrade → rollback rehearsal** in a container, carrying a real
@@ -328,7 +328,7 @@ went live the moment v0.7.0 was tagged — is what proves it.
   installers for the desktop app; checksums. `.github/workflows/release.yml`
   builds and attaches them from a tag, and publishes nothing unless every build
   succeeds.
-- [x] **A `.melv` a second implementation can read** — `crates/crypto/tests/interop/read_melv.py`
+- [x] **A `.gimlet` a second implementation can read** — `crates/crypto/tests/interop/read_container.py`
   is a Python reader written from `docs/CONTAINER.md` alone; it opens the v1 and
   v3 fixtures and a multi-chunk file the current build writes, and refuses a
   tampered chunk. `second_implementation.rs` runs it in the `rust` job, where a
@@ -346,13 +346,13 @@ went live the moment v0.7.0 was tagged — is what proves it.
 
   | Claim | Evidence |
   |---|---|
-  | `Report`, registry, config, audit trail | 54 tests in `mellivora-core`; `tests/data_shape.rs` holds every native tool to the documented shape |
+  | `Report`, registry, config, audit trail | 54 tests in `gimlet-eye-core`; `tests/data_shape.rs` holds every native tool to the documented shape |
   | Plugin protocol and host | protocol conformance runner; the `integration` job runs a real Perl pack |
   | CLI commands | `check-public-surface.sh` (documented) + `check-readme-claims.sh` (17 commands executed) |
   | HTTP API, UI, desktop shell | `smoke.sh` now calls all seven routes; `e2e` job runs Playwright against a live engine; `desktop` job typechecks the shell |
-  | `sysadmin.*` | 16 tests in `mellivora-sysadmin` |
-  | `crypto.passgen`, `crypto.sha256` | `mellivora-crypto` unit tests |
-  | `privacy.metadata-*` for JPEG/PNG/WebP | golden corpus (4 tests) + 59 tests in `mellivora-scrub` |
+  | `sysadmin.*` | 16 tests in `gimlet-eye-sysadmin` |
+  | `crypto.passgen`, `crypto.sha256` | `gimlet-eye-crypto` unit tests |
+  | `privacy.metadata-*` for JPEG/PNG/WebP | golden corpus (4 tests) + 59 tests in `gimlet-eye-scrub` |
   | Profiles, field-level control, GPS redaction | `scrub::format` and `scrub::exif` tests |
   | Container v2, AEAD, Argon2id, Ed25519 | container tests, the v1/v3 fixtures, and the Python reader |
   | Keystore, X25519 recipients in v3 | 7 keystore tests, the v3 fixture opened by both implementations |
@@ -363,7 +363,7 @@ went live the moment v0.7.0 was tagged — is what proves it.
   requirements did not mention. It is documented there now, and the reference
   lists it under "did not run here" instead of implying it works everywhere.
 - [ ] **Gate 2 audit** — corpus, token, pack trust, MSRV, `cargo deny`, and the
-  live-engine UI test are green in CI; the soak now covers the `.melv` reader as
+  live-engine UI test are green in CI; the soak now covers the `.gimlet` reader as
   well as the four scrub parsers, and a failed night opens an issue instead of
   waiting to be noticed. Per the **2026-10-26 amendment to ADR 0006** the evidence
   bar is seven consecutive *scheduled* nights **or** 350 target-minutes of green
@@ -406,9 +406,9 @@ minor without a breaking change.
   pack already serves them behind the same manifest.
 - `automation` module: scheduled runs, dry-run default, cron or systemd backend.
 - `crates/wasm`: browser-safe tools (scan/strip, hash, passgen).
-- TUI (`mellivora tui`) for terminals.
+- TUI (`gimlet tui`) for terminals.
 - Windows and macOS parity for the `/proc`- and `df`-based sysadmin tools.
-- Random access into a large `.melv` container (today a seek means decrypting
+- Random access into a large `.gimlet` container (today a seek means decrypting
   from the start).
 
 ## Explicitly out of scope

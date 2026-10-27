@@ -11,5 +11,8 @@ pub mod protocol;
 
 pub use conformance::{check as check_conformance, Check, ConformanceReport, Outcome};
 pub use host::{discover, PackFailure, PackSummary, PluginHost, PluginTool, RunningPack};
-pub use manifest::{PackManifest, MANIFEST_FILENAME};
+pub use manifest::{
+    find_manifest, manifest_path, PackManifest, LEGACY_MANIFEST_FILENAME, MANIFEST_FILENAME,
+    MANIFEST_FILENAMES,
+};
 pub use protocol::PROTOCOL_VERSION;

@@ -489,6 +489,93 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimlet-eye-cli"
+version = "0.7.0"
+dependencies = [
+ "clap",
+ "gimlet-eye-core",
+ "gimlet-eye-toolkit",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "gimlet-eye-core"
+version = "0.7.0"
+dependencies = [
+ "dirs",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
+ "tracing",
+]
+
+[[package]]
+name = "gimlet-eye-crypto"
+version = "0.7.0"
+dependencies = [
+ "aes-gcm",
+ "argon2",
+ "chacha20poly1305",
+ "ed25519-dalek",
+ "gimlet-eye-core",
+ "hkdf",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "gimlet-eye-scrub"
+version = "0.7.0"
+dependencies = [
+ "gimlet-eye-core",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "gimlet-eye-server"
+version = "0.7.0"
+dependencies = [
+ "axum",
+ "gimlet-eye-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "gimlet-eye-sysadmin"
+version = "0.7.0"
+dependencies = [
+ "gimlet-eye-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "gimlet-eye-toolkit"
+version = "0.7.0"
+dependencies = [
+ "gimlet-eye-core",
+ "gimlet-eye-crypto",
+ "gimlet-eye-scrub",
+ "gimlet-eye-server",
+ "gimlet-eye-sysadmin",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -669,93 +756,6 @@ name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
-
-[[package]]
-name = "mellivora-cli"
-version = "0.7.0"
-dependencies = [
- "clap",
- "mellivora-core",
- "mellivora-toolkit",
- "serde_json",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "mellivora-core"
-version = "0.7.0"
-dependencies = [
- "dirs",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "toml",
- "tracing",
-]
-
-[[package]]
-name = "mellivora-crypto"
-version = "0.7.0"
-dependencies = [
- "aes-gcm",
- "argon2",
- "chacha20poly1305",
- "ed25519-dalek",
- "hkdf",
- "mellivora-core",
- "rand",
- "serde",
- "serde_json",
- "sha2",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
-name = "mellivora-scrub"
-version = "0.7.0"
-dependencies = [
- "mellivora-core",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "mellivora-server"
-version = "0.7.0"
-dependencies = [
- "axum",
- "mellivora-core",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "mellivora-sysadmin"
-version = "0.7.0"
-dependencies = [
- "mellivora-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "mellivora-toolkit"
-version = "0.7.0"
-dependencies = [
- "mellivora-core",
- "mellivora-crypto",
- "mellivora-scrub",
- "mellivora-server",
- "mellivora-sysadmin",
- "serde_json",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "memchr"

@@ -22,7 +22,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mellivora_scrub::{exif_ranges, redact_gps_payload, GpsPrecision};
+use gimlet_eye_scrub::{exif_ranges, redact_gps_payload, GpsPrecision};
 
 fn inputs() -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));

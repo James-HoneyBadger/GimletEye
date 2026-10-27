@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mellivora_scrub::{exif_ranges, handler_for, redact_gps_payload, GpsPrecision, RemovalPolicy};
+use gimlet_eye_scrub::{exif_ranges, handler_for, redact_gps_payload, GpsPrecision, RemovalPolicy};
 
 fn corpus_dir() -> PathBuf {
     // The committed seeds, not the working corpus libFuzzer grows during a run.

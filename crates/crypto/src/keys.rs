@@ -10,7 +10,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 use serde::{Deserialize, Serialize};
 
 pub const ALGORITHM: &str = "ed25519";
@@ -69,7 +69,7 @@ fn encode_as(algorithm: &str, public: &[u8; 32], secret: Option<&[u8; 32]>) -> S
 pub fn decode_secret(text: &str) -> Result<[u8; 32]> {
     let file = parse(text)?;
     let secret = file.secret_key.ok_or_else(|| {
-        MellivoraError::InvalidArgs("this is a public key file, not a secret key".into())
+        GimletEyeError::InvalidArgs("this is a public key file, not a secret key".into())
     })?;
     to_array(&secret)
 }
@@ -89,7 +89,7 @@ pub fn encode_x25519_public(pair: &X25519KeyPair) -> String {
 pub fn decode_x25519_secret(text: &str) -> Result<[u8; 32]> {
     let file = parse_as(text, X25519_ALGORITHM)?;
     let secret = file.secret_key.ok_or_else(|| {
-        MellivoraError::InvalidArgs("this is a public key file, not a secret key".into())
+        GimletEyeError::InvalidArgs("this is a public key file, not a secret key".into())
     })?;
     to_array(&secret)
 }
@@ -101,10 +101,10 @@ pub fn decode_x25519_public(text: &str) -> Result<[u8; 32]> {
 /// The algorithm a key file declares, without decoding the material.
 pub fn algorithm_of(text: &str) -> Result<String> {
     let file: KeyFile = serde_json::from_str(text)
-        .map_err(|err| MellivoraError::InvalidArgs(format!("not a key file: {err}")))?;
+        .map_err(|err| GimletEyeError::InvalidArgs(format!("not a key file: {err}")))?;
     match file.algorithm.as_str() {
         ALGORITHM | X25519_ALGORITHM => Ok(file.algorithm),
-        other => Err(MellivoraError::Unsupported(format!(
+        other => Err(GimletEyeError::Unsupported(format!(
             "key algorithm '{other}' is not supported"
         ))),
     }
@@ -142,10 +142,10 @@ fn parse(text: &str) -> Result<KeyFile> {
 
 fn parse_as(text: &str, algorithm: &str) -> Result<KeyFile> {
     let file: KeyFile = serde_json::from_str(text).map_err(|err| {
-        MellivoraError::InvalidArgs(format!("not an {algorithm} key file: {err}"))
+        GimletEyeError::InvalidArgs(format!("not an {algorithm} key file: {err}"))
     })?;
     if file.algorithm != algorithm {
-        return Err(MellivoraError::Unsupported(format!(
+        return Err(GimletEyeError::Unsupported(format!(
             "key algorithm '{}' is not supported here (expected {algorithm})",
             file.algorithm
         )));
@@ -157,7 +157,7 @@ fn to_array(hex: &str) -> Result<[u8; 32]> {
     let bytes = hex_decode(hex)?;
     bytes
         .try_into()
-        .map_err(|_| MellivoraError::InvalidArgs("key must be 32 bytes".into()))
+        .map_err(|_| GimletEyeError::InvalidArgs("key must be 32 bytes".into()))
 }
 
 fn create_parent(path: &Path) -> Result<()> {
@@ -189,7 +189,7 @@ pub fn hex_encode(bytes: &[u8]) -> String {
 pub fn hex_decode(text: &str) -> Result<Vec<u8>> {
     let text = text.trim();
     if text.len() % 2 != 0 {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "hex string has an odd length".into(),
         ));
     }
@@ -197,7 +197,7 @@ pub fn hex_decode(text: &str) -> Result<Vec<u8>> {
         .step_by(2)
         .map(|index| {
             u8::from_str_radix(&text[index..index + 2], 16)
-                .map_err(|_| MellivoraError::InvalidArgs("invalid hex in key material".into()))
+                .map_err(|_| GimletEyeError::InvalidArgs("invalid hex in key material".into()))
         })
         .collect()
 }
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn writes_secret_with_owner_only_permissions() {
-        let dir = std::env::temp_dir().join(format!("mellivora-keys-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-keys-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let path = dir.join("test.key");
         write_secret(&path, &pair()).expect("write");

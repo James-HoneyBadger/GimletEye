@@ -9,8 +9,8 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use mellivora_core::{
-    AppPaths, Args, AuditEntry, AuditLog, Config, MellivoraError, PackSummary, Registry, Report,
+use gimlet_eye_core::{
+    AppPaths, Args, AuditEntry, AuditLog, Config, GimletEyeError, PackSummary, Registry, Report,
     Status, ToolContext, ToolManifest, VERSION,
 };
 use serde::Deserialize;
@@ -101,10 +101,10 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), MellivoraError> {
+pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), GimletEyeError> {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .map_err(|err| MellivoraError::Io(format!("cannot bind {addr}: {err}")))?;
+        .map_err(|err| GimletEyeError::Io(format!("cannot bind {addr}: {err}")))?;
     serve_listener(state, listener).await
 }
 
@@ -112,13 +112,13 @@ pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), MellivoraErr
 pub async fn serve_listener(
     state: AppState,
     listener: tokio::net::TcpListener,
-) -> Result<(), MellivoraError> {
+) -> Result<(), GimletEyeError> {
     if let Ok(addr) = listener.local_addr() {
         tracing::info!(%addr, "listening");
     }
     axum::serve(listener, router(state))
         .await
-        .map_err(|err| MellivoraError::Internal(err.to_string()))
+        .map_err(|err| GimletEyeError::Internal(err.to_string()))
 }
 
 /// Every `/api/` request needs the token when one is configured.
@@ -135,7 +135,7 @@ async fn authorize(
         if !state.auth.allows(presented.as_deref()) {
             return (
                 StatusCode::UNAUTHORIZED,
-                [(header::WWW_AUTHENTICATE, "Bearer realm=\"mellivora\"")],
+                [(header::WWW_AUTHENTICATE, "Bearer realm=\"gimlet\"")],
                 "missing or invalid API token\n",
             )
                 .into_response();
@@ -164,7 +164,7 @@ async fn show_tool(
     let tool = state
         .registry
         .resolve(&id)
-        .ok_or_else(|| MellivoraError::NotFound(format!("tool '{id}'")))?;
+        .ok_or_else(|| GimletEyeError::NotFound(format!("tool '{id}'")))?;
     Ok(Json(tool.manifest().clone()))
 }
 
@@ -210,7 +210,7 @@ async fn run_tool(
     let tool = state
         .registry
         .resolve(&request.tool)
-        .ok_or_else(|| MellivoraError::NotFound(format!("tool '{}'", request.tool)))?;
+        .ok_or_else(|| GimletEyeError::NotFound(format!("tool '{}'", request.tool)))?;
 
     let arg_keys: Vec<String> = request.args.keys().cloned().collect();
     let args = Args::from_map(request.args);
@@ -223,7 +223,7 @@ async fn run_tool(
     let started = std::time::Instant::now();
     let outcome = tokio::task::spawn_blocking(move || tool.run(&context, &args))
         .await
-        .map_err(|err| MellivoraError::Internal(format!("tool task failed: {err}")))?;
+        .map_err(|err| GimletEyeError::Internal(format!("tool task failed: {err}")))?;
 
     // A failed run is recorded too: an audit trail that only holds successes
     // cannot show repeated failures, which is the shape of an attempt to guess a

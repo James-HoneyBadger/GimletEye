@@ -1,13 +1,42 @@
 # Changelog
 
-All notable changes to Mellivora ToolKit. Format follows
+All notable changes to Gimlet Eye. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing versioned moved: these are fixes, evidence, and documentation, so the
-quiet countdown to 1.0 is unaffected.
+### Changed
+
+- **The project is now Gimlet Eye.** Mellivora is the name of a different project
+  family, and this toolkit shares nothing with it but a name. The rename reaches
+  the parts other people build against, so it is a breaking release:
+
+  | Was | Is |
+  |---|---|
+  | `mellivora <tool>` | `gimlet <tool>` |
+  | `mellivora-core`, `-crypto`, `-scrub`, `-sysadmin`, `-server`, `-toolkit`, `-cli` | `gimlet-eye-*` |
+  | `MellivoraError` | `GimletEyeError` |
+  | `MELLIVORA_HOME`, `MELLIVORA_PLUGIN_PATH`, and the rest | `GIMLET_HOME`, `GIMLET_PLUGIN_PATH`, … |
+  | `~/.config/mellivora` | `~/.config/gimlet` |
+  | `keystore.melv` | `keystore.gimlet` |
+  | `.melv` / magic `MELV` | `.gimlet` / magic `GIML` |
+  | `mellivora-pack.toml` | `gimlet-pack.toml` |
+  | `@mellivora/ui` | `@gimlet-eye/ui` |
+
+  Three things keep reading what the old name wrote, so an upgrade does not
+  orphan data: a home directory at `~/.config/mellivora` is used when no
+  `~/.config/gimlet` exists, a container that starts with `MELV` opens exactly
+  like one that starts with `GIML` (nothing else in the format moved), and a pack
+  manifest named `mellivora-pack.toml` loads. New files are written under the new
+  names. A pinned pack has to be re-pinned because its digest covers the manifest
+  filename.
+
+  Deliberately frozen: the HKDF label `melv-v3-recipient`, which is bound into
+  every v3 container already written.
+
+  The quiet countdown to 1.0 restarts, because a release that renames the crate
+  names, the binary, and the environment variables is not a quiet one.
 
 ### Fixed
 
@@ -27,7 +56,7 @@ quiet countdown to 1.0 is unaffected.
   array, and a value pointer aimed at the IFD entry table. The first is fixed by
   rounding to whole seconds before snapping to the grid; the other two are now
   refused, naming the ranges involved, instead of being half-written.
-- **A `.melv` file could make decrypting cost minutes.** The container format
+- **A `.gimlet` file could make decrypting cost minutes.** The container format
   accepts up to 1 GiB of Argon2id memory and 16 iterations, which is right for a
   format but wrong for a tool pointed at a file someone sent you: a 75-byte
   header asking for 595 MiB and nine iterations held a core for 42 seconds before
@@ -50,7 +79,7 @@ quiet countdown to 1.0 is unaffected.
   [COMPATIBILITY.md](docs/COMPATIBILITY.md), and `check-public-surface.sh`
   compares those tables with the binary's `--help` and the router, so a new flag
   or route cannot ship undocumented.
-- **Container fuzzing.** `crates/crypto/fuzz` soaks the `.melv` reader alongside
+- **Container fuzzing.** `crates/crypto/fuzz` soaks the `.gimlet` reader alongside
   the four scrub parsers, including an assertion that an expensive header is
   refused *before* the key is derived. A failed night now opens an issue, because
   the soak is a release gate and a red night noticed six days later is a red
@@ -59,7 +88,7 @@ quiet countdown to 1.0 is unaffected.
   verified by the newest green CI run, or open with its reason; and
   **`make fuzz-nights`**, which reads the scheduled soak history and refuses to
   count a dispatched run, a cancellation, or a missing night.
-- **A `.melv` a second implementation can read**: `crates/crypto/tests/interop/`
+- **A `.gimlet` a second implementation can read**: `crates/crypto/tests/interop/`
   is a reader written from [CONTAINER.md](docs/CONTAINER.md) alone, run in CI
   against the v1 and v3 fixtures and a multi-chunk file this build writes.
 - **Tests for paths that had none:** keystore rotation (old passphrase retires,
@@ -96,19 +125,19 @@ countdown to 1.0 now has one tick behind it.
   survives, the keystore stays 0600, and the audit trail only grows. It runs on
   every push.
 - **A user guide, an admin guide, and a pack gallery**, the last with a complete
-  example pack that passes `mellivora plugins conformance`.
-- **Recorded throughput.** `cargo run --release -p mellivora-toolkit --example
+  example pack that passes `gimlet plugins conformance`.
+- **Recorded throughput.** `cargo run --release -p gimlet-eye-toolkit --example
   bench` measures scan, strip, and encrypt at 10 MiB and 1 GiB, prints JSON, and
   fails under a floor; a CI job runs it and keeps the numbers. On this machine:
   strip 1 GiB in 1.2 s (832 MiB/s), encrypt 1 GiB in 3.3 s (309 MiB/s). Scan is
   measured and reported as *header only* — it walks container structure, not
   pixel data, so a throughput figure for it would be a lie told in MiB.
-- **A live-engine UI test.** `packages/ui/e2e` drives a real `mellivora serve`
+- **A live-engine UI test.** `packages/ui/e2e` drives a real `gimlet serve`
   with Playwright: the token gate, browsing, validation that blocks a run,
   a known-answer run, and the token surviving a reload. `vitest` mocks the API,
   so this is the only check that would notice wire drift between the UI and the
   engine — which is what a 1.0 freeze makes expensive. New `e2e` CI job.
-- **`mellivora plugins conformance <dir>`** runs the SDK checklist instead of
+- **`gimlet plugins conformance <dir>`** runs the SDK checklist instead of
   leaving it as a list in a document: manifest, handshake, tool ids, capability
   subset, unknown-tool handling (`-32001`), clean shutdown, and the pack's own
   language syntax. It reports the three items only a human can judge as
@@ -116,14 +145,14 @@ countdown to 1.0 now has one tick behind it.
   Writing it found a real deviation in the reference pack: it answered an
   unknown tool with `-32003` (execution failed), so a caller looked at its own
   arguments instead of at a stale tool id.
-- **Pack trust pinning.** `mellivora plugins pin <dir>` prints a digest over
+- **Pack trust pinning.** `gimlet plugins pin <dir>` prints a digest over
   every file in the pack (path, size, content), and `[trust]` in the config
   refuses a pack whose digest does not match, listing it as a failure with both
   values. Unpinned packs load as before, so pinning one does not disable the
   others, and a pin for a pack that is not installed is reported too.
 - **A sealed keystore, and encryption to recipients.** `crypto.keygen
   kind=x25519 label=alice keystore=true` writes a key into
-  `$MELLIVORA_HOME/keystore.melv` — one `.melv` container (Argon2id → AEAD, mode
+  `$GIMLET_HOME/keystore.gimlet` — one `.gimlet` container (Argon2id → AEAD, mode
   0600, atomic replace) holding a JSON document, so a wrong passphrase fails the
   tag before anything is parsed and there is no second format to keep
   compatible. `crypto.key-list`, `crypto.key-import`, `crypto.key-export`, and
@@ -139,7 +168,7 @@ countdown to 1.0 now has one tick behind it.
   recipient, and a random file key wrapped once for each of them; the chunk
   stream below the header is byte-for-byte the version 2 framing. A file for
   somebody else says "not encrypted for that key" rather than reporting a bad
-  passphrase. v1 and v2 still open, and a committed `container-v3.melv` pins the
+  passphrase. v1 and v2 still open, and a committed `container-v3.gimlet` pins the
   format. See [CONTAINER.md](docs/CONTAINER.md#version-3-recipients).
 - **OpenPGP interop through the system `gpg`.** `crypto.gpg-verify` checks a
   detached signature and `crypto.gpg-encrypt` produces an OpenPGP message, for
@@ -175,8 +204,8 @@ countdown to 1.0 now has one tick behind it.
   which read `/proc` and parse `df` — return an `unsupported` error naming both
   sides instead of an empty report on macOS or Windows. `tools list` gained a
   `PLATFORM` column, and packs can declare the field too.
-- **The local API requires a token.** `mellivora serve` generates one on first
-  run (`$MELLIVORA_HOME/api-token`, mode 0600), prints it, and answers `401` to
+- **The local API requires a token.** `gimlet serve` generates one on first
+  run (`$GIMLET_HOME/api-token`, mode 0600), prints it, and answers `401` to
   any `/api/` request without `Authorization: Bearer <token>`. The printed URL
   carries the token in its fragment so the workbench signs itself in; the desktop
   shell injects it into the window. `[api] require_token = false` turns it off and
@@ -269,7 +298,7 @@ countdown to 1.0 now has one tick behind it.
   place, so a concurrent recorder could lose a record or a reader could see a
   half-written trail. It now goes through a temporary file and a rename, under
   a lock shared by every clone of the log.
-- **`mellivora batch` reports wall-clock duration** instead of the sum of the
+- **`gimlet batch` reports wall-clock duration** instead of the sum of the
   per-file times, which overstated a `--concurrency 4` run by about 4x in both
   the report and the audit entry.
 - **GPS redaction reports below-sea-level altitude as negative.** EXIF stores
@@ -284,7 +313,7 @@ this release are version 2 (chunked); every earlier container still opens.
 
 ### Added
 
-- **Chunked `.melv` container (version 2).** `crypto.encrypt` now writes a
+- **Chunked `.gimlet` container (version 2).** `crypto.encrypt` now writes a
   header plus 64 KiB AEAD chunks instead of one message over the whole file, so
   memory no longer grows with the input: peak RSS measured at 22.7 MiB for both
   a 512 MiB and a 2 GiB file, against 1539.5 MiB for the same 512 MiB file under
@@ -338,7 +367,7 @@ last four fixes in this entry exist because a real run exposed them.
 
 Highlights:
 
-- `mellivora batch` runs one tool over a directory tree, with a per-file entry
+- `gimlet batch` runs one tool over a directory tree, with a per-file entry
   and one aggregate report.
 - `./run.sh` builds what is stale and opens the native window, the browser
   workbench, or a hot-reloading window.
@@ -358,8 +387,8 @@ Highlights:
   workbench (`--serve`), or a hot-reloading window (`--dev`). `--build` forces a
   rebuild; `--foreground` keeps the app attached to the terminal instead of
   detaching it.
-- **`mellivora batch`.** Run one tool over many files:
-  `mellivora batch privacy.metadata-strip ~/Pictures --ext jpg`. Expands
+- **`gimlet batch`.** Run one tool over many files:
+  `gimlet batch privacy.metadata-strip ~/Pictures --ext jpg`. Expands
   directories, binds each path to `--input-arg` (default `input`), runs with
   `--concurrency` (default 4, capped at 32), and prints one aggregate report
   with a per-file entry. `--fail-fast` stops after the first failure and reports
@@ -369,14 +398,14 @@ Highlights:
 - **`mutates` on `ToolManifest`.** `crypto.encrypt`, `crypto.decrypt`,
   `crypto.keygen`, `crypto.sign`, and `privacy.metadata-strip` declare that they
   write; everything else is read-only by default, including packs written before
-  the field existed. `mellivora tools list` gained a `WRITES` column.
+  the field existed. `gimlet tools list` gained a `WRITES` column.
 - **`GET /api/v1/audit?limit=N`.** Recent runs from the local audit trail as
   JSON (`enabled`, `path`, `entries`); argument names only, never values.
 - **Workbench: packs and history.** The packs button lists every loaded pack
   with its version, tool count, capabilities, and directory; the clock button
   shows recent runs, and clicking one opens its tool.
 - **Workbench: reproducible runs.** Every report shows the equivalent
-  `mellivora run …` command, copyable in one click, and can be downloaded as
+  `gimlet run …` command, copyable in one click, and can be downloaded as
   JSON.
 - **Desktop: the window now loads the embedded bundle.** `apps/desktop` declares
   the `custom-protocol` feature, so a release build serves the UI compiled into
@@ -396,7 +425,7 @@ Highlights:
   background thread, and hands the port to the window before its first script.
   No second process, no fixed port, and no configuration; packs are discovered
   beside the binary or in the checkout.
-- **`mellivora-toolkit` composition crate.** Module wiring and the serve
+- **`gimlet-eye-toolkit` composition crate.** Module wiring and the serve
   helpers moved out of the CLI, so the CLI and the desktop shell cannot drift
   apart: both build their registry from `Runtime`. `serve_on_listener` lets a
   caller bind first and serve later.
@@ -409,7 +438,7 @@ Highlights:
 - **Native crypto engine.** `CryptoBackend` now has a real implementation:
   AES-256-GCM, ChaCha20-Poly1305, Argon2id, Ed25519, SHA-256, and OS randomness,
   with secrets in zeroizing buffers.
-- **`.melv` container v1.** Self-describing encrypted file: magic, version,
+- **`.gimlet` container v1.** Self-describing encrypted file: magic, version,
   cipher id, KDF parameters, salt, and nonce in an authenticated header.
   Header tampering fails decryption; parameter bounds are checked before key
   derivation. Specified in `docs/CONTAINER.md`.
@@ -462,7 +491,7 @@ Highlights:
 - Reports from the privacy tools include the resolved policy and, when
   applicable, the post-redaction coordinates (never the originals).
 - The smoke test now covers profiles, GPS redaction, and `--strict`.
-- `mellivora batch` walked directories without following symlinks, so a link
+- `gimlet batch` walked directories without following symlinks, so a link
   named on the command line was processed while the same link found by walking
   was skipped. Symlinks are followed now, each directory is walked once by its
   real path, and a link cycle terminates.
@@ -475,7 +504,7 @@ Highlights:
   were alphabetical, so the list did not follow the tabs.
 - A sheet declared `aria-modal` but let Tab walk out of it; focus now cycles
   inside the panel and returns to the control that opened it.
-- `mellivora batch` silently replaced `--arg <input-arg>=…` with the file path;
+- `gimlet batch` silently replaced `--arg <input-arg>=…` with the file path;
   it now refuses the combination and exits `2`.
 - The batch report repeated `duration_ms` inside `data` as well as at the top
   level, unlike every other report.
@@ -484,7 +513,7 @@ Highlights:
 - The history badge in the title bar did not count the run that had just
   finished until the sheet was reopened.
 - `run.sh` sent the desktop shell's log to `/dev/null`, hiding the engine
-  address and window events; it is kept in `$TMPDIR/mellivora-desktop.log`.
+  address and window events; it is kept in `$TMPDIR/gimlet-desktop.log`.
 - Documentation: `CONTRIBUTING.md` pointed at `crates/cli/src/app.rs` (now
   `crates/toolkit/src/runtime.rs`) and described a CI step that no longer
   exists; `COMPATIBILITY.md` promised config migrations and a pinned CI
@@ -496,11 +525,11 @@ Highlights:
 - A pack source that has been renamed, deleted, or made private no longer fails
   `scripts/link-sources.sh`: it warns and the smoke test skips that pack.
   `REQUIRE_SOURCES=1` restores the hard failure.
-- A pack listed twice when `MELLIVORA_PLUGIN_PATH` named a directory that was
+- A pack listed twice when `GIMLET_PLUGIN_PATH` named a directory that was
   also discovered relative to the working directory: `plugins` and
   `/abs/path/plugins` are the same directory with two spellings. Plugins are now
   deduplicated by canonical path, so each pack process starts once.
-- `mellivora … | head` panicked with a broken-pipe backtrace when the reader
+- `gimlet … | head` panicked with a broken-pipe backtrace when the reader
   closed early; the CLI now ends quietly, as a shell pipeline expects.
 - `ArgSpec` serialized as `{"name": ..., "kind": {"type": ...}}` while the
   documented contract promised a flat `type`. It is now flattened, so consumers
@@ -521,20 +550,20 @@ First release: one contract, one registry, and three domain modules
 
 ### Added
 
-- **Core** (`mellivora-core`): `Tool` / `ToolManifest` / `Report` contracts,
+- **Core** (`gimlet-eye-core`): `Tool` / `ToolManifest` / `Report` contracts,
   registry with built-in precedence and fuzzy suggestions, versioned TOML config
   with module namespaces, JSONL audit trail that records argument names only,
   capability model, JSON-RPC plugin host with timeouts and per-pack failure
   isolation.
-- **Sysadmin** (`mellivora-sysadmin`): native `system-info` and `disk-usage`
+- **Sysadmin** (`gimlet-eye-sysadmin`): native `system-info` and `disk-usage`
   ports of the Perl Den modules, with pure `/proc` and `df` parsers and
   configurable thresholds.
-- **Crypto** (`mellivora-crypto`): `CryptoBackend` seam, OS CSPRNG backend,
+- **Crypto** (`gimlet-eye-crypto`): `CryptoBackend` seam, OS CSPRNG backend,
   `passgen` (unbiased sampling, guaranteed character classes, entropy estimate)
   and `sha256`.
-- **Privacy** (`mellivora-scrub`): metadata scan, strip, and verify for JPEG,
+- **Privacy** (`gimlet-eye-scrub`): metadata scan, strip, and verify for JPEG,
   PNG, and WebP — byte-preserving, verified before write, `--dry-run` aware.
-- **Surfaces**: `mellivora` CLI (`run`, `tools`, `plugins`, `config`, `audit`,
+- **Surfaces**: `gimlet` CLI (`run`, `tools`, `plugins`, `config`, `audit`,
   `doctor`, `serve`, plus tool shorthand), HTTP API, shared TypeScript UI, and a
   Tauri 2 desktop shell.
 - **Packs**: the first compatibility pack, exposing external system-audit

@@ -21,7 +21,7 @@ These are ordered by value per unit of risk. Everything else can wait.
 | 4 | [Pack trust and conformance](#4-pack-trust-and-conformance) | Packs are the extension story; they need a safety story. | M | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
 
-Shipped since this list was written: **batch execution** (`mellivora batch`,
+Shipped since this list was written: **batch execution** (`gimlet batch`,
 below), **manifest `mutates`**, **`GET /api/v1/audit`** with a recent-runs view,
 a **UI test suite**, and **API authentication** (a bearer token on every
 `/api/` route plus a bind guard, both landed in 0.3.x).
@@ -36,7 +36,7 @@ a **UI test suite**, and **API authentication** (a bearer token on every
 it. AEAD, signatures, HBZF, and the keystore are unavailable.
 
 **Done.** Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305), Argon2id
-key derivation, Ed25519 signing, and the `.melv` container are implemented and
+key derivation, Ed25519 signing, and the `.gimlet` container are implemented and
 covered by known-answer tests.
 
 **Done since:** streaming container v2 (chunked framing, bounded memory, v1
@@ -98,7 +98,7 @@ the directory". Packs can also declare capabilities they do not use.
 being an answer.
 
 **Shape.**
-- `mellivora plugins conformance <dir>` runs the SDK checklist automatically
+- `gimlet plugins conformance <dir>` runs the SDK checklist automatically
   (handshake, ids unique, findings drive status, dry-run honoured, clean exit).
 - Manifest `[trust] sha256 = "..."` pinning the entry point, verified before
   spawn; warn on mismatch, refuse when `plugins.require_signature = true`.
@@ -109,7 +109,7 @@ being an answer.
 
 ### 5. Scheduled runs
 
-**Problem.** `mellivora batch` answers "clean this directory once". The next
+**Problem.** `gimlet batch` answers "clean this directory once". The next
 request is always "do it every night", and today that means cron plus a shell
 script that loses the audit trail.
 
@@ -125,7 +125,7 @@ so dry-run must be the default and the first run must be reported.
 
 ### Shipped: batch execution
 
-`mellivora batch <tool> <path>...` expands files and directories, runs the tool
+`gimlet batch <tool> <path>...` expands files and directories, runs the tool
 once per file with the path bound to `--input-arg`, and folds the results into
 one aggregate report: counts, per-file status and summary, and a finding per
 failing file. `--concurrency` bounds parallelism, `--fail-fast` stops after the
@@ -231,7 +231,7 @@ reasonable design but it is currently only documented in code.
 
 ## Explicitly not doing
 
-- **An IDE.** Mellivora is a workbench, not an editor. Editors stay editors.
+- **An IDE.** Gimlet Eye is a workbench, not an editor. Editors stay editors.
 - **A hosted service.** Everything is local; a cloud mode would undo the privacy
   guarantee that makes the toolkit worth using.
 - **Custom cryptographic primitives.** Wrap audited implementations; never

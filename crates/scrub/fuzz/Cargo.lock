@@ -139,7 +139,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mellivora-core"
+name = "gimlet-eye-core"
 version = "0.7.0"
 dependencies = [
  "dirs",
@@ -151,20 +151,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "mellivora-scrub"
+name = "gimlet-eye-scrub"
 version = "0.7.0"
 dependencies = [
- "mellivora-core",
+ "gimlet-eye-core",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "mellivora-scrub-fuzz"
+name = "gimlet-eye-scrub-fuzz"
 version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
- "mellivora-scrub",
+ "gimlet-eye-scrub",
 ]
 
 [[package]]

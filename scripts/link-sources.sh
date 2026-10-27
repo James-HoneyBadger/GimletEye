@@ -51,4 +51,4 @@ if [ "$missing" -eq 1 ] && [ "${REQUIRE_SOURCES:-0}" = "1" ]; then
 fi
 
 echo "verify with:"
-echo "  cargo run -p mellivora-cli -- plugins doctor"
+echo "  cargo run -p gimlet-eye-cli -- plugins doctor"

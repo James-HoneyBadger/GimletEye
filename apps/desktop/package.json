@@ -1,8 +1,8 @@
 {
-  "name": "@mellivora/desktop",
+  "name": "@gimlet-eye/desktop",
   "version": "0.7.0",
   "private": true,
-  "description": "Tauri 2 desktop shell for Mellivora ToolKit",
+  "description": "Tauri 2 desktop shell for Gimlet Eye",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",

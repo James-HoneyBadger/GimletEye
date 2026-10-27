@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn home(name: &str, config: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("mellivora-cli-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("gimlet-eye-cli-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("home");
     fs::write(dir.join("config.toml"), config).expect("config");
@@ -15,13 +15,13 @@ fn home(name: &str, config: &str) -> PathBuf {
 }
 
 fn run(home: &Path, args: &[&str]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_mellivora"))
-        .env("MELLIVORA_HOME", home)
-        .env_remove("MELLIVORA_PLUGIN_PATH")
+    let output = Command::new(env!("CARGO_BIN_EXE_gimlet"))
+        .env("GIMLET_HOME", home)
+        .env_remove("GIMLET_PLUGIN_PATH")
         .arg("--no-plugins")
         .args(args)
         .output()
-        .expect("spawn mellivora");
+        .expect("spawn gimlet");
     assert!(
         output.status.success(),
         "exit {}: {}",

@@ -10,7 +10,7 @@ export RUSTFLAGS=--remap-path-prefix=$(CURDIR)=.
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release --locked -p mellivora-cli
+	cargo build --release --locked -p gimlet-eye-cli
 
 override_dh_auto_test:
 	# The suite is run in CI on every commit; rebuilding it here would double the
@@ -18,12 +18,12 @@ override_dh_auto_test:
 	true
 
 override_dh_auto_install:
-	install -Dm755 target/release/mellivora debian/mellivora/usr/bin/mellivora
-	install -Dm644 README.md debian/mellivora/usr/share/doc/mellivora/README.md
-	install -Dm644 CHANGELOG.md debian/mellivora/usr/share/doc/mellivora/CHANGELOG.md
-	install -Dm644 LICENSE debian/mellivora/usr/share/doc/mellivora/copyright
-	install -Dm644 docs/CONTAINER.md debian/mellivora/usr/share/doc/mellivora/CONTAINER.md
-	install -Dm644 docs/PLUGIN_SDK.md debian/mellivora/usr/share/doc/mellivora/PLUGIN_SDK.md
+	install -Dm755 target/release/gimlet debian/gimlet/usr/bin/gimlet
+	install -Dm644 README.md debian/gimlet/usr/share/doc/gimlet/README.md
+	install -Dm644 CHANGELOG.md debian/gimlet/usr/share/doc/gimlet/CHANGELOG.md
+	install -Dm644 LICENSE debian/gimlet/usr/share/doc/gimlet/copyright
+	install -Dm644 docs/CONTAINER.md debian/gimlet/usr/share/doc/gimlet/CONTAINER.md
+	install -Dm644 docs/PLUGIN_SDK.md debian/gimlet/usr/share/doc/gimlet/PLUGIN_SDK.md
 
 # No separate -dbgsym package: the release archives already ship an unstripped
 # binary, and a debug package doubles the build for a file nobody installs from

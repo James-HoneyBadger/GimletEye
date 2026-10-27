@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use mellivora_core::{
-    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Severity, Tool,
+use gimlet_eye_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report, Result, Severity, Tool,
     ToolContext, ToolManifest,
 };
 use serde_json::{json, Value};
@@ -134,12 +134,12 @@ impl Tool for PassGen {
         let no_ambiguous = args.bool_or("no_ambiguous", false)?;
 
         if !(8..=256).contains(&length) {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "length must be between 8 and 256".into(),
             ));
         }
         if !(1..=256).contains(&count) {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "count must be between 1 and 256".into(),
             ));
         }
@@ -179,12 +179,10 @@ impl Tool for PassGen {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     fn context() -> ToolContext {
-        ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-passgen"),
-        ))
+        ToolContext::new(AppPaths::under(std::env::temp_dir().join("gimlet-passgen")))
     }
 
     fn run(args: Args) -> Report {

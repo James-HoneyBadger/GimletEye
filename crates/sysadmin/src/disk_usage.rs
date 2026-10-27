@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
-use mellivora_core::{
-    Args, Capability, Category, MellivoraError, Report, Result, Severity, Tool, ToolContext,
+use gimlet_eye_core::{
+    Args, Capability, Category, GimletEyeError, Report, Result, Severity, Tool, ToolContext,
     ToolManifest,
 };
 use serde_json::{json, Value};
@@ -27,9 +27,9 @@ impl DiskUsage {
             .with_capabilities([Capability::System, Capability::ProcessExec])
             .with_platforms(["linux"])
             .with_args([
-                mellivora_core::ArgSpec::new("path", mellivora_core::ArgKind::Path)
+                gimlet_eye_core::ArgSpec::new("path", gimlet_eye_core::ArgKind::Path)
                     .help("Restrict the report to the filesystem holding this path"),
-                mellivora_core::ArgSpec::new("all", mellivora_core::ArgKind::Boolean)
+                gimlet_eye_core::ArgSpec::new("all", gimlet_eye_core::ArgKind::Boolean)
                     .help("Include pseudo filesystems such as tmpfs")
                     .default_value(Value::Bool(false)),
             ])
@@ -41,9 +41,9 @@ impl DiskUsage {
         let output = Command::new("df")
             .args(["-kP"])
             .output()
-            .map_err(|err| MellivoraError::Tool(format!("failed to execute `df`: {err}")))?;
+            .map_err(|err| GimletEyeError::Tool(format!("failed to execute `df`: {err}")))?;
         if !output.status.success() {
-            return Err(MellivoraError::Tool(format!(
+            return Err(GimletEyeError::Tool(format!(
                 "`df` exited with status {}",
                 output.status
             )));
@@ -79,7 +79,7 @@ impl Tool for DiskUsage {
         let mut rows = self.rows(include_pseudo)?;
         if let Some(path) = &wanted_path {
             if !path.exists() {
-                return Err(MellivoraError::NotFound(format!(
+                return Err(GimletEyeError::NotFound(format!(
                     "{} does not exist",
                     path.display()
                 )));
@@ -89,7 +89,7 @@ impl Tool for DiskUsage {
             let path = absolute(path);
             rows.retain(|row| contains_path(&row.mount, &path));
             if rows.is_empty() {
-                return Err(MellivoraError::NotFound(format!(
+                return Err(GimletEyeError::NotFound(format!(
                     "no mounted filesystem contains {}",
                     path.display()
                 )));
@@ -176,7 +176,7 @@ fn setting(ctx: &ToolContext, key: &str, default: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     #[test]
     fn filters_pseudo_filesystems() {
@@ -212,7 +212,7 @@ mod tests {
             return;
         }
         let ctx = ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-disk-relative"),
+            std::env::temp_dir().join("gimlet-disk-relative"),
         ));
         let mut args = Args::new();
         args.insert("path", ".");
@@ -227,7 +227,7 @@ mod tests {
         if Command::new("df").arg("-kP").output().is_err() {
             return;
         }
-        let ctx = ToolContext::new(AppPaths::under(std::env::temp_dir().join("mellivora-disk")));
+        let ctx = ToolContext::new(AppPaths::under(std::env::temp_dir().join("gimlet-disk")));
         let report = DiskUsage::new().run(&ctx, &Args::new()).expect("run");
         let rows = report.data.as_array().expect("array");
         assert!(!rows.is_empty());
@@ -239,9 +239,7 @@ mod tests {
         if Command::new("df").arg("-kP").output().is_err() {
             return;
         }
-        let ctx = ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-disk2"),
-        ));
+        let ctx = ToolContext::new(AppPaths::under(std::env::temp_dir().join("gimlet-disk2")));
         let mut args = Args::new();
         args.insert("path", "/definitely/not/a/mount/point");
         let err = DiskUsage::new().run(&ctx, &args).expect_err("must fail");

@@ -1,6 +1,6 @@
 # Compatibility and evolution
 
-Mellivora ToolKit is pre-1.0, but the parts other people build against — tool
+Gimlet Eye is pre-1.0, but the parts other people build against — tool
 ids, the report shape, the plugin protocol, and the config file — already have a
 policy. This document states it.
 
@@ -13,10 +13,10 @@ policy. This document states it.
 | `Report` fields | Stable | `status` is derived from findings and must stay that way |
 | Plugin protocol v1 | Versioned | A breaking change bumps `PROTOCOL_VERSION`; the host refuses mismatches |
 | Config file | Versioned | `schema_version` is checked on load |
-| `.melv` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open, and an independent reader in `crates/crypto/tests/interop/` proves [CONTAINER.md](CONTAINER.md) is enough to implement it |
-| Keystore (`keystore.melv`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
+| `.gimlet` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open, and an independent reader in `crates/crypto/tests/interop/` proves [CONTAINER.md](CONTAINER.md) is enough to implement it |
+| Keystore (`keystore.gimlet`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
 | HTTP API `/api/v1` | Versioned | Path carries the major version |
-| Environment variables | Stable | `MELLIVORA_*`; new ones are additive |
+| Environment variables | Stable | `GIMLET_*`; new ones are additive |
 | `Report.data` keys | Stable | Renames keep the old key for one minor (see the `algorithm`/`kind` example below) |
 
 Anything not in this table — internal module layout, parser helpers, the UI's
@@ -30,22 +30,22 @@ deprecation policy just like a field rename.
 
 | Command | Purpose | Flags it adds |
 |---|---|---|
-| `mellivora <tool-id> [KEY=VALUE…]` | Shorthand for `run` | — |
-| `mellivora run <tool> [KEY=VALUE…]` | Run one tool | — |
-| `mellivora batch <tool> <PATH…>` | Run a tool over many files, one report per file plus an aggregate | `--arg`, `--input-arg`, `--concurrency`, `--fail-fast`, `--ext`, `--no-recursive` |
-| `mellivora tools list` | The catalogue as a table | `--category` |
-| `mellivora tools show <id>` | One manifest as JSON | — |
-| `mellivora plugins list` | Installed packs | — |
-| `mellivora plugins doctor` | Why a pack would or would not load | — |
-| `mellivora plugins conformance <dir>` | Run the SDK checklist against a pack | — |
-| `mellivora plugins pin <dir>` | Print the entry-point digest for `[trust]` | — |
-| `mellivora plugins show` | Resolved plugin configuration | — |
-| `mellivora config init` | Write a default config file | `--force` |
-| `mellivora config show` | Effective configuration | — |
-| `mellivora config path` | Where the config file is looked for | — |
-| `mellivora audit` | Recent audit records | `--limit` |
-| `mellivora doctor` | Check the installation and report problems | — |
-| `mellivora serve` | Serve the HTTP API and the UI on loopback | `--host`, `--port`, `--allow-remote`, `--ui-dir` |
+| `gimlet <tool-id> [KEY=VALUE…]` | Shorthand for `run` | — |
+| `gimlet run <tool> [KEY=VALUE…]` | Run one tool | — |
+| `gimlet batch <tool> <PATH…>` | Run a tool over many files, one report per file plus an aggregate | `--arg`, `--input-arg`, `--concurrency`, `--fail-fast`, `--ext`, `--no-recursive` |
+| `gimlet tools list` | The catalogue as a table | `--category` |
+| `gimlet tools show <id>` | One manifest as JSON | — |
+| `gimlet plugins list` | Installed packs | — |
+| `gimlet plugins doctor` | Why a pack would or would not load | — |
+| `gimlet plugins conformance <dir>` | Run the SDK checklist against a pack | — |
+| `gimlet plugins pin <dir>` | Print the entry-point digest for `[trust]` | — |
+| `gimlet plugins show` | Resolved plugin configuration | — |
+| `gimlet config init` | Write a default config file | `--force` |
+| `gimlet config show` | Effective configuration | — |
+| `gimlet config path` | Where the config file is looked for | — |
+| `gimlet audit` | Recent audit records | `--limit` |
+| `gimlet doctor` | Check the installation and report problems | — |
+| `gimlet serve` | Serve the HTTP API and the UI on loopback | `--host`, `--port`, `--allow-remote`, `--ui-dir` |
 
 Every command also accepts these global options: `--home`, `--format`,
 `--json`, `--dry-run`, `--no-plugins`, `--strict`, `--verbose`, `--version`,
@@ -171,9 +171,9 @@ registry:
 ## Upgrading
 
 ```bash
-mellivora doctor          # reports config, packs, and tool counts
-mellivora config show     # effective settings after migration
-mellivora tools list      # catalogue with origins (builtin vs plugin:*)
+gimlet doctor          # reports config, packs, and tool counts
+gimlet config show     # effective settings after migration
+gimlet tools list      # catalogue with origins (builtin vs plugin:*)
 ```
 
 If `doctor` reports a config schema newer than the binary, upgrade the binary

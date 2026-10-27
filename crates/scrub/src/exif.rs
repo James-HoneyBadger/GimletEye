@@ -9,7 +9,7 @@
 
 use std::ops::Range;
 
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 use serde::Serialize;
 
 use crate::format::Format;
@@ -33,7 +33,7 @@ impl GpsPrecision {
             "country" => Ok(Self::Country),
             "region" => Ok(Self::Region),
             "city" => Ok(Self::City),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown GPS precision '{other}' (use off, country, region, or city)"
             ))),
         }
@@ -81,7 +81,7 @@ pub struct GpsRedaction {
 /// Byte ranges of every EXIF payload in the container.
 pub fn exif_ranges(bytes: &[u8]) -> Result<Vec<Range<usize>>> {
     let format = Format::detect(bytes).ok_or_else(|| {
-        MellivoraError::Unsupported("unrecognised container; cannot locate EXIF".to_string())
+        GimletEyeError::Unsupported("unrecognised container; cannot locate EXIF".to_string())
     })?;
     let scan = format.handler().scan(bytes)?;
     let mut ranges = Vec::new();
@@ -306,8 +306,8 @@ fn write_rational(
     Ok(())
 }
 
-fn malformed(detail: impl Into<String>) -> MellivoraError {
-    MellivoraError::Tool(format!("cannot redact GPS: {}", detail.into()))
+fn malformed(detail: impl Into<String>) -> GimletEyeError {
+    GimletEyeError::Tool(format!("cannot redact GPS: {}", detail.into()))
 }
 
 #[derive(Debug)]

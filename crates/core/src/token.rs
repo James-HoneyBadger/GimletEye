@@ -5,17 +5,17 @@
 //! reach `127.0.0.1` from their browser. The token is the boundary.
 //!
 //! This module only reads, writes, and compares the token. Generation happens
-//! where the platform RNG lives — see `mellivora_toolkit::issue_api_token` — so
+//! where the platform RNG lives — see `gimlet_eye_toolkit::issue_api_token` — so
 //! `core` stays free of crypto dependencies.
 
 use std::fs;
 use std::path::Path;
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 
 /// Set this to drive the API without reading the token file, which is how the
 /// test suite and CI do it.
-pub const TOKEN_ENV: &str = "MELLIVORA_API_TOKEN";
+pub const TOKEN_ENV: &str = "GIMLET_API_TOKEN";
 
 /// Bytes of entropy in a generated token (rendered as hex, so twice as long).
 pub const TOKEN_BYTES: usize = 32;
@@ -26,7 +26,7 @@ pub fn load(path: &Path) -> Result<Option<String>> {
         Ok(raw) => {
             let token = raw.trim();
             if token.is_empty() {
-                return Err(MellivoraError::Config(format!(
+                return Err(GimletEyeError::Config(format!(
                     "API token file {} is empty; delete it to have a new token generated",
                     path.display()
                 )));
@@ -97,8 +97,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> std::path::PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("mellivora-token-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-token-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("dir");
         dir

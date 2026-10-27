@@ -4,11 +4,28 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::plugin::protocol::PROTOCOL_VERSION;
 use crate::tool::Capability;
 
-pub const MANIFEST_FILENAME: &str = "mellivora-pack.toml";
+pub const MANIFEST_FILENAME: &str = "gimlet-pack.toml";
+/// Packs written before the rename carry their manifest under the old name.
+pub const LEGACY_MANIFEST_FILENAME: &str = "mellivora-pack.toml";
+/// Every name a manifest may be found under, current name first.
+pub const MANIFEST_FILENAMES: [&str; 2] = [MANIFEST_FILENAME, LEGACY_MANIFEST_FILENAME];
+
+/// The manifest in `dir`, preferring the current name.
+pub fn find_manifest(dir: &Path) -> Option<PathBuf> {
+    MANIFEST_FILENAMES
+        .iter()
+        .map(|name| dir.join(name))
+        .find(|path| path.is_file())
+}
+
+/// Where a manifest for `dir` is reported, whether or not it exists.
+pub fn manifest_path(dir: &Path) -> PathBuf {
+    find_manifest(dir).unwrap_or_else(|| dir.join(MANIFEST_FILENAME))
+}
 
 /// Declarative description of a pack, committed next to its executable.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,30 +67,29 @@ impl PackManifest {
     }
 
     pub fn from_dir(dir: &Path) -> Result<Self> {
-        let path = dir.join(MANIFEST_FILENAME);
-        if !path.exists() {
-            return Err(MellivoraError::NotFound(format!(
-                "no {MANIFEST_FILENAME} in {}",
+        let path = find_manifest(dir).ok_or_else(|| {
+            GimletEyeError::NotFound(format!(
+                "no {MANIFEST_FILENAME} (or {LEGACY_MANIFEST_FILENAME}) in {}",
                 dir.display()
-            )));
-        }
+            ))
+        })?;
         Self::load(&path)
     }
 
     fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
-            return Err(MellivoraError::Config(
+            return Err(GimletEyeError::Config(
                 "pack manifest is missing a name".into(),
             ));
         }
         if self.command.is_empty() {
-            return Err(MellivoraError::Config(format!(
+            return Err(GimletEyeError::Config(format!(
                 "pack '{}' has an empty command",
                 self.name
             )));
         }
         if self.protocol_version != PROTOCOL_VERSION {
-            return Err(MellivoraError::Plugin(format!(
+            return Err(GimletEyeError::Plugin(format!(
                 "pack '{}' speaks protocol version {}, host speaks {PROTOCOL_VERSION}",
                 self.name, self.protocol_version
             )));
@@ -86,7 +102,7 @@ impl PackManifest {
             .split_first()
             .map(|(program, args)| (program.as_str(), args))
             .ok_or_else(|| {
-                MellivoraError::Config(format!("pack '{}' has an empty command", self.name))
+                GimletEyeError::Config(format!("pack '{}' has an empty command", self.name))
             })
     }
 }
@@ -111,8 +127,10 @@ fn collect(dir: &Path, depth: usize, found: &mut Vec<PathBuf>) {
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_file() {
-            if path.file_name().and_then(|name| name.to_str()) == Some(MANIFEST_FILENAME) {
-                found.push(dir.to_path_buf());
+            if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+                if MANIFEST_FILENAMES.contains(&name) {
+                    found.push(dir.to_path_buf());
+                }
             }
             continue;
         }
@@ -135,8 +153,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("mellivora-pack-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-pack-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("temp dir");
         dir

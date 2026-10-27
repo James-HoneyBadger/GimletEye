@@ -8,7 +8,7 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-export MELLIVORA_HOME="$(mktemp -d)"
+export GIMLET_HOME="$(mktemp -d)"
 port="${SMOKE_PORT:-7899}"
 server_pid=""
 
@@ -17,7 +17,7 @@ cleanup() {
         kill "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
     fi
-    rm -rf "$MELLIVORA_HOME"
+    rm -rf "$GIMLET_HOME"
 }
 trap cleanup EXIT
 
@@ -25,9 +25,9 @@ step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 fail() { printf '\033[31mFAIL: %s\033[0m\n' "$*" >&2; exit 1; }
 
 step "build"
-cargo build -q -p mellivora-cli
+cargo build -q -p gimlet-eye-cli
 
-cli() { ./target/debug/mellivora "$@"; }
+cli() { ./target/debug/gimlet "$@"; }
 
 step "tool catalogue"
 count=$(cli tools list --format json | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
@@ -61,15 +61,15 @@ test_digest=$(cli sha256 text=abc --format json | python3 -c 'import json,sys; p
     || fail "sha256 known-answer mismatch"
 
 step "encryption and signatures"
-work="$MELLIVORA_HOME/work"
+work="$GIMLET_HOME/work"
 mkdir -p "$work"
-export MELLIVORA_SMOKE_PASS="smoke-test-passphrase"
+export GIMLET_SMOKE_PASS="smoke-test-passphrase"
 printf 'the launch code is 0000\n' > "$work/secret.txt"
 
-cli crypto.encrypt input="$work/secret.txt" passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
-[ -f "$work/secret.txt.melv" ] || fail "encrypt produced no container"
+cli crypto.encrypt input="$work/secret.txt" passphrase_env=GIMLET_SMOKE_PASS >/dev/null
+[ -f "$work/secret.txt.gimlet" ] || fail "encrypt produced no container"
 
-cli crypto.inspect input="$work/secret.txt.melv" --format json | python3 -c '
+cli crypto.inspect input="$work/secret.txt.gimlet" --format json | python3 -c '
 import json, sys
 report = json.load(sys.stdin)
 data = report["data"]
@@ -80,13 +80,13 @@ assert data["ciphertext_bytes"] > 0, data
 print("container:", report["summary"])
 '
 
-cli crypto.decrypt input="$work/secret.txt.melv" output="$work/decrypted.txt" \
-    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+cli crypto.decrypt input="$work/secret.txt.gimlet" output="$work/decrypted.txt" \
+    passphrase_env=GIMLET_SMOKE_PASS >/dev/null
 cmp -s "$work/secret.txt" "$work/decrypted.txt" || fail "decrypted file does not match the original"
 
 # A wrong passphrase must fail instead of writing garbage.
-if MELLIVORA_SMOKE_PASS=wrong cli crypto.decrypt input="$work/secret.txt.melv" \
-    output="$work/bad.txt" passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null 2>&1; then
+if GIMLET_SMOKE_PASS=wrong cli crypto.decrypt input="$work/secret.txt.gimlet" \
+    output="$work/bad.txt" passphrase_env=GIMLET_SMOKE_PASS >/dev/null 2>&1; then
     fail "decrypt should fail with a wrong passphrase"
 fi
 
@@ -103,17 +103,17 @@ fi
 
 step "keystore and recipient containers"
 cli crypto.keygen label=recipient kind=x25519 keystore=true \
-    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null || fail "could not create a keystore"
-[ -f "$MELLIVORA_HOME/keystore.melv" ] || fail "no keystore was written"
+    passphrase_env=GIMLET_SMOKE_PASS >/dev/null || fail "could not create a keystore"
+[ -f "$GIMLET_HOME/keystore.gimlet" ] || fail "no keystore was written"
 
 # Owner-only, like every other secret this toolkit writes.
-mode=$(stat -c '%a' "$MELLIVORA_HOME/keystore.melv" 2>/dev/null || echo unknown)
+mode=$(stat -c '%a' "$GIMLET_HOME/keystore.gimlet" 2>/dev/null || echo unknown)
 [ "$mode" = "600" ] || fail "keystore mode is $mode, expected 600"
 
 cli crypto.key-export selector=recipient output="$work/recipient.pub" \
-    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+    passphrase_env=GIMLET_SMOKE_PASS >/dev/null
 cli crypto.key-export selector=recipient output="$work/recipient.key" secret=true \
-    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null
+    passphrase_env=GIMLET_SMOKE_PASS >/dev/null
 
 # Nothing that reached stdout or the audit trail may contain the secret.
 secret=$(python3 - "$work/recipient.key" <<'PY'
@@ -121,11 +121,11 @@ import json, sys
 print(json.load(open(sys.argv[1]))["secret_key"])
 PY
 )
-reports=$(cat "$MELLIVORA_HOME"/audit.jsonl)
+reports=$(cat "$GIMLET_HOME"/audit.jsonl)
 if grep -q "$secret" <<<"$reports"; then
     fail "the secret key reached the audit trail"
 fi
-if cli crypto.key-list passphrase_env=MELLIVORA_SMOKE_PASS --format json 2>&1 | grep -q "$secret"; then
+if cli crypto.key-list passphrase_env=GIMLET_SMOKE_PASS --format json 2>&1 | grep -q "$secret"; then
     fail "key-list printed the secret key"
 fi
 
@@ -134,18 +134,18 @@ cli crypto.encrypt input="$work/note.txt" to="$work/recipient.pub" >/dev/null \
     || fail "recipient encryption failed"
 
 # A passphrase cannot open a recipient container: it must fail closed.
-if cli crypto.decrypt input="$work/note.txt.melv" output="$work/note-pass.txt" \
-    passphrase_env=MELLIVORA_SMOKE_PASS >/dev/null 2>&1; then
+if cli crypto.decrypt input="$work/note.txt.gimlet" output="$work/note-pass.txt" \
+    passphrase_env=GIMLET_SMOKE_PASS >/dev/null 2>&1; then
     fail "a v3 container should not open with a passphrase"
 fi
 
-cli crypto.decrypt input="$work/note.txt.melv" output="$work/note-round.txt" \
+cli crypto.decrypt input="$work/note.txt.gimlet" output="$work/note-round.txt" \
     key="$work/recipient.key" >/dev/null || fail "recipient decryption failed"
 cmp -s "$work/note.txt" "$work/note-round.txt" || fail "recipient round trip mismatched"
 
-cli crypto.key-rotate passphrase_env=MELLIVORA_SMOKE_PASS \
+cli crypto.key-rotate passphrase_env=GIMLET_SMOKE_PASS \
     new_passphrase=rotated-smoke-pass >/dev/null || fail "keystore rotation failed"
-if MELLIVORA_SMOKE_PASS=wrong cli crypto.key-list passphrase_env=MELLIVORA_SMOKE_PASS \
+if GIMLET_SMOKE_PASS=wrong cli crypto.key-list passphrase_env=GIMLET_SMOKE_PASS \
     >/dev/null 2>&1; then
     fail "the old passphrase still opens the keystore after rotation"
 fi
@@ -261,7 +261,7 @@ fi
 
 # A run that fails is still a run. An attack on a passphrase is a series of
 # failures, so a trail that only holds successes would show nothing.
-if cli crypto.decrypt "input=$MELLIVORA_HOME/missing.melv" passphrase=guess >/dev/null 2>&1; then
+if cli crypto.decrypt "input=$GIMLET_HOME/missing.gimlet" passphrase=guess >/dev/null 2>&1; then
     fail "decrypting a missing container should fail"
 fi
 cli audit --limit 1 --format json | python3 -c '
@@ -293,10 +293,10 @@ else
 fi
 
 step "http api"
-./target/debug/mellivora serve --port "$port" >"$MELLIVORA_HOME/server.log" 2>&1 &
+./target/debug/gimlet serve --port "$port" >"$GIMLET_HOME/server.log" 2>&1 &
 server_pid=$!
 
-token_file="$MELLIVORA_HOME/api-token"
+token_file="$GIMLET_HOME/api-token"
 for _ in $(seq 1 40); do
     [ -s "$token_file" ] && curl -sf -H "authorization: Bearer $(cat "$token_file")" \
         "http://127.0.0.1:$port/api/v1/health" >/dev/null 2>&1 && break
@@ -340,7 +340,7 @@ curl -sf "${auth[@]}" "http://127.0.0.1:$port/api/v1/config" \
 # The same promise over HTTP: a rejected run is recorded.
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" \
     "http://127.0.0.1:$port/api/v1/run" -H 'content-type: application/json' \
-    -d '{"tool":"crypto.decrypt","args":{"input":"/nonexistent/attempt.melv","passphrase":"guess"}}')
+    -d '{"tool":"crypto.decrypt","args":{"input":"/nonexistent/attempt.gimlet","passphrase":"guess"}}')
 case "$code" in
     4*|5*) ;;
     *) fail "a failing tool should not answer $code" ;;

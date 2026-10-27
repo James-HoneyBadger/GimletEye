@@ -1,7 +1,7 @@
-//! The `.melv` container: one encrypted file, self-describing, authenticated.
+//! The `.gimlet` container: one encrypted file, self-describing, authenticated.
 //!
 //! ```text
-//! 0..4    magic "MELV"
+//! 0..4    magic "GIML"
 //! 4       format version (1 = whole file, 2 = chunked)
 //! 5       cipher id      (1 = AES-256-GCM, 2 = ChaCha20-Poly1305)
 //! 6       kdf id         (1 = Argon2id)
@@ -17,7 +17,7 @@
 //! header:
 //!
 //! ```text
-//! 0..4    magic "MELV"
+//! 0..4    magic "GIML"
 //! 4       format version (3)
 //! 5       cipher id
 //! 6       kdf id (3 = x25519-hkdf-sha256)
@@ -33,17 +33,27 @@
 //! KDF parameters, or the salt causes decryption to fail instead of silently
 //! weakening the file. Parameter bounds are validated *before* key derivation so
 //! a crafted header cannot demand gigabytes of memory.
+//!
+//! Containers written before the project was renamed carry the magic `MELV`
+//! instead. Reading accepts both; writing uses `GIML`.
 
 use std::io::{ErrorKind, Read, Write};
 
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 use serde::Serialize;
 use zeroize::Zeroizing;
 
 use crate::backend::{AeadAlgorithm, CryptoBackend, KdfParams};
 use crate::keys::hex_encode;
 
-pub const MAGIC: [u8; 4] = *b"MELV";
+/// Magic written by this build.
+pub const MAGIC: [u8; 4] = *b"GIML";
+/// Magic of containers written before the rename. Read, never written.
+pub const LEGACY_MAGIC: [u8; 4] = *b"MELV";
+/// True when `bytes` begins with a magic this build understands.
+pub fn has_magic(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && (bytes[0..4] == MAGIC || bytes[0..4] == LEGACY_MAGIC)
+}
 /// v1: the whole file is one AEAD message.
 pub const VERSION: u8 = 1;
 /// v2: a header followed by independently authenticated chunks.
@@ -59,7 +69,9 @@ const FLAG_FINAL: u8 = 0x01;
 pub const SALT_LEN: usize = 16;
 pub const NONCE_LEN: usize = 12;
 pub const HEADER_LEN: usize = 49;
-pub const EXTENSION: &str = "melv";
+pub const EXTENSION: &str = "gimlet";
+/// Extension of containers written before the rename.
+pub const LEGACY_EXTENSION: &str = "melv";
 /// Bytes before the recipient block in a v3 header.
 pub const RECIPIENT_PREFIX_LEN: usize = 44;
 /// One recipient entry: public key, wrap nonce, wrapped file key.
@@ -69,6 +81,8 @@ pub const MAX_RECIPIENTS: usize = 1024;
 
 const KDF_ARGON2ID: u8 = 1;
 const KDF_X25519_HKDF: u8 = 3;
+/// Frozen: files written before the rename bind this label into their key
+/// derivation, so it is part of the format rather than of the naming.
 const WRAP_INFO: &[u8] = b"melv-v3-recipient";
 
 /// How the payload key is reached: a passphrase (v1/v2) or a recipient (v3).
@@ -83,7 +97,7 @@ impl Kdf {
     pub fn argon2id(&self) -> Result<KdfParams> {
         match self {
             Self::Argon2id(params) => Ok(*params),
-            Self::X25519HkdfSha256 => Err(MellivoraError::InvalidArgs(
+            Self::X25519HkdfSha256 => Err(GimletEyeError::InvalidArgs(
                 "this container is encrypted for keys, not for a passphrase".into(),
             )),
         }
@@ -192,12 +206,12 @@ fn build_header(
 
 fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
     if bytes.len() < 5 {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (file is too short)".into(),
         ));
     }
-    if bytes[0..4] != MAGIC {
-        return Err(MellivoraError::InvalidArgs(
+    if !has_magic(bytes) {
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (bad magic bytes)".into(),
         ));
     }
@@ -205,18 +219,18 @@ fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
         return parse_recipient_header(bytes);
     }
     if bytes[4] != VERSION && bytes[4] != VERSION_STREAMING {
-        return Err(MellivoraError::Unsupported(format!(
+        return Err(GimletEyeError::Unsupported(format!(
             "container format version {} is not supported",
             bytes[4]
         )));
     }
     if bytes.len() < HEADER_LEN {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (file is too short)".into(),
         ));
     }
     if bytes[6] != KDF_ARGON2ID {
-        return Err(MellivoraError::Unsupported(format!(
+        return Err(GimletEyeError::Unsupported(format!(
             "container uses unknown key-derivation id {}",
             bytes[6]
         )));
@@ -224,7 +238,7 @@ fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
     // Reserved bytes must be zero: a non-zero value means a feature this build
     // does not understand, which must not be silently ignored.
     if bytes[7] != 0 || bytes[17..21] != [0, 0, 0, 0] {
-        return Err(MellivoraError::Unsupported(
+        return Err(GimletEyeError::Unsupported(
             "container uses features this build does not support".into(),
         ));
     }
@@ -241,16 +255,16 @@ fn parse_header(bytes: &[u8]) -> Result<ContainerHeader> {
 
 fn recipient_count(bytes: &[u8]) -> Result<usize> {
     let raw = bytes.get(40..44).ok_or_else(|| {
-        MellivoraError::InvalidArgs("not an encrypted container (header is too short)".into())
+        GimletEyeError::InvalidArgs("not an encrypted container (header is too short)".into())
     })?;
     let count = u32::from_le_bytes(raw.try_into().expect("4 bytes")) as usize;
     if count == 0 {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "recipient container names no recipients".into(),
         ));
     }
     if count > MAX_RECIPIENTS {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "recipient container names {count} recipients (limit {MAX_RECIPIENTS})"
         )));
     }
@@ -259,30 +273,30 @@ fn recipient_count(bytes: &[u8]) -> Result<usize> {
 
 fn parse_recipient_header(bytes: &[u8]) -> Result<ContainerHeader> {
     if bytes.len() < RECIPIENT_PREFIX_LEN {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (file is too short)".into(),
         ));
     }
-    if bytes[0..4] != MAGIC {
-        return Err(MellivoraError::InvalidArgs(
+    if !has_magic(bytes) {
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (bad magic bytes)".into(),
         ));
     }
     if bytes[6] != KDF_X25519_HKDF {
-        return Err(MellivoraError::Unsupported(format!(
+        return Err(GimletEyeError::Unsupported(format!(
             "container uses unknown key-derivation id {}",
             bytes[6]
         )));
     }
     if bytes[7] != 0 {
-        return Err(MellivoraError::Unsupported(
+        return Err(GimletEyeError::Unsupported(
             "container uses features this build does not support".into(),
         ));
     }
     let count = recipient_count(bytes)?;
     let needed = RECIPIENT_PREFIX_LEN + count * RECIPIENT_ENTRY_LEN + NONCE_LEN;
     if bytes.len() < needed {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "container header is truncated".into(),
         ));
     }
@@ -308,14 +322,14 @@ fn header_salt(bytes: &[u8]) -> Result<[u8; SALT_LEN]> {
     bytes
         .get(21..37)
         .and_then(|slice| slice.try_into().ok())
-        .ok_or_else(|| MellivoraError::InvalidArgs("container header is truncated".into()))
+        .ok_or_else(|| GimletEyeError::InvalidArgs("container header is truncated".into()))
 }
 
 fn header_nonce(bytes: &[u8]) -> Result<[u8; NONCE_LEN]> {
     bytes
         .get(37..49)
         .and_then(|slice| slice.try_into().ok())
-        .ok_or_else(|| MellivoraError::InvalidArgs("container header is truncated".into()))
+        .ok_or_else(|| GimletEyeError::InvalidArgs("container header is truncated".into()))
 }
 
 /// What a streamed operation moved.
@@ -380,12 +394,12 @@ pub fn seal_for_recipients<R: Read, W: Write>(
     mut writer: W,
 ) -> Result<StreamStats> {
     if recipients.is_empty() {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "provide at least one recipient public key".into(),
         ));
     }
     if recipients.len() > MAX_RECIPIENTS {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "{} recipients exceeds the limit of {MAX_RECIPIENTS}",
             recipients.len()
         )));
@@ -393,7 +407,7 @@ pub fn seal_for_recipients<R: Read, W: Write>(
     let mut seen: Vec<[u8; 32]> = Vec::with_capacity(recipients.len());
     for recipient in recipients {
         if seen.contains(recipient) {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "the same recipient is listed twice".into(),
             ));
         }
@@ -431,7 +445,7 @@ pub fn seal_for_recipients<R: Read, W: Write>(
             &recipient_aad(&prefix, recipient),
         )?;
         if wrapped.len() != 32 + TAG_LEN {
-            return Err(MellivoraError::Internal(
+            return Err(GimletEyeError::Internal(
                 "wrapped key has an unexpected length".into(),
             ));
         }
@@ -467,13 +481,13 @@ pub fn open_for_recipient<R: Read, W: Write>(
 ) -> Result<(ContainerHeader, StreamStats)> {
     let mut prefix = [0u8; RECIPIENT_PREFIX_LEN];
     read_exact_or(&mut reader, &mut prefix, "container header is truncated")?;
-    if prefix[0..4] != MAGIC {
-        return Err(MellivoraError::InvalidArgs(
+    if !has_magic(&prefix) {
+        return Err(GimletEyeError::InvalidArgs(
             "not an encrypted container (bad magic bytes)".into(),
         ));
     }
     if prefix[4] != VERSION_RECIPIENT {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "container version {} is not encrypted for a key (use its passphrase)",
             prefix[4]
         )));
@@ -494,7 +508,7 @@ pub fn open_for_recipient<R: Read, W: Write>(
             header[at..at + 32] == me
         })
         .ok_or_else(|| {
-            MellivoraError::Tool("this container is not encrypted for that key".into())
+            GimletEyeError::Tool("this container is not encrypted for that key".into())
         })?;
 
     let ephemeral: [u8; 32] = header[8..40].try_into().expect("32 bytes");
@@ -513,7 +527,7 @@ pub fn open_for_recipient<R: Read, W: Write>(
     )?;
     let mut file_key = Zeroizing::new([0u8; 32]);
     if unwrapped.len() != 32 {
-        return Err(MellivoraError::Tool(
+        return Err(GimletEyeError::Tool(
             "the wrapped file key has an unexpected length".into(),
         ));
     }
@@ -636,7 +650,7 @@ pub fn open_stream<R: Read, W: Write>(
     let mut probe = [0u8; 5];
     read_exact_or(&mut reader, &mut probe, "container header is truncated")?;
     if probe[4] == VERSION_RECIPIENT {
-        return Err(MellivoraError::InvalidArgs(
+        return Err(GimletEyeError::InvalidArgs(
             "this container is encrypted for keys; decrypt it with the recipient's key".into(),
         ));
     }
@@ -716,7 +730,7 @@ fn read_chunks<R: Read, W: Write>(
         match reader.read_exact(&mut flags_byte) {
             Ok(()) => {}
             Err(err) if err.kind() == ErrorKind::UnexpectedEof => {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "container is truncated after {} chunk(s)",
                     stats.chunks
                 )))
@@ -725,7 +739,7 @@ fn read_chunks<R: Read, W: Write>(
         }
         let flags = flags_byte[0];
         if flags & !FLAG_FINAL != 0 {
-            return Err(MellivoraError::InvalidArgs(format!(
+            return Err(GimletEyeError::InvalidArgs(format!(
                 "container chunk {} has unknown flags {flags:#04x}",
                 stats.chunks
             )));
@@ -739,7 +753,7 @@ fn read_chunks<R: Read, W: Write>(
         )?;
         let length = u32::from_le_bytes(length_bytes) as usize;
         if !(TAG_LEN..=MAX_CHUNK_CIPHERTEXT).contains(&length) {
-            return Err(MellivoraError::InvalidArgs(format!(
+            return Err(GimletEyeError::InvalidArgs(format!(
                 "container chunk {} declares an impossible length {length}",
                 stats.chunks
             )));
@@ -760,7 +774,7 @@ fn read_chunks<R: Read, W: Write>(
         if flags == FLAG_FINAL {
             let mut trailing = [0u8; 1];
             if reader.read(&mut trailing)? != 0 {
-                return Err(MellivoraError::InvalidArgs(
+                return Err(GimletEyeError::InvalidArgs(
                     "container has data after its final chunk".into(),
                 ));
             }
@@ -846,9 +860,9 @@ fn read_chunk<R: Read>(reader: &mut R, buffer: &mut [u8]) -> Result<usize> {
 fn read_exact_or<R: Read>(reader: &mut R, buffer: &mut [u8], message: &str) -> Result<()> {
     reader.read_exact(buffer).map_err(|err| {
         if err.kind() == ErrorKind::UnexpectedEof {
-            MellivoraError::InvalidArgs(message.into())
+            GimletEyeError::InvalidArgs(message.into())
         } else {
-            MellivoraError::from(err)
+            GimletEyeError::from(err)
         }
     })
 }

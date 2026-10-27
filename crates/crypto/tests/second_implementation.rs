@@ -3,19 +3,19 @@
 //! ADR 0006 Gate 1 will not accept "readable by a second implementation" on the
 //! strength of a specification alone, and it should not: a format that only its
 //! own code can read is documented by its source, not by its document. So
-//! `interop/read_melv.py` is a reader written from `docs/CONTAINER.md` — no Rust
+//! `interop/read_container.py` is a reader written from `docs/CONTAINER.md` — no Rust
 //! involved — and this file runs it against the two committed fixtures and
 //! against what this build writes.
 //!
 //! A missing interpreter skips, because not every machine has Python. In CI the
-//! interpreter is installed for the job and `MELLIVORA_REQUIRE_SECOND_IMPL`
+//! interpreter is installed for the job and `GIMLET_REQUIRE_SECOND_IMPL`
 //! turns a skip into a failure, so the claim cannot quietly stop being tested.
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use mellivora_crypto::{
+use gimlet_eye_crypto::{
     seal_stream, AeadAlgorithm, KdfParams, NativeBackend, VERSION, VERSION_RECIPIENT,
     VERSION_STREAMING,
 };
@@ -32,7 +32,7 @@ fn here() -> PathBuf {
 }
 
 fn reader_script() -> PathBuf {
-    here().join("tests/interop/read_melv.py")
+    here().join("tests/interop/read_container.py")
 }
 
 /// Whether the second implementation can run here.
@@ -42,9 +42,9 @@ fn python_available() -> bool {
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false);
-    if !works && std::env::var_os("MELLIVORA_REQUIRE_SECOND_IMPL").is_some() {
+    if !works && std::env::var_os("GIMLET_REQUIRE_SECOND_IMPL").is_some() {
         panic!(
-            "MELLIVORA_REQUIRE_SECOND_IMPL is set but `python3` with `cryptography` did not run: \
+            "GIMLET_REQUIRE_SECOND_IMPL is set but `python3` with `cryptography` did not run: \
              the second-implementation claim is unverified"
         );
     }
@@ -72,8 +72,7 @@ fn read_with_second_implementation(file: &Path, selector: &[&str]) -> Run {
 }
 
 fn temp_file(name: &str) -> PathBuf {
-    let path =
-        std::env::temp_dir().join(format!("mellivora-interop-{name}-{}", std::process::id()));
+    let path = std::env::temp_dir().join(format!("gimlet-interop-{name}-{}", std::process::id()));
     let _ = std::fs::remove_file(&path);
     path
 }
@@ -120,7 +119,7 @@ fn what_this_build_writes_opens_in_the_second_implementation() {
     }
     // Cross a chunk boundary on purpose: a single-chunk file would not exercise
     // the counter in the per-chunk nonce.
-    let plaintext: Vec<u8> = (0..(mellivora_crypto::CHUNK_SIZE * 2 + 1234))
+    let plaintext: Vec<u8> = (0..(gimlet_eye_crypto::CHUNK_SIZE * 2 + 1234))
         .map(|index| (index % 251) as u8)
         .collect();
     let path = temp_file("written");

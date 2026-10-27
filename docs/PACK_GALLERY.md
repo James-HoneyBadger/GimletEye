@@ -5,7 +5,7 @@ one written from an empty directory, start to finish, with the parts that are
 easy to get wrong called out.
 
 The finished article is [`examples/packs/hostname/`](../examples/packs/hostname),
-and it passes `mellivora plugins conformance` — the same checklist that rejects a
+and it passes `gimlet plugins conformance` — the same checklist that rejects a
 deliberately broken pack in CI.
 
 ## 1. An empty directory and a manifest
@@ -15,7 +15,7 @@ mkdir -p ~/packs/hostname && cd ~/packs/hostname
 ```
 
 ```toml
-# mellivora-pack.toml
+# gimlet-pack.toml
 name = "hostname"
 version = "1.0.0"
 protocol_version = 1
@@ -157,16 +157,16 @@ Use the documented codes, because a caller acts on them differently:
 
 Answering `-32003` for an unknown tool sends the caller looking at its own
 arguments. The reference pack in this repository did exactly that until
-`mellivora plugins conformance` caught it.
+`gimlet plugins conformance` caught it.
 
 ## 6. Check it before publishing
 
 ```bash
-mellivora plugins conformance ~/packs/hostname
+gimlet plugins conformance ~/packs/hostname
 ```
 
 ```text
-  pass    mellivora-pack.toml parses and speaks this host's protocol
+  pass    gimlet-pack.toml parses and speaks this host's protocol
   pass    pack is enabled
   pass    process starts and speaks on stdout
   pass    initialize echoes the protocol version
@@ -185,7 +185,7 @@ mellivora plugins conformance ~/packs/hostname
 The three `manual` lines are the ones a runner cannot judge. Read a real report
 for each before you call the pack finished.
 
-To install it, copy the directory under `$MELLIVORA_HOME/plugins/` (or point
-`[plugins] dirs` at it) and run `mellivora plugins list`. To pin it — which you
-should for anything you did not write — run `mellivora plugins pin
+To install it, copy the directory under `$GIMLET_HOME/plugins/` (or point
+`[plugins] dirs` at it) and run `gimlet plugins list`. To pin it — which you
+should for anything you did not write — run `gimlet plugins pin
 ~/packs/hostname` and paste the digest into `[trust]`.

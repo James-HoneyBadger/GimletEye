@@ -65,7 +65,7 @@ text = open(manifest).read()
 text = re.sub(r'^version = ".*"$', f'version = "{next_version}"', text, count=1, flags=re.M)
 open(manifest, 'w').write(text)
 log = open(changelog).read()
-log = re.sub(r'^mellivora-toolkit \([^)]*\)', f'mellivora-toolkit ({next_version})', log, count=1, flags=re.M)
+log = re.sub(r'^gimlet-eye-toolkit \([^)]*\)', f'gimlet-eye-toolkit ({next_version})', log, count=1, flags=re.M)
 open(changelog, 'w').write(log)
 PY
 # The bumped version is in Cargo.toml, so the lock file has to name it too or
@@ -94,8 +94,8 @@ docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
         # The control file still names cargo and rustc, which is what a
         # distribution build with a new enough toolchain needs.
         dpkg-buildpackage -b -uc -us -d >/tmp/$kind.log 2>&1 || { tail -30 /tmp/$kind.log; exit 1; }
-        # `mellivora_*.deb` is the binary package; `mellivora-dbgsym_*` is not it.
-        mv /w/mellivora_*.deb "/w/$kind.deb"
+        # `gimlet_*.deb` is the binary package; `gimlet-dbgsym_*` is not it.
+        mv /w/gimlet_*.deb "/w/$kind.deb"
         echo "built $kind"
     done
 ' || fail "the package build failed"
@@ -109,7 +109,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     export DEBIAN_FRONTEND=noninteractive
     # python3 is for this harness (parsing a report), not for the package.
     apt-get update -qq && apt-get install -y -qq python3 >/dev/null
-    export MELLIVORA_HOME=/home/tester/.config/mellivora
+    export GIMLET_HOME=/home/tester/.config/gimlet
     export KEEP_PASS=rehearsal-passphrase
     useradd -m tester >/dev/null 2>&1 || true
 
@@ -117,56 +117,56 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
 
     echo "--- install $VERSION"
     dpkg -i "$OLD" >/dev/null
-    su tester -s /bin/bash -c "mellivora --version"
+    su tester -s /bin/bash -c "gimlet --version"
 
     echo "--- create state with $VERSION"
     su tester -s /bin/bash -c "
         set -e
-        export MELLIVORA_HOME=$MELLIVORA_HOME KEEP_PASS=$KEEP_PASS
-        mellivora crypto.keygen label=survivor kind=x25519 keystore=true passphrase_env=KEEP_PASS >/dev/null
-        mellivora crypto.sha256 text=before >/dev/null
-        test -f \$MELLIVORA_HOME/keystore.melv
-        test -f \$MELLIVORA_HOME/audit.jsonl
+        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        gimlet crypto.keygen label=survivor kind=x25519 keystore=true passphrase_env=KEEP_PASS >/dev/null
+        gimlet crypto.sha256 text=before >/dev/null
+        test -f \$GIMLET_HOME/keystore.gimlet
+        test -f \$GIMLET_HOME/audit.jsonl
     "
     key_id_before=$(su tester -s /bin/bash -c "
-        export MELLIVORA_HOME=$MELLIVORA_HOME KEEP_PASS=$KEEP_PASS
-        mellivora crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
     ")
-    mode_before=$(stat -c %a "/home/tester/.config/mellivora/keystore.melv")
-    entries_before=$(wc -l < /home/tester/.config/mellivora/audit.jsonl)
+    mode_before=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
+    entries_before=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
     echo "key id $key_id_before, keystore mode $mode_before, $entries_before audit entries"
 
     echo "--- upgrade to $NEXT"
     dpkg -i "$NEW" >/dev/null
-    su tester -s /bin/bash -c "mellivora --version" | grep -q "$NEXT" || { echo "version did not change"; exit 1; }
+    su tester -s /bin/bash -c "gimlet --version" | grep -q "$NEXT" || { echo "version did not change"; exit 1; }
 
     key_id_after=$(su tester -s /bin/bash -c "
-        export MELLIVORA_HOME=$MELLIVORA_HOME KEEP_PASS=$KEEP_PASS
-        mellivora crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
     ")
     [ "$key_id_after" = "$key_id_before" ] || { echo "the keystore changed across the upgrade"; exit 1; }
     su tester -s /bin/bash -c "
-        export MELLIVORA_HOME=$MELLIVORA_HOME
-        mellivora crypto.sha256 text=during >/dev/null
+        export GIMLET_HOME=$GIMLET_HOME
+        gimlet crypto.sha256 text=during >/dev/null
     "
     echo "keystore opens after upgrade; key id unchanged"
 
     echo "--- roll back to $VERSION"
     dpkg -i "$OLD" >/dev/null
-    su tester -s /bin/bash -c "mellivora --version" | grep -q "$VERSION" || { echo "rollback did not restore the version"; exit 1; }
+    su tester -s /bin/bash -c "gimlet --version" | grep -q "$VERSION" || { echo "rollback did not restore the version"; exit 1; }
 
-    mode_after=$(stat -c %a "/home/tester/.config/mellivora/keystore.melv")
+    mode_after=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
     [ "$mode_after" = "$mode_before" ] || { echo "keystore permissions changed: $mode_before -> $mode_after"; exit 1; }
 
-    entries_after=$(wc -l < /home/tester/.config/mellivora/audit.jsonl)
+    entries_after=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
     [ "$entries_after" -gt "$entries_before" ] || { echo "the audit trail lost entries across the round trip"; exit 1; }
     echo "$entries_after audit entries after the round trip"
 
     echo "--- upgrade again, and the state still opens"
     dpkg -i "$NEW" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
-        export MELLIVORA_HOME=$MELLIVORA_HOME KEEP_PASS=$KEEP_PASS
-        mellivora crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
     ")
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"

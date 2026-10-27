@@ -4,7 +4,7 @@
 
 ## Context
 
-Version 1 of the `.melv` container encrypts the whole file as one AEAD message.
+Version 1 of the `.gimlet` container encrypts the whole file as one AEAD message.
 That is the simplest correct thing, and it is why v1 could be specified in a
 page. It also means memory grows with the input: a 2 GiB file costs roughly
 4 GiB at peak (plaintext, ciphertext, and the AEAD output), and a 10 GiB file

@@ -3,7 +3,7 @@
 //! EXIF/TIFF: the container ranges and the in-place GPS redaction.
 
 use libfuzzer_sys::fuzz_target;
-use mellivora_scrub::{exif_ranges, redact_gps_payload, GpsPrecision};
+use gimlet_eye_scrub::{exif_ranges, redact_gps_payload, GpsPrecision};
 
 fuzz_target!(|data: &[u8]| {
     // Through a container: JPEG stores `Exif\0\0` + TIFF, PNG eXIf and WebP

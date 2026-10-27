@@ -3,7 +3,7 @@
 
 Read docs/PLUGIN_SDK.md beside this; every rule it states appears here once.
 
-  mellivora plugins conformance examples/packs/hostname   # should be all green
+  gimlet plugins conformance examples/packs/hostname   # should be all green
 
 Two tools, deliberately different shapes:
 

@@ -4,14 +4,14 @@
 //! That is easy to break silently, so the fixture is a real artifact from the
 //! release that wrote it, not something this build produced.
 
-use mellivora_crypto::{
-    inspect, open_for_recipient, open_stream, Kdf, NativeBackend, VERSION, VERSION_RECIPIENT,
-    VERSION_STREAMING,
+use gimlet_eye_crypto::{
+    inspect, open_for_recipient, open_stream, seal_stream, AeadAlgorithm, Kdf, KdfParams,
+    NativeBackend, LEGACY_MAGIC, MAGIC, VERSION, VERSION_RECIPIENT, VERSION_STREAMING,
 };
 
 const V1_FIXTURE: &[u8] = include_bytes!("fixtures/container-v1.melv");
 const V3_FIXTURE: &[u8] = include_bytes!("fixtures/container-v3.melv");
-/// The recipient secret key behind `container-v3.melv`, fixed so the fixture
+/// The recipient secret key behind `container-v3.gimlet`, fixed so the fixture
 /// can be opened forever. It is a test key and protects nothing.
 const V3_RECIPIENT_SECRET: [u8; 32] = [3u8; 32];
 const V3_PLAINTEXT: &[u8] = b"a container written by 0.5.0: x25519 recipient, version 3\n";
@@ -91,4 +91,30 @@ fn the_old_fixtures_are_still_readable_next_to_the_new_one() {
     open_for_recipient(&NativeBackend, &V3_RECIPIENT_SECRET, V3_FIXTURE, &mut v3)
         .expect("v3 opens");
     assert_eq!(v3, V3_PLAINTEXT);
+}
+
+#[test]
+fn containers_from_before_the_rename_keep_their_magic() {
+    // The fixtures were written when the magic was `MELV`; reading them is what
+    // proves an upgrade does not orphan a backup taken before the rename.
+    assert_eq!(&V1_FIXTURE[0..4], &LEGACY_MAGIC);
+    assert_eq!(&V3_FIXTURE[0..4], &LEGACY_MAGIC);
+    assert_ne!(LEGACY_MAGIC, MAGIC);
+}
+
+#[test]
+fn this_build_writes_its_own_magic() {
+    let mut sealed = Vec::new();
+    seal_stream(
+        &NativeBackend,
+        V1_PASSPHRASE,
+        AeadAlgorithm::ChaCha20Poly1305,
+        KdfParams::default(),
+        std::io::Cursor::new(b"written today".to_vec()),
+        &mut sealed,
+    )
+    .expect("seals");
+
+    assert_eq!(&sealed[0..4], &MAGIC);
+    assert!(gimlet_eye_crypto::has_magic(&sealed));
 }

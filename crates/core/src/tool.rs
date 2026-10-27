@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::config::Config;
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::paths::AppPaths;
 use crate::report::Report;
 
@@ -43,7 +43,7 @@ impl fmt::Display for Category {
 }
 
 impl FromStr for Category {
-    type Err = MellivoraError;
+    type Err = GimletEyeError;
 
     fn from_str(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -53,7 +53,7 @@ impl FromStr for Category {
             "forensics" => Ok(Self::Forensics),
             "automation" => Ok(Self::Automation),
             "developer" | "dev" => Ok(Self::Developer),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown category '{other}'"
             ))),
         }
@@ -108,7 +108,7 @@ impl fmt::Display for Capability {
 }
 
 impl FromStr for Capability {
-    type Err = MellivoraError;
+    type Err = GimletEyeError;
 
     fn from_str(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -118,7 +118,7 @@ impl FromStr for Capability {
             "network" | "net" => Ok(Self::Network),
             "secrets" => Ok(Self::Secrets),
             "system" => Ok(Self::System),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown capability '{other}'"
             ))),
         }
@@ -271,7 +271,7 @@ impl Args {
         for (key, raw) in pairs {
             let key = key.into();
             if key.is_empty() {
-                return Err(MellivoraError::InvalidArgs("empty argument name".into()));
+                return Err(GimletEyeError::InvalidArgs("empty argument name".into()));
             }
             let raw = raw.into();
             let value = match raw.as_str() {
@@ -299,7 +299,7 @@ impl Args {
                 Value::Number(n) => n.to_string(),
                 Value::Bool(b) => b.to_string(),
                 _ => {
-                    return Err(MellivoraError::InvalidArgs(format!(
+                    return Err(GimletEyeError::InvalidArgs(format!(
                         "argument '{key}' must be a string"
                     )))
                 }
@@ -313,7 +313,7 @@ impl Args {
 
     pub fn require_str(&self, key: &str) -> Result<String> {
         self.opt_str(key)?.ok_or_else(|| {
-            MellivoraError::InvalidArgs(format!("missing required argument '{key}'"))
+            GimletEyeError::InvalidArgs(format!("missing required argument '{key}'"))
         })
     }
 
@@ -324,11 +324,11 @@ impl Args {
             Some(Value::String(value)) => match value.to_ascii_lowercase().as_str() {
                 "true" | "yes" | "1" => Ok(Some(true)),
                 "false" | "no" | "0" => Ok(Some(false)),
-                _ => Err(MellivoraError::InvalidArgs(format!(
+                _ => Err(GimletEyeError::InvalidArgs(format!(
                     "argument '{key}' must be a boolean"
                 ))),
             },
-            Some(_) => Err(MellivoraError::InvalidArgs(format!(
+            Some(_) => Err(GimletEyeError::InvalidArgs(format!(
                 "argument '{key}' must be a boolean"
             ))),
         }
@@ -342,16 +342,16 @@ impl Args {
         match self.0.get(key) {
             None | Some(Value::Null) => Ok(None),
             Some(Value::Number(number)) => number.as_u64().map(Some).ok_or_else(|| {
-                MellivoraError::InvalidArgs(format!(
+                GimletEyeError::InvalidArgs(format!(
                     "argument '{key}' must be a non-negative integer"
                 ))
             }),
             Some(Value::String(value)) => value.parse::<u64>().map(Some).map_err(|_| {
-                MellivoraError::InvalidArgs(format!(
+                GimletEyeError::InvalidArgs(format!(
                     "argument '{key}' must be a non-negative integer"
                 ))
             }),
-            Some(_) => Err(MellivoraError::InvalidArgs(format!(
+            Some(_) => Err(GimletEyeError::InvalidArgs(format!(
                 "argument '{key}' must be a non-negative integer"
             ))),
         }
@@ -367,7 +367,7 @@ impl Args {
 
     pub fn require_path(&self, key: &str) -> Result<PathBuf> {
         self.opt_path(key)?.ok_or_else(|| {
-            MellivoraError::InvalidArgs(format!("missing required argument '{key}'"))
+            GimletEyeError::InvalidArgs(format!("missing required argument '{key}'"))
         })
     }
 }
@@ -504,7 +504,7 @@ impl ToolContext {
         if self.granted.contains(capability) {
             Ok(())
         } else {
-            Err(MellivoraError::CapabilityDenied(capability.to_string()))
+            Err(GimletEyeError::CapabilityDenied(capability.to_string()))
         }
     }
 }

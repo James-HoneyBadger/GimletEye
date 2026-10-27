@@ -1,6 +1,6 @@
 //! Running `metadata-strip` twice must equal running it once.
 //!
-//! The unit-level property is checked in `mellivora-scrub` (redaction twice) and
+//! The unit-level property is checked in `gimlet-eye-scrub` (redaction twice) and
 //! in the fuzz targets (strip twice on arbitrary bytes). This is the version a
 //! user actually exercises: the *tool*, with `redact_gps` and a profile, which
 //! redacts into a working copy, strips, and verifies. A regression anywhere along
@@ -9,8 +9,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mellivora_core::{Args, ToolContext};
-use mellivora_toolkit::Runtime;
+use gimlet_eye_core::{Args, ToolContext};
+use gimlet_eye_toolkit::Runtime;
 
 struct Sandbox {
     root: PathBuf,
@@ -20,10 +20,8 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(name: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "mellivora-strip-idem-{name}-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("gimlet-strip-idem-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("sandbox");
         let runtime = Runtime::load(Some(root.clone()), false).expect("runtime");

@@ -1,9 +1,9 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Mellivora ToolKit
-Source: https://github.com/James-HoneyBadger/Mellivora_ToolKit
+Upstream-Name: Gimlet Eye
+Source: https://github.com/James-HoneyBadger/GimletEye
 
 Files: *
-Copyright: Mellivora ToolKit contributors
+Copyright: Gimlet Eye contributors
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal

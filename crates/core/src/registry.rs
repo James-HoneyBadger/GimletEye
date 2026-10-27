@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::platform;
 use crate::report::Report;
 use crate::tool::{Args, Category, Tool, ToolContext, ToolManifest};
@@ -22,12 +22,12 @@ impl Registry {
     pub fn register(&mut self, tool: Arc<dyn Tool>) -> Result<()> {
         let id = tool.manifest().id.clone();
         if id.is_empty() {
-            return Err(MellivoraError::Internal(
+            return Err(GimletEyeError::Internal(
                 "tool registered with an empty id".into(),
             ));
         }
         if self.tools.contains_key(&id) {
-            return Err(MellivoraError::Config(format!("duplicate tool id '{id}'")));
+            return Err(GimletEyeError::Config(format!("duplicate tool id '{id}'")));
         }
         // One gate for every surface: a tool that declares a platform is refused
         // here rather than in each dispatch path.

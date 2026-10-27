@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and launch the Mellivora ToolKit.
+# Build and launch the Gimlet Eye.
 #
 #   ./run.sh              native desktop window (builds it if needed)
 #   ./run.sh --serve      workbench in a browser, served from this checkout
@@ -14,14 +14,14 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$root"
 
 mode="app"
-port="${MELLIVORA_PORT:-7878}"
+port="${GIMLET_PORT:-7878}"
 force=0
 foreground=0
 
 ui_dir="$root/packages/ui"
 desktop_dir="$root/apps/desktop"
-desktop_bin="$desktop_dir/src-tauri/target/release/mellivora-desktop"
-cli_bin="$root/target/release/mellivora"
+desktop_bin="$desktop_dir/src-tauri/target/release/gimlet-desktop"
+cli_bin="$root/target/release/gimlet"
 ui_index="$ui_dir/dist/index.html"
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
@@ -30,7 +30,7 @@ fail() { printf '\033[31mrun: %s\033[0m\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'USAGE'
-Build and launch the Mellivora ToolKit.
+Build and launch the Gimlet Eye.
 
   ./run.sh              native desktop window (builds it if needed)
   ./run.sh --serve      workbench in a browser, served from this checkout
@@ -43,10 +43,10 @@ Options:
   --dev         desktop window against the Vite dev server (hot reload)
   --build       rebuild before launching, even when up to date
   -f, --foreground  keep the app attached to this terminal
-  -p, --port N  port for --serve (default 7878, or MELLIVORA_PORT)
+  -p, --port N  port for --serve (default 7878, or GIMLET_PORT)
   -h, --help    this text
 
-Environment: MELLIVORA_HOME, MELLIVORA_PLUGIN_PATH (see docs/PLUGIN_SDK.md).
+Environment: GIMLET_HOME, GIMLET_PLUGIN_PATH (see docs/PLUGIN_SDK.md).
 USAGE
 }
 
@@ -131,7 +131,7 @@ build_cli() {
     have cargo || fail "cargo is required (install Rust 1.85+)"
     if [ "$force" -eq 1 ] || cli_stale; then
         step "building the CLI"
-        cargo build --release -p mellivora-cli
+        cargo build --release -p gimlet-eye-cli
     else
         info "CLI is up to date"
     fi
@@ -146,14 +146,14 @@ launch_app() {
 
     # Detached on purpose: closing the terminal should not close the window.
     # The log keeps the shell's own diagnostics (engine address, window events).
-    local log="${TMPDIR:-/tmp}/mellivora-desktop.log"
+    local log="${TMPDIR:-/tmp}/gimlet-desktop.log"
     if have setsid; then
         setsid "$desktop_bin" >"$log" 2>&1 &
     else
         "$desktop_bin" >"$log" 2>&1 &
     fi
     local pid=$!
-    printf '\n\033[32mMellivora ToolKit is starting.\033[0m  Close the window to exit.\n'
+    printf '\n\033[32mGimlet Eye is starting.\033[0m  Close the window to exit.\n'
     info "binary: $desktop_bin"
     info "pid:    $pid   (kill $pid to stop)"
     info "log:    $log"

@@ -1,4 +1,4 @@
-mellivora-toolkit (0.7.0) unstable; urgency=medium
+gimlet-eye-toolkit (0.7.0) unstable; urgency=medium
 
   * Local API requires a per-installation token, bound to loopback.
   * Sealed keystore, X25519 recipients in container v3, OpenPGP interop.
@@ -6,4 +6,4 @@ mellivora-toolkit (0.7.0) unstable; urgency=medium
   * Live-engine UI tests, recorded benchmarks, reproducible builds, packaging.
   * User guide, admin guide, and pack gallery.
 
- -- Mellivora ToolKit maintainers <maintainers@example.invalid>  Sun, 26 Oct 2026 00:00:00 +0000
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Sun, 26 Oct 2026 00:00:00 +0000

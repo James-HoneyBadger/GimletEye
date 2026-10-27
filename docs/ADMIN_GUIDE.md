@@ -19,15 +19,15 @@ Pick one, in order of preference for a managed machine:
 
 ```bash
 # a distribution package, when one is available for your release
-dpkg -i mellivora_*.deb
-rpm -i mellivora-toolkit-*.rpm
+dpkg -i gimlet_*.deb
+rpm -i gimlet-eye-toolkit-*.rpm
 makepkg -si            # packaging/arch/PKGBUILD
 
 # the release archive
-tar -xzf mellivora-<version>-<target>.tar.gz -C /usr/local
+tar -xzf gimlet-<version>-<target>.tar.gz -C /usr/local
 
 # or from source, pinned to the tag
-cargo install --locked --git https://github.com/James-HoneyBadger/Mellivora_ToolKit --tag v<version> mellivora-cli
+cargo install --locked --git https://github.com/James-HoneyBadger/GimletEye --tag v<version> gimlet-eye-cli
 ```
 
 The binary is self-contained apart from libc. `perl` is optional and only needed
@@ -35,18 +35,18 @@ by the compatibility pack; `gpg` is optional and only needed by `crypto.gpg-*`.
 
 ## State on disk
 
-Everything lives under one root, `$MELLIVORA_HOME`, which defaults to
-`~/.config/mellivora`:
+Everything lives under one root, `$GIMLET_HOME`, which defaults to
+`~/.config/gimlet`:
 
 | Path | Mode | What it is | Back it up |
 |---|---|---|---|
 | `config.toml` | 0644 | configuration; safe to commit to a config-management repo | yes |
-| `keystore.melv` | **0600** | sealed keys; unreadable without the passphrase | **yes** |
+| `keystore.gimlet` | **0600** | sealed keys; unreadable without the passphrase | **yes** |
 | `audit.jsonl` | 0644 | one JSON line per tool run, argument *names* only | yes |
 | `api-token` | **0600** | credential for `/api/v1`, created on first `serve` | no; regenerates |
 | `cache/`, `data/` | 0755 | working space | no |
 
-Backing up `keystore.melv` without its passphrase is worthless, and backing up
+Backing up `keystore.gimlet` without its passphrase is worthless, and backing up
 the passphrase next to it defeats the seal. Keep them apart.
 
 ## Configuration
@@ -79,13 +79,13 @@ require_token = true
 disk_warn_percent = 85
 ```
 
-`mellivora config show` prints the effective configuration after defaults are
-applied; `mellivora config path` prints which file was read. A config written by
+`gimlet config show` prints the effective configuration after defaults are
+applied; `gimlet config path` prints which file was read. A config written by
 a newer release is refused rather than reinterpreted.
 
 ## The local API
 
-`mellivora serve` binds loopback and requires a token:
+`gimlet serve` binds loopback and requires a token:
 
 - `POST /api/v1/run` — the only endpoint that does anything
 - `GET /api/v1/health | tools | packs | audit | config`
@@ -108,10 +108,10 @@ is arbitrary code. Discovery trusts what is on disk; pinning is how you stop
 trusting it blindly.
 
 ```bash
-mellivora plugins list                       # what loaded, what failed
-mellivora plugins doctor                     # start each pack, list its tools
-mellivora plugins conformance ~/packs/foo    # the SDK checklist, mechanically
-mellivora plugins pin ~/packs/foo            # the digest to paste into [trust]
+gimlet plugins list                       # what loaded, what failed
+gimlet plugins doctor                     # start each pack, list its tools
+gimlet plugins conformance ~/packs/foo    # the SDK checklist, mechanically
+gimlet plugins pin ~/packs/foo            # the digest to paste into [trust]
 ```
 
 Grant the narrowest capability set that works. `allow = ["fs:read"]` means no
@@ -137,18 +137,18 @@ leak into the trail. Pruning is atomic and serialised: `max_entries` trims throu
 a temporary file and a rename, so a concurrent writer cannot lose a record and a
 reader cannot see a half-written line.
 
-`mellivora audit --limit 20` reads it back; `--format json` for a collector.
+`gimlet audit --limit 20` reads it back; `--format json` for a collector.
 
 ## Upgrading and rolling back
 
 The upgrade path is a package operation, and the files that matter are the ones
-in `$MELLIVORA_HOME`. Neither the keystore nor the audit trail is tied to a
+in `$GIMLET_HOME`. Neither the keystore nor the audit trail is tied to a
 version:
 
 ```bash
-dpkg -i mellivora_<new>.deb     # or your package manager
-mellivora --version
-mellivora doctor
+dpkg -i gimlet_<new>.deb     # or your package manager
+gimlet --version
+gimlet doctor
 ```
 
 Rolling back is installing the previous package. Keys created by a newer release

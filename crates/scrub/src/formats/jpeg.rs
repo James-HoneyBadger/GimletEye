@@ -1,4 +1,4 @@
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 
 use crate::format::{Format, FormatHandler, ScanResult, Segment, SegmentCategory};
 
@@ -19,7 +19,7 @@ impl FormatHandler for JpegHandler {
 
     fn scan(&self, bytes: &[u8]) -> Result<ScanResult> {
         if !bytes.starts_with(&[0xFF, 0xD8]) {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "not a JPEG (missing SOI)".into(),
             ));
         }
@@ -30,7 +30,7 @@ impl FormatHandler for JpegHandler {
 
         while pos + 1 < bytes.len() {
             if bytes[pos] != 0xFF {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "malformed JPEG: expected a marker at offset {pos}"
                 )));
             }
@@ -63,7 +63,7 @@ impl FormatHandler for JpegHandler {
             }
             let length = u16::from_be_bytes([bytes[pos + 2], bytes[pos + 3]]) as usize;
             if length < 2 || pos + 2 + length > bytes.len() {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "malformed JPEG: truncated segment at offset {pos}"
                 )));
             }
@@ -78,7 +78,7 @@ impl FormatHandler for JpegHandler {
         }
 
         if segments.is_empty() {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "malformed JPEG: no segments found".into(),
             ));
         }

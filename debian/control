@@ -1,17 +1,17 @@
-Source: mellivora-toolkit
+Source: gimlet-eye-toolkit
 Section: utils
 Priority: optional
-Maintainer: Mellivora ToolKit maintainers <maintainers@example.invalid>
+Maintainer: Gimlet Eye maintainers <maintainers@example.invalid>
 # A distribution build with a rustc at or above the workspace `rust-version`
 # satisfies this. Building on an older archive is why scripts/rehearse-upgrade.sh
 # installs rustup and passes `-d`.
 Build-Depends: debhelper-compat (= 13), cargo, rustc
 Standards-Version: 4.6.2
-Homepage: https://github.com/James-HoneyBadger/Mellivora_ToolKit
-Vcs-Git: https://github.com/James-HoneyBadger/Mellivora_ToolKit.git
+Homepage: https://github.com/James-HoneyBadger/GimletEye
+Vcs-Git: https://github.com/James-HoneyBadger/GimletEye.git
 Rules-Requires-Root: no
 
-Package: mellivora
+Package: gimlet
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: perl

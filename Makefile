@@ -2,7 +2,7 @@
 
 CARGO ?= cargo
 UI_DIR := packages/ui
-CLI := $(CARGO) run -q -p mellivora-cli --
+CLI := $(CARGO) run -q -p gimlet-eye-cli --
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -50,7 +50,7 @@ ui-test: ## Run the UI unit tests
 	cd $(UI_DIR) && npm test
 
 bench: ## Measure scan, strip, and encrypt at 10 MiB and 1 GiB
-	$(CARGO) run --release -p mellivora-toolkit --example bench
+	$(CARGO) run --release -p gimlet-eye-toolkit --example bench
 
 e2e: ## Drive the UI against a real engine (needs a built bundle)
 	cd $(UI_DIR) && npm run e2e

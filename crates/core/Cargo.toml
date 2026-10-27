@@ -1,6 +1,6 @@
 [package]
-name = "mellivora-core"
-description = "Contracts, registry, configuration, audit trail, and plugin host for Mellivora ToolKit"
+name = "gimlet-eye-core"
+description = "Contracts, registry, configuration, audit trail, and plugin host for Gimlet Eye"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -11,7 +11,7 @@ import { join } from 'node:path';
  * most likely to break without anyone noticing.
  */
 
-const home = process.env.MELLIVORA_E2E_HOME ?? '/tmp/mellivora-e2e';
+const home = process.env.GIMLET_E2E_HOME ?? '/tmp/gimlet-e2e';
 
 function token(): string {
   // The engine writes it on first start, mode 0600.
@@ -86,7 +86,7 @@ test.describe('a live engine', () => {
     // The report carries the CLI command, which is the bridge back to a shell.
     // (The digest has its own copy button, so match the command by text.)
     await expect(
-      page.locator('#result-region [data-copy^="mellivora run crypto.sha256"]'),
+      page.locator('#result-region [data-copy^="gimlet run crypto.sha256"]'),
     ).toHaveCount(1);
   });
 

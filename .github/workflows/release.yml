@@ -87,7 +87,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          cargo build --release --locked -p mellivora-cli --target "${{ matrix.target }}"
+          cargo build --release --locked -p gimlet-eye-cli --target "${{ matrix.target }}"
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
 
@@ -95,9 +95,9 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          name="mellivora-${RELEASE_TAG#v}-${{ matrix.target }}"
+          name="gimlet-${RELEASE_TAG#v}-${{ matrix.target }}"
           mkdir -p "dist/$name"
-          cp "target/${{ matrix.target }}/release/mellivora" "dist/$name/"
+          cp "target/${{ matrix.target }}/release/gimlet" "dist/$name/"
           cp README.md LICENSE CHANGELOG.md "dist/$name/"
           tar -czf "dist/$name.tar.gz" -C dist "$name"
           rm -rf "dist/$name"
@@ -107,9 +107,9 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
-          $name = "mellivora-$version-${{ matrix.target }}"
+          $name = "gimlet-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/mellivora.exe" "dist/$name/"
+          Copy-Item "target/${{ matrix.target }}/release/gimlet.exe" "dist/$name/"
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           Remove-Item -Recurse -Force "dist/$name"
@@ -202,8 +202,8 @@ jobs:
 
       - name: Build here
         run: |
-          cargo build --release --locked -p mellivora-cli
-          sha256sum target/release/mellivora | awk '{print $1}' > /tmp/here.txt
+          cargo build --release --locked -p gimlet-eye-cli
+          sha256sum target/release/gimlet | awk '{print $1}' > /tmp/here.txt
 
       - name: Build in another directory
         run: |
@@ -212,8 +212,8 @@ jobs:
           cp Cargo.lock /tmp/elsewhere/
           cd /tmp/elsewhere
           RUSTFLAGS="--remap-path-prefix=/tmp/elsewhere=." \
-            cargo build --release --locked -p mellivora-cli
-          sha256sum target/release/mellivora | awk '{print $1}' > /tmp/there.txt
+            cargo build --release --locked -p gimlet-eye-cli
+          sha256sum target/release/gimlet | awk '{print $1}' > /tmp/there.txt
 
       - name: Compare
         run: |
@@ -320,6 +320,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
-            gh release create "$RELEASE_TAG" --title "Mellivora ToolKit ${RELEASE_TAG#v}" --generate-notes
+            gh release create "$RELEASE_TAG" --title "Gimlet Eye ${RELEASE_TAG#v}" --generate-notes
           gh release upload "$RELEASE_TAG" release/* --clobber
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | sort

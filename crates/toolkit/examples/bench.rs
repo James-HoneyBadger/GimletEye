@@ -6,8 +6,8 @@
 //! an argument.
 //!
 //! ```bash
-//! cargo run --release -p mellivora-toolkit --example bench
-//! cargo run --release -p mellivora-toolkit --example bench -- --assert-floor-mib 20
+//! cargo run --release -p gimlet-eye-toolkit --example bench
+//! cargo run --release -p gimlet-eye-toolkit --example bench -- --assert-floor-mib 20
 //! ```
 //!
 //! Sizes default to 10 MiB and 1 GiB, the two the roadmap names. Inputs are
@@ -17,8 +17,8 @@
 use std::io::Cursor;
 use std::time::{Duration, Instant};
 
-use mellivora_crypto::{seal_stream, AeadAlgorithm, KdfParams, NativeBackend};
-use mellivora_scrub::{handler_for, RemovalPolicy};
+use gimlet_eye_crypto::{seal_stream, AeadAlgorithm, KdfParams, NativeBackend};
+use gimlet_eye_scrub::{handler_for, RemovalPolicy};
 
 const MIB: usize = 1024 * 1024;
 

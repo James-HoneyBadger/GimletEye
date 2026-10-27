@@ -1,12 +1,12 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::Result;
 
 /// Resolved locations for configuration, state, and plugin discovery.
 ///
 /// Everything the toolkit writes lives under a single root so a backup, a
-/// container mount, or a test fixture is one path. `MELLIVORA_HOME` overrides
+/// container mount, or a test fixture is one path. `GIMLET_HOME` overrides
 /// the root, which is how the test suite keeps runs hermetic.
 #[derive(Debug, Clone)]
 pub struct AppPaths {
@@ -46,10 +46,11 @@ pub(crate) fn push_unique_dir(
 impl AppPaths {
     /// Resolve from the environment, falling back to the XDG config directory.
     pub fn discover() -> Self {
-        let root = env::var_os("MELLIVORA_HOME")
+        let root = env::var_os("GIMLET_HOME")
             .map(PathBuf::from)
-            .or_else(|| dirs::config_dir().map(|dir| dir.join("mellivora")))
-            .unwrap_or_else(|| PathBuf::from(".mellivora"));
+            .or_else(legacy_root)
+            .or_else(default_root)
+            .unwrap_or_else(|| PathBuf::from(".gimlet"));
         Self::under(root)
     }
 
@@ -60,7 +61,7 @@ impl AppPaths {
         let mut seen = Vec::new();
         push_unique_dir(&mut plugin_dirs, &mut seen, root.join("plugins"));
 
-        if let Some(extra) = env::var_os("MELLIVORA_PLUGIN_PATH") {
+        if let Some(extra) = env::var_os("GIMLET_PLUGIN_PATH") {
             for entry in env::split_paths(&extra) {
                 if !entry.as_os_str().is_empty() {
                     push_unique_dir(&mut plugin_dirs, &mut seen, entry);
@@ -81,7 +82,7 @@ impl AppPaths {
             cache_dir: root.join("cache"),
             audit_file: root.join("audit.jsonl"),
             api_token_file: root.join("api-token"),
-            keystore_file: root.join("keystore.melv"),
+            keystore_file: keystore_path(&root),
             root,
             plugin_dirs,
         }
@@ -96,13 +97,38 @@ impl AppPaths {
     }
 }
 
+/// The root used before the rename. An installation that already has one keeps
+/// using it, so an upgrade does not strand a keystore or an audit trail.
+fn legacy_root() -> Option<PathBuf> {
+    let config = dirs::config_dir()?;
+    let legacy = config.join("mellivora");
+    let current = config.join("gimlet");
+    (legacy.is_dir() && !current.exists()).then_some(legacy)
+}
+
+fn default_root() -> Option<PathBuf> {
+    dirs::config_dir().map(|dir| dir.join("gimlet"))
+}
+
+/// A keystore sealed before the rename is read where it is rather than at the
+/// new name, which does not exist yet.
+fn keystore_path(root: &Path) -> PathBuf {
+    let current = root.join("keystore.gimlet");
+    let legacy = root.join("keystore.melv");
+    if !current.exists() && legacy.is_file() {
+        legacy
+    } else {
+        current
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn the_same_directory_in_two_spellings_is_listed_once() {
-        let dir = std::env::temp_dir().join(format!("mellivora-paths-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-paths-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
         let canonical = dir.canonicalize().expect("canonical");
 
@@ -120,25 +146,40 @@ mod tests {
 
     #[test]
     fn layout_is_derived_from_root() {
-        let paths = AppPaths::under("/tmp/mellivora-test");
+        let paths = AppPaths::under("/tmp/gimlet-test");
         assert_eq!(
             paths.config_file,
-            PathBuf::from("/tmp/mellivora-test/config.toml")
+            PathBuf::from("/tmp/gimlet-test/config.toml")
         );
         assert_eq!(
             paths.audit_file,
-            PathBuf::from("/tmp/mellivora-test/audit.jsonl")
+            PathBuf::from("/tmp/gimlet-test/audit.jsonl")
         );
         assert_eq!(
             paths.api_token_file,
-            PathBuf::from("/tmp/mellivora-test/api-token")
+            PathBuf::from("/tmp/gimlet-test/api-token")
         );
         assert_eq!(
             paths.keystore_file,
-            PathBuf::from("/tmp/mellivora-test/keystore.melv")
+            PathBuf::from("/tmp/gimlet-test/keystore.gimlet")
         );
         assert!(paths
             .plugin_dirs
-            .contains(&PathBuf::from("/tmp/mellivora-test/plugins")));
+            .contains(&PathBuf::from("/tmp/gimlet-test/plugins")));
+    }
+
+    #[test]
+    fn a_keystore_from_before_the_rename_is_still_found() {
+        let dir = std::env::temp_dir().join(format!("gimlet-paths-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        std::fs::write(dir.join("keystore.melv"), b"sealed").expect("write");
+
+        assert_eq!(
+            AppPaths::under(&dir).keystore_file,
+            dir.join("keystore.melv")
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

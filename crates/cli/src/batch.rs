@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use mellivora_core::{
-    Args, MellivoraError, OutputFormat, Report, Result, Severity, Status, Tool, ToolContext,
+use gimlet_eye_core::{
+    Args, GimletEyeError, OutputFormat, Report, Result, Severity, Status, Tool, ToolContext,
 };
 use serde_json::json;
 
@@ -53,7 +53,7 @@ pub fn execute(
     format: OutputFormat,
 ) -> Result<BatchSummary> {
     if options.args.as_map().contains_key(&options.input_arg) {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "--arg {0}=… conflicts with --input-arg {0}: the file path would replace it",
             options.input_arg
         )));
@@ -61,7 +61,7 @@ pub fn execute(
 
     let files = collect_files(&options.paths, &options.extensions, options.recursive)?;
     if files.is_empty() {
-        return Err(MellivoraError::NotFound(format!(
+        return Err(GimletEyeError::NotFound(format!(
             "no files to process in {}",
             describe_paths(&options.paths)
         )));
@@ -131,7 +131,7 @@ pub fn collect_files(
             walk(path, &wanted, depth, &mut visited, &mut files)?;
             continue;
         }
-        return Err(MellivoraError::NotFound(format!(
+        return Err(GimletEyeError::NotFound(format!(
             "{} does not exist",
             path.display()
         )));
@@ -359,7 +359,7 @@ fn outcome_line(outcome: &Outcome) -> String {
             report.status.symbol(),
             report.status.as_str(),
             outcome.path.display(),
-            mellivora_core::util::human_duration(outcome.duration_ms)
+            gimlet_eye_core::util::human_duration(outcome.duration_ms)
         ),
         Err(err) => format!(
             "{} {:<7} {}  ({err})",
@@ -388,12 +388,11 @@ mod tests {
     use std::fs;
     use std::sync::Arc;
 
-    use mellivora_core::{AppPaths, Tool};
+    use gimlet_eye_core::{AppPaths, Tool};
     use serde_json::Value;
 
     fn workspace(name: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("mellivora-batch-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-batch-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         dir
     }
@@ -402,15 +401,15 @@ mod tests {
     struct Echo;
 
     impl Tool for Echo {
-        fn manifest(&self) -> &mellivora_core::ToolManifest {
-            static MANIFEST: std::sync::OnceLock<mellivora_core::ToolManifest> =
+        fn manifest(&self) -> &gimlet_eye_core::ToolManifest {
+            static MANIFEST: std::sync::OnceLock<gimlet_eye_core::ToolManifest> =
                 std::sync::OnceLock::new();
             MANIFEST.get_or_init(|| {
-                mellivora_core::ToolManifest::new(
+                gimlet_eye_core::ToolManifest::new(
                     "test.echo",
                     "Echo",
                     "reports the input",
-                    mellivora_core::Category::Sysadmin,
+                    gimlet_eye_core::Category::Sysadmin,
                 )
             })
         }
@@ -523,7 +522,7 @@ mod tests {
         let context = ToolContext::new(AppPaths::under(&dir));
         let err = execute(tool, &context, &opts, OutputFormat::Text)
             .expect_err("a colliding argument must not be silently replaced");
-        assert!(matches!(err, MellivoraError::InvalidArgs(_)), "{err}");
+        assert!(matches!(err, GimletEyeError::InvalidArgs(_)), "{err}");
         assert!(err.to_string().contains("--input-arg"));
 
         fs::remove_dir_all(&dir).expect("cleanup");
@@ -533,7 +532,7 @@ mod tests {
     fn missing_paths_are_reported() {
         let missing = workspace("missing").join("nope");
         let err = collect_files(&[missing], &[], true).expect_err("must fail");
-        assert!(matches!(err, MellivoraError::NotFound(_)));
+        assert!(matches!(err, GimletEyeError::NotFound(_)));
     }
 
     #[test]

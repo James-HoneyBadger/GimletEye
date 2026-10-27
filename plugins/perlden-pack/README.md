@@ -1,10 +1,10 @@
 # Perl Den compatibility pack
 
-**Optional.** Mellivora ToolKit does not require this pack; the CLI, HTTP API,
+**Optional.** Gimlet Eye does not require this pack; the CLI, HTTP API,
 and UI work without it. Install it only if you want Perl Den's sysadmin module
 catalogue available alongside the native tools.
 
-The pack runs each Perl Den module over the Mellivora plugin protocol and
+The pack runs each Perl Den module over the Gimlet Eye plugin protocol and
 translates its `run(%args)` / `format_report(%result)` pair into a toolkit
 `Report`. The modules are read from a checkout; nothing is vendored here.
 
@@ -32,7 +32,7 @@ Perl.
 
 The pack resolves a root in this order:
 
-1. `MELLIVORA_PERLDEN_HOME`
+1. `GIMLET_PERLDEN_HOME`
 2. `../../external/Perl_Den` relative to this directory
 3. `~/Perl_Den`, `~/PerlDen`, `~/src/Perl_Den`
 
@@ -45,15 +45,15 @@ example `perlden.system-info`, `perlden.port-scanner`,
 `perlden.failed-login-detector`.
 
 ```bash
-mellivora plugins doctor
-mellivora run perlden.system-info
-mellivora run perlden.disk-usage --format json
+gimlet plugins doctor
+gimlet run perlden.system-info
+gimlet run perlden.disk-usage --format json
 ```
 
 ## Interaction with native tools
 
 A built-in tool always wins an ambiguous shorthand. Once `sysadmin.system-info`
-exists natively, `mellivora system-info` runs the native tool; the pack's
+exists natively, `gimlet system-info` runs the native tool; the pack's
 version stays reachable as `perlden.system-info` until it is retired. See
 [COMPATIBILITY.md](../../docs/COMPATIBILITY.md).
 

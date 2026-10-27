@@ -5,8 +5,8 @@ use aes_gcm::{Aes256Gcm, Nonce as AesNonce};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::{ChaCha20Poly1305, Nonce as ChaChaNonce};
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+use gimlet_eye_core::{GimletEyeError, Result};
 use hkdf::Hkdf;
-use mellivora_core::{MellivoraError, Result};
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ impl AeadAlgorithm {
         match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
             "aes256-gcm" | "aes-256-gcm" | "aes" => Ok(Self::Aes256Gcm),
             "chacha20-poly1305" | "chacha20poly1305" | "chacha" => Ok(Self::ChaCha20Poly1305),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown algorithm '{other}' (use aes256-gcm or chacha20-poly1305)"
             ))),
         }
@@ -55,7 +55,7 @@ impl AeadAlgorithm {
         match value {
             1 => Ok(Self::Aes256Gcm),
             2 => Ok(Self::ChaCha20Poly1305),
-            other => Err(MellivoraError::Unsupported(format!(
+            other => Err(GimletEyeError::Unsupported(format!(
                 "container uses unknown cipher id {other}"
             ))),
         }
@@ -96,19 +96,19 @@ impl Default for KdfParams {
 impl KdfParams {
     pub fn validate(&self) -> Result<()> {
         if !(MIN_M_COST_KIB..=MAX_M_COST_KIB).contains(&self.m_cost_kib) {
-            return Err(MellivoraError::Unsupported(format!(
+            return Err(GimletEyeError::Unsupported(format!(
                 "container memory cost {} KiB is outside the accepted range",
                 self.m_cost_kib
             )));
         }
         if self.t_cost == 0 || self.t_cost > MAX_T_COST {
-            return Err(MellivoraError::Unsupported(format!(
+            return Err(GimletEyeError::Unsupported(format!(
                 "container time cost {} is outside the accepted range",
                 self.t_cost
             )));
         }
         if self.p_cost == 0 || self.p_cost > MAX_P_COST {
-            return Err(MellivoraError::Unsupported(format!(
+            return Err(GimletEyeError::Unsupported(format!(
                 "container parallelism {} is outside the accepted range",
                 self.p_cost
             )));
@@ -126,7 +126,7 @@ impl KdfParams {
 
     pub fn from_wire(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < 9 {
-            return Err(MellivoraError::Unsupported(
+            return Err(GimletEyeError::Unsupported(
                 "container header is truncated".into(),
             ));
         }
@@ -259,13 +259,13 @@ impl CryptoBackend for NativeBackend {
             params.p_cost.into(),
             Some(32),
         )
-        .map_err(|err| MellivoraError::Internal(format!("invalid Argon2 parameters: {err}")))?;
+        .map_err(|err| GimletEyeError::Internal(format!("invalid Argon2 parameters: {err}")))?;
         let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, argon_params);
 
         let mut key = Zeroizing::new([0u8; 32]);
         argon
             .hash_password_into(passphrase, salt, key.as_mut())
-            .map_err(|err| MellivoraError::Tool(format!("key derivation failed: {err}")))?;
+            .map_err(|err| GimletEyeError::Tool(format!("key derivation failed: {err}")))?;
         Ok(key)
     }
 
@@ -280,7 +280,7 @@ impl CryptoBackend for NativeBackend {
         match algorithm {
             AeadAlgorithm::Aes256Gcm => {
                 let cipher = Aes256Gcm::new_from_slice(key)
-                    .map_err(|_| MellivoraError::Internal("invalid AES-256 key".into()))?;
+                    .map_err(|_| GimletEyeError::Internal("invalid AES-256 key".into()))?;
                 cipher
                     .encrypt(
                         AesNonce::from_slice(nonce),
@@ -289,11 +289,11 @@ impl CryptoBackend for NativeBackend {
                             aad,
                         },
                     )
-                    .map_err(|_| MellivoraError::Tool("encryption failed".into()))
+                    .map_err(|_| GimletEyeError::Tool("encryption failed".into()))
             }
             AeadAlgorithm::ChaCha20Poly1305 => {
                 let cipher = ChaCha20Poly1305::new_from_slice(key)
-                    .map_err(|_| MellivoraError::Internal("invalid ChaCha20 key".into()))?;
+                    .map_err(|_| GimletEyeError::Internal("invalid ChaCha20 key".into()))?;
                 cipher
                     .encrypt(
                         ChaChaNonce::from_slice(nonce),
@@ -302,7 +302,7 @@ impl CryptoBackend for NativeBackend {
                             aad,
                         },
                     )
-                    .map_err(|_| MellivoraError::Tool("encryption failed".into()))
+                    .map_err(|_| GimletEyeError::Tool("encryption failed".into()))
             }
         }
     }
@@ -318,7 +318,7 @@ impl CryptoBackend for NativeBackend {
         let plaintext = match algorithm {
             AeadAlgorithm::Aes256Gcm => {
                 let cipher = Aes256Gcm::new_from_slice(key)
-                    .map_err(|_| MellivoraError::Internal("invalid AES-256 key".into()))?;
+                    .map_err(|_| GimletEyeError::Internal("invalid AES-256 key".into()))?;
                 cipher.decrypt(
                     AesNonce::from_slice(nonce),
                     Payload {
@@ -329,7 +329,7 @@ impl CryptoBackend for NativeBackend {
             }
             AeadAlgorithm::ChaCha20Poly1305 => {
                 let cipher = ChaCha20Poly1305::new_from_slice(key)
-                    .map_err(|_| MellivoraError::Internal("invalid ChaCha20 key".into()))?;
+                    .map_err(|_| GimletEyeError::Internal("invalid ChaCha20 key".into()))?;
                 cipher.decrypt(
                     ChaChaNonce::from_slice(nonce),
                     Payload {
@@ -340,7 +340,7 @@ impl CryptoBackend for NativeBackend {
             }
         };
         plaintext.map(Zeroizing::new).map_err(|_| {
-            MellivoraError::Tool("decryption failed: wrong passphrase or corrupted file".into())
+            GimletEyeError::Tool("decryption failed: wrong passphrase or corrupted file".into())
         })
     }
 
@@ -364,10 +364,10 @@ impl CryptoBackend for NativeBackend {
         signature: &[u8; 64],
     ) -> Result<()> {
         let key = VerifyingKey::from_bytes(public)
-            .map_err(|err| MellivoraError::InvalidArgs(format!("invalid public key: {err}")))?;
+            .map_err(|err| GimletEyeError::InvalidArgs(format!("invalid public key: {err}")))?;
         let signature = Signature::from_bytes(signature);
         key.verify_strict(message, &signature)
-            .map_err(|_| MellivoraError::Tool("signature verification failed".into()))
+            .map_err(|_| GimletEyeError::Tool("signature verification failed".into()))
     }
 
     fn ed25519_public(&self, secret: &[u8; 32]) -> [u8; 32] {
@@ -394,7 +394,7 @@ impl CryptoBackend for NativeBackend {
         let secret = StaticSecret::from(*secret);
         let shared = secret.diffie_hellman(&X25519Public::from(*peer_public));
         if !shared.was_contributory() {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "the recipient key is not a usable X25519 point".into(),
             ));
         }
@@ -405,7 +405,7 @@ impl CryptoBackend for NativeBackend {
         let hkdf = Hkdf::<Sha2>::new(Some(salt), ikm);
         let mut out = Zeroizing::new([0u8; 32]);
         hkdf.expand(info, out.as_mut())
-            .map_err(|_| MellivoraError::Internal("hkdf expansion failed".into()))?;
+            .map_err(|_| GimletEyeError::Internal("hkdf expansion failed".into()))?;
         Ok(out)
     }
 }

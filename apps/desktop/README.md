@@ -18,12 +18,12 @@ npm run build   # platform bundles under src-tauri/target/release/bundle/
 ```
 
 There is no separate server to start: `src-tauri/src/main.rs` binds an
-ephemeral loopback port, starts `mellivora-toolkit`'s `Runtime` on a background
-thread, and injects the port into the window as `window.__MELLIVORA_API__`
+ephemeral loopback port, starts `gimlet-eye-toolkit`'s `Runtime` on a background
+thread, and injects the port into the window as `window.__GIMLET_API__`
 before the first script runs.
 
 `npm run build -- --no-bundle` skips the installers and leaves just the binary
-at `src-tauri/target/release/mellivora-desktop`. That file is the whole
+at `src-tauri/target/release/gimlet-desktop`. That file is the whole
 application: the UI is embedded at compile time and the engine runs in-process,
 so it can be copied anywhere and launched on its own.
 
@@ -33,16 +33,16 @@ the window follows `devUrl` and expects Vite on port 5173:
 ```bash
 cd apps/desktop/src-tauri
 cargo build --release --features custom-protocol
-./target/release/mellivora-desktop
+./target/release/gimlet-desktop
 ```
 
 The window closes when you close it, and that is the only thing that ends the
 process; close and destroy events are logged on stderr so a clean exit is never
 a mystery.
 
-The engine prints its address on startup (`mellivora: embedded engine on
+The engine prints its address on startup (`gimlet: embedded engine on
 http://127.0.0.1:<port>`) and reads packs from `plugins/` next to the binary or
-in the checkout, via `MELLIVORA_PLUGIN_PATH`. `mellivora serve` is unaffected
+in the checkout, via `GIMLET_PLUGIN_PATH`. `gimlet serve` is unaffected
 and remains the way to reach the same tools from a browser or another machine.
 
 ## Why Tauri rather than GTK, Qt, or Electron

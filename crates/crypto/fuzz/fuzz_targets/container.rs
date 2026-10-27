@@ -1,6 +1,6 @@
 #![no_main]
 
-//! The `.melv` reader: header parsing, and opening with a fixed passphrase.
+//! The `.gimlet` reader: header parsing, and opening with a fixed passphrase.
 //!
 //! The scrub targets fuzz the parsers that touch irreplaceable files; this one
 //! fuzzes the file format the tool writes. It must never panic, whatever bytes
@@ -14,7 +14,7 @@
 //! `allow_expensive=true`.
 
 use libfuzzer_sys::fuzz_target;
-use mellivora_crypto::{inspect, open_for_recipient, open_stream, Kdf, NativeBackend};
+use gimlet_eye_crypto::{inspect, open_for_recipient, open_stream, Kdf, NativeBackend};
 
 /// Parameters this target is willing to pay for.
 ///

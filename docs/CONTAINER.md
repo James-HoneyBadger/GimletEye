@@ -1,16 +1,23 @@
-# The `.melv` container
+# The `.gimlet` container
 
 The format written by `crypto.encrypt` and read by `crypto.decrypt`. It exists to
 be small, self-describing, and impossible to tamper with silently.
 
-Extension: `.melv` · Magic: `MELV` · Versions: 1 (whole file), 2 (chunked), and
+Extension: `.gimlet` · Magic: `GIML` · Versions: 1 (whole file), 2 (chunked), and
 3 (recipients)
+
+Containers written before the project was renamed from Mellivora ToolKit carry
+the magic `MELV` and the extension `.melv`. They are read exactly like the
+current files — the magic is checked against both, and nothing else in the
+format changed — so no backup has to be rewritten. This build never writes
+`MELV`, and the committed fixtures under `crates/crypto/tests/fixtures/` are
+those older files, kept because reading them is what proves it.
 
 ## Layout
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 4 | magic `MELV` |
+| 0 | 4 | magic `GIML` (or `MELV` from before the rename) |
 | 4 | 1 | format version (`1` = whole file, `2` = chunked) |
 | 5 | 1 | cipher id (`1` = AES-256-GCM, `2` = ChaCha20-Poly1305) |
 | 6 | 1 | KDF id (`1` = Argon2id) |
@@ -150,7 +157,7 @@ The 49-byte layout above is unchanged for versions 1 and 2.
 
 | Offset | Size | Field |
 |---|---|---|
-| 0 | 4 | magic `MELV` |
+| 0 | 4 | magic `GIML` (or `MELV` from before the rename) |
 | 4 | 1 | format version (`3`) |
 | 5 | 1 | cipher id (`1` = AES-256-GCM, `2` = ChaCha20-Poly1305) |
 | 6 | 1 | KDF id (`3` = X25519 + HKDF-SHA256) |
@@ -227,13 +234,13 @@ of a field, or the derivation inputs requires:
 1. a new version byte,
 2. an ADR,
 3. a compatibility test that still decrypts v1 files and, since v3, the
-   committed `container-v3.melv` fixture,
+   committed `container-v3.gimlet` fixture,
 4. an entry in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## A second implementation
 
 This document is the format's definition, not a description of the Rust code, and
-that is checked rather than asserted: `crates/crypto/tests/interop/read_melv.py`
+that is checked rather than asserted: `crates/crypto/tests/interop/read_container.py`
 is a reader written from this file alone — Python, no Rust, no shared code. It
 opens version 1, version 2, and version 3, and
 `crates/crypto/tests/second_implementation.rs` runs it in CI against both

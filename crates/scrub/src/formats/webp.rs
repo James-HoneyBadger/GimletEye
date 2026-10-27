@@ -1,4 +1,4 @@
-use mellivora_core::{MellivoraError, Result};
+use gimlet_eye_core::{GimletEyeError, Result};
 
 use crate::format::{Format, FormatHandler, RemovalPolicy, ScanResult, Segment, SegmentCategory};
 
@@ -17,7 +17,7 @@ impl FormatHandler for WebpHandler {
 
     fn scan(&self, bytes: &[u8]) -> Result<ScanResult> {
         if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "not a WebP (bad RIFF header)".into(),
             ));
         }
@@ -37,7 +37,7 @@ impl FormatHandler for WebpHandler {
             let padded = size + (size % 2);
             let total = 8 + padded;
             if pos + total > bytes.len() {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "malformed WebP: truncated '{fourcc}' chunk at offset {pos}"
                 )));
             }
@@ -51,7 +51,7 @@ impl FormatHandler for WebpHandler {
         }
 
         if segments.is_empty() {
-            return Err(MellivoraError::InvalidArgs(
+            return Err(GimletEyeError::InvalidArgs(
                 "malformed WebP: no chunks found".into(),
             ));
         }

@@ -62,17 +62,17 @@ describe('api client', () => {
 
     expect(api.hasApiToken()).toBe(true);
     expect(window.location.hash).toBe('');
-    expect(localStorage.getItem('mellivora.api.token')).toBe('fromfrag');
+    expect(localStorage.getItem('gimlet.api.token')).toBe('fromfrag');
   });
 
   it('prefers a token injected by the desktop shell', async () => {
-    window.__MELLIVORA_TOKEN__ = 'injected';
+    window.__GIMLET_TOKEN__ = 'injected';
     window.location.hash = '#token=fromfrag';
     const api = await import('./api');
 
     expect(api.hasApiToken()).toBe(true);
     expect(window.location.hash).toBe('#token=fromfrag');
 
-    delete window.__MELLIVORA_TOKEN__;
+    delete window.__GIMLET_TOKEN__;
   });
 });

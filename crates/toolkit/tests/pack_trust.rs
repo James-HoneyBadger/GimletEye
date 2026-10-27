@@ -8,11 +8,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mellivora_core::AppPaths;
-use mellivora_toolkit::{plugin_trust, Runtime};
+use gimlet_eye_core::AppPaths;
+use gimlet_eye_toolkit::{plugin_trust, Runtime};
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("mellivora-trust-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("gimlet-trust-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("mkdir");
     dir
@@ -22,7 +22,7 @@ fn scratch(name: &str) -> PathBuf {
 fn write_pack(dir: &Path, tool_id: &str) {
     fs::create_dir_all(dir).expect("pack dir");
     fs::write(
-        dir.join("mellivora-pack.toml"),
+        dir.join("gimlet-pack.toml"),
         "name = \"pinned\"\n\
          version = \"0.1.0\"\n\
          protocol_version = 1\n\
@@ -215,14 +215,14 @@ fn the_pin_survives_a_round_trip_through_config_toml() {
     write_config(&home, &pack, &format!("[trust]\npinned = \"{digest}\"\n"));
 
     let paths = AppPaths::under(home.clone());
-    let config = mellivora_core::Config::load(&paths).expect("config parses");
+    let config = gimlet_eye_core::Config::load(&paths).expect("config parses");
     assert_eq!(config.trust.get("pinned"), Some(&digest));
 
     // And a config with no [trust] table is not an error: the field is additive.
     let bare = scratch("config-bare");
     fs::create_dir_all(&bare).expect("home");
     fs::write(bare.join("config.toml"), "schema_version = 1\n").expect("write");
-    let parsed = mellivora_core::Config::load(&AppPaths::under(bare.clone())).expect("parses");
+    let parsed = gimlet_eye_core::Config::load(&AppPaths::under(bare.clone())).expect("parses");
     assert!(parsed.trust.is_empty());
 
     let _ = fs::remove_dir_all(&home);

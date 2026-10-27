@@ -3,7 +3,7 @@
 use std::fmt;
 
 use axum::http::{header, HeaderMap};
-use mellivora_core::token;
+use gimlet_eye_core::token;
 
 /// Whether the API needs a credential, and which one it accepts.
 ///

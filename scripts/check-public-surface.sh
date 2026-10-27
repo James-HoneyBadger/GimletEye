@@ -20,9 +20,9 @@ if [ ! -f "$doc" ]; then
     exit 1
 fi
 
-binary="${MELLIVORA_BIN:-}"
+binary="${GIMLET_BIN:-}"
 if [ -z "$binary" ]; then
-    for candidate in target/release/mellivora target/debug/mellivora; do
+    for candidate in target/release/gimlet target/debug/gimlet; do
         if [ -x "$candidate" ]; then
             binary="$candidate"
             break
@@ -30,8 +30,8 @@ if [ -z "$binary" ]; then
     done
 fi
 if [ -z "$binary" ]; then
-    cargo build --quiet -p mellivora-cli --bin mellivora
-    binary="target/debug/mellivora"
+    cargo build --quiet -p gimlet-eye-cli --bin gimlet
+    binary="target/debug/gimlet"
 fi
 
 missing=()
@@ -66,8 +66,8 @@ for command in $(commands_of); do
 done
 
 for command in "${leaves[@]}"; do
-    if ! grep -qE "\`mellivora $command( |\`)" "$doc"; then
-        missing+=("command: mellivora $command")
+    if ! grep -qE "\`gimlet $command( |\`)" "$doc"; then
+        missing+=("command: gimlet $command")
     fi
 done
 
@@ -76,7 +76,7 @@ for command in "${leaves[@]}"; do
     for flag in $(flags_of $command); do
         grep -qxF -- "$flag" <<<"$global_flags" && continue
         if ! grep -qF -- "$flag" "$doc"; then
-            missing+=("flag: $flag (mellivora $command)")
+            missing+=("flag: $flag (gimlet $command)")
         fi
     done
 done

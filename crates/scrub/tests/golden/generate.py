@@ -79,7 +79,7 @@ def main() -> None:
     xmp = b'http://ns.adobe.com/xap/1.0/\x00<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF/></x:xmpmeta>'
     # A JPEG ICC profile segment is "ICC_PROFILE\0", chunk number, chunk count,
     # then the profile. Without that prefix it is just an unnamed APP2.
-    icc = b"ICC_PROFILE\x00\x01\x01mellivora-test-profile"
+    icc = b"ICC_PROFILE\x00\x01\x01gimlet-test-profile"
 
     files = {
         # Identity, text, and a colour profile that must survive every profile.

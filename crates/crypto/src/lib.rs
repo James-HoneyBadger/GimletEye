@@ -19,9 +19,10 @@ mod passgen;
 
 pub use backend::{AeadAlgorithm, CryptoBackend, KdfParams, NativeBackend};
 pub use container::{
-    inspect, open, open_for_recipient, open_stream, seal, seal_for_recipients, seal_stream,
-    ContainerHeader, Kdf, StreamStats, CHUNK_SIZE, EXTENSION as CONTAINER_EXTENSION, HEADER_LEN,
-    MAGIC, MAX_RECIPIENTS, NONCE_LEN, RECIPIENT_ENTRY_LEN, RECIPIENT_PREFIX_LEN, VERSION,
+    has_magic, inspect, open, open_for_recipient, open_stream, seal, seal_for_recipients,
+    seal_stream, ContainerHeader, Kdf, StreamStats, CHUNK_SIZE, EXTENSION as CONTAINER_EXTENSION,
+    HEADER_LEN, LEGACY_EXTENSION as LEGACY_CONTAINER_EXTENSION, LEGACY_MAGIC, MAGIC,
+    MAX_RECIPIENTS, NONCE_LEN, RECIPIENT_ENTRY_LEN, RECIPIENT_PREFIX_LEN, VERSION,
     VERSION_RECIPIENT, VERSION_STREAMING,
 };
 pub use hash::Sha256;
@@ -36,7 +37,7 @@ pub use passgen::PassGen;
 
 use std::sync::Arc;
 
-use mellivora_core::{Result, Tool};
+use gimlet_eye_core::{Result, Tool};
 
 /// Build the tool set backed by the native engine.
 pub fn tools() -> Result<Vec<Arc<dyn Tool>>> {

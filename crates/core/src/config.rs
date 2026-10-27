@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 use crate::paths::AppPaths;
 use crate::report::OutputFormat;
 
@@ -133,7 +133,7 @@ impl Config {
     pub fn parse(raw: &str) -> Result<Self> {
         let config: Self = toml::from_str(raw)?;
         if config.schema_version > CONFIG_SCHEMA_VERSION {
-            return Err(MellivoraError::Config(format!(
+            return Err(GimletEyeError::Config(format!(
                 "config schema {} is newer than supported schema {CONFIG_SCHEMA_VERSION}",
                 config.schema_version
             )));

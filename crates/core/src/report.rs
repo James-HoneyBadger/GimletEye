@@ -5,7 +5,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::{MellivoraError, Result};
+use crate::error::{GimletEyeError, Result};
 
 /// How urgent a single finding is. Distinct from [`Status`], which is the
 /// aggregate verdict for a whole run.
@@ -134,7 +134,7 @@ impl fmt::Display for OutputFormat {
 }
 
 impl FromStr for OutputFormat {
-    type Err = MellivoraError;
+    type Err = GimletEyeError;
 
     fn from_str(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
@@ -142,7 +142,7 @@ impl FromStr for OutputFormat {
             "json" => Ok(Self::Json),
             "markdown" | "md" => Ok(Self::Markdown),
             "csv" => Ok(Self::Csv),
-            other => Err(MellivoraError::InvalidArgs(format!(
+            other => Err(GimletEyeError::InvalidArgs(format!(
                 "unknown output format '{other}'"
             ))),
         }

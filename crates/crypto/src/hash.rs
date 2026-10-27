@@ -2,8 +2,8 @@ use std::fs;
 use std::sync::Arc;
 use std::time::Instant;
 
-use mellivora_core::{
-    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Tool,
+use gimlet_eye_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report, Result, Tool,
     ToolContext, ToolManifest,
 };
 use serde_json::json;
@@ -49,19 +49,19 @@ impl Tool for Sha256 {
 
         let (digest, size, source) = match (path, text) {
             (Some(_), Some(_)) => {
-                return Err(MellivoraError::InvalidArgs(
+                return Err(GimletEyeError::InvalidArgs(
                     "provide either 'path' or 'text', not both".into(),
                 ))
             }
             (None, None) => {
-                return Err(MellivoraError::InvalidArgs(
+                return Err(GimletEyeError::InvalidArgs(
                     "one of 'path' or 'text' is required".into(),
                 ))
             }
             (Some(path), None) => {
                 ctx.require(Capability::FsRead)?;
                 if !path.exists() {
-                    return Err(MellivoraError::NotFound(path.display().to_string()));
+                    return Err(GimletEyeError::NotFound(path.display().to_string()));
                 }
                 let bytes = fs::read(&path)?;
                 (
@@ -96,16 +96,14 @@ impl Tool for Sha256 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     fn tool() -> Sha256 {
         Sha256::new(Arc::new(crate::NativeBackend))
     }
 
     fn context() -> ToolContext {
-        ToolContext::new(AppPaths::under(
-            std::env::temp_dir().join("mellivora-sha256"),
-        ))
+        ToolContext::new(AppPaths::under(std::env::temp_dir().join("gimlet-sha256")))
     }
 
     #[test]
@@ -133,7 +131,7 @@ mod tests {
 
     #[test]
     fn hashes_a_file() {
-        let dir = std::env::temp_dir().join(format!("mellivora-hash-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-hash-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("dir");
         let path = dir.join("sample.txt");
         fs::write(&path, "abc").expect("write");

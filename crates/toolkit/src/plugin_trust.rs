@@ -14,9 +14,9 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use mellivora_core::plugin::{PackFailure, PackManifest, MANIFEST_FILENAME};
-use mellivora_core::Result;
-use mellivora_crypto::{CryptoBackend, NativeBackend};
+use gimlet_eye_core::plugin::{manifest_path, PackFailure, PackManifest};
+use gimlet_eye_core::Result;
+use gimlet_eye_crypto::{CryptoBackend, NativeBackend};
 
 /// Prefix used in configuration so the algorithm can change without ambiguity.
 pub const PREFIX: &str = "sha256:";
@@ -72,7 +72,7 @@ fn collect(root: &Path, dir: &Path, depth: usize, out: &mut Vec<PathBuf>) -> Res
         } else if file_type.is_file() {
             out.push(path);
             if out.len() > MAX_ENTRIES {
-                return Err(mellivora_core::MellivoraError::Config(format!(
+                return Err(gimlet_eye_core::GimletEyeError::Config(format!(
                     "{}: more than {MAX_ENTRIES} files; refusing to digest the pack",
                     root.display()
                 )));
@@ -117,7 +117,7 @@ pub fn filter(
         let (algorithm, expected) = parse_pin(pin.trim());
         if algorithm != "sha256" {
             failures.push(PackFailure {
-                manifest_path: dir.join(MANIFEST_FILENAME),
+                manifest_path: manifest_path(&dir),
                 error: format!(
                     "pack '{}' is pinned with an unknown algorithm '{algorithm}' (use sha256:)",
                     manifest.name
@@ -134,7 +134,7 @@ pub fn filter(
                     kept.push((dir, manifest));
                 } else {
                     failures.push(PackFailure {
-                        manifest_path: dir.join(MANIFEST_FILENAME),
+                        manifest_path: manifest_path(&dir),
                         error: format!(
                             "pack '{}' does not match its pinned digest\n  pinned: {PREFIX}{expected}\n  actual: {actual}\n\
                              If the change is intended, update `[trust]` in config.toml; if not, do not run this pack.",
@@ -144,7 +144,7 @@ pub fn filter(
                 }
             }
             Err(error) => failures.push(PackFailure {
-                manifest_path: dir.join(MANIFEST_FILENAME),
+                manifest_path: manifest_path(&dir),
                 error: format!("pack '{}' could not be hashed: {error}", manifest.name),
             }),
         }

@@ -13,7 +13,7 @@ pub use system_info::SystemInfo;
 
 use std::sync::Arc;
 
-use mellivora_core::{Result, Tool};
+use gimlet_eye_core::{Result, Tool};
 
 /// Every tool this module contributes.
 pub fn tools() -> Result<Vec<Arc<dyn Tool>>> {

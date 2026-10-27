@@ -1,5 +1,5 @@
 [package]
-name = "mellivora-crypto-fuzz"
+name = "gimlet-eye-crypto-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-mellivora-crypto = { path = ".." }
+gimlet-eye-crypto = { path = ".." }
 
 # Detached from the workspace on purpose, like `crates/scrub/fuzz`: these targets
 # need nightly and libFuzzer, and the workspace itself has to build on stable.

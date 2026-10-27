@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * The live-engine suite: the UI driven against a real `mellivora serve`.
+ * The live-engine suite: the UI driven against a real `gimlet serve`.
  *
  * `vitest` mocks the API, which means wire drift between the UI and the engine
  * is invisible to it — a renamed field or a changed status code would pass every
@@ -9,10 +9,10 @@ import { defineConfig, devices } from '@playwright/test';
  * real browser at it.
  *
  * The engine needs a home directory, which the spec reads to pick up the token;
- * `MELLIVORA_E2E_HOME` is how the two halves agree on where it is.
+ * `GIMLET_E2E_HOME` is how the two halves agree on where it is.
  */
-const port = Number(process.env.MELLIVORA_E2E_PORT ?? 7931);
-const home = process.env.MELLIVORA_E2E_HOME ?? '/tmp/mellivora-e2e';
+const port = Number(process.env.GIMLET_E2E_PORT ?? 7931);
+const home = process.env.GIMLET_E2E_HOME ?? '/tmp/gimlet-e2e';
 
 export default defineConfig({
   testDir: './e2e',
@@ -30,13 +30,13 @@ export default defineConfig({
     // `dist` must exist: `npm run e2e` builds it first. The home is removed so
     // the server always starts from "no token", which is what the gate test
     // expects to find.
-    command: `rm -rf ${home} && cargo run -q -p mellivora-cli -- serve --ui-dir packages/ui/dist --port ${port}`,
+    command: `rm -rf ${home} && cargo run -q -p gimlet-eye-cli -- serve --ui-dir packages/ui/dist --port ${port}`,
     cwd: '../..',
     // The static bundle, not `/api/v1/health`: the API answers 401 without a
     // token and Playwright would never call that "ready".
     url: `http://127.0.0.1:${port}/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { MELLIVORA_HOME: home, RUST_LOG: 'warn' },
+    env: { GIMLET_HOME: home, RUST_LOG: 'warn' },
   },
 });

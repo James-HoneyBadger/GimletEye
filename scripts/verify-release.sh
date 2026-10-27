@@ -14,7 +14,7 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 sums="${1:-SHA256SUMS}"
 sig="${2:-SHA256SUMS.minisig}"
-key="${MELLIVORA_RELEASE_KEY:-$root/release-key.pub}"
+key="${GIMLET_RELEASE_KEY:-$root/release-key.pub}"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
@@ -38,7 +38,7 @@ if [ ! -f "$key" ]; then
 FAIL: no public key at $key
 
 Download it from SECURITY.md in the repository, or point
-MELLIVORA_RELEASE_KEY at the copy you already have. Without the key the
+GIMLET_RELEASE_KEY at the copy you already have. Without the key the
 signature proves nothing.
 EOF
     exit 1

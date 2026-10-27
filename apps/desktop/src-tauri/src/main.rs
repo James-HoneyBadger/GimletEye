@@ -29,13 +29,13 @@ fn main() {
 
             // Issued here rather than in the engine thread so the window can be
             // told the credential in the same breath as the port.
-            let api_token = mellivora_toolkit::api_token_for_home(None)?;
+            let api_token = gimlet_eye_toolkit::api_token_for_home(None)?;
             let token_literal = match api_token.as_deref() {
                 Some(token) => serde_json::to_string(token)?,
                 None => "null".to_string(),
             };
             eprintln!(
-                "mellivora: embedded engine on http://127.0.0.1:{port}{}",
+                "gimlet: embedded engine on http://127.0.0.1:{port}{}",
                 if api_token.is_some() {
                     " (API token required)"
                 } else {
@@ -47,29 +47,29 @@ fn main() {
             // the UI never makes a cross-origin request.
             let ui_dir = resolve_ui_dir(app.handle());
             match &ui_dir {
-                Some(dir) => eprintln!("mellivora: serving the UI from {}", dir.display()),
+                Some(dir) => eprintln!("gimlet: serving the UI from {}", dir.display()),
                 None => eprintln!(
-                    "mellivora: no UI directory found; the window will load the embedded \
-                     copy and cannot reach the API. Set MELLIVORA_DESKTOP_UI_DIR or build \
+                    "gimlet: no UI directory found; the window will load the embedded \
+                     copy and cannot reach the API. Set GIMLET_DESKTOP_UI_DIR or build \
                      packages/ui (./run.sh does)."
                 ),
             }
 
             let token_for_engine = api_token.clone();
             let ui_for_engine = ui_dir.clone();
-            std::thread::spawn(move || match mellivora_toolkit::Runtime::load(None, true) {
+            std::thread::spawn(move || match gimlet_eye_toolkit::Runtime::load(None, true) {
                 Ok(runtime) => {
-                    if let Err(error) = mellivora_toolkit::serve_on_listener(
+                    if let Err(error) = gimlet_eye_toolkit::serve_on_listener(
                         runtime,
                         listener,
                         ui_for_engine,
                         false,
                         token_for_engine,
                     ) {
-                        eprintln!("mellivora: embedded engine stopped: {error}");
+                        eprintln!("gimlet: embedded engine stopped: {error}");
                     }
                 }
-                Err(error) => eprintln!("mellivora: cannot start engine: {error}"),
+                Err(error) => eprintln!("gimlet: cannot start engine: {error}"),
             });
 
             // Same origin as the API when the bundle is on disk; the embedded
@@ -84,12 +84,12 @@ fn main() {
             };
 
             WebviewWindowBuilder::new(app, "main", url)
-                .title("Mellivora ToolKit")
+                .title("Gimlet Eye")
                 .inner_size(1240.0, 860.0)
                 .min_inner_size(880.0, 600.0)
                 .initialization_script(format!(
-                    "window.__MELLIVORA_API__ = 'http://127.0.0.1:{port}';\n\
-                     window.__MELLIVORA_TOKEN__ = {token_literal};"
+                    "window.__GIMLET_API__ = 'http://127.0.0.1:{port}';\n\
+                     window.__GIMLET_TOKEN__ = {token_literal};"
                 ))
                 .build()?;
 
@@ -99,15 +99,15 @@ fn main() {
         // is a window closing — say so rather than leaving it a mystery.
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { .. } => {
-                eprintln!("mellivora: window '{}' asked to close", window.label());
+                eprintln!("gimlet: window '{}' asked to close", window.label());
             }
             tauri::WindowEvent::Destroyed => {
-                eprintln!("mellivora: window '{}' destroyed", window.label());
+                eprintln!("gimlet: window '{}' destroyed", window.label());
             }
             _ => {}
         })
         .run(tauri::generate_context!())
-        .expect("failed to start the Mellivora desktop shell");
+        .expect("failed to start the Gimlet Eye desktop shell");
 }
 
 /// Where the window's files come from.
@@ -117,12 +117,12 @@ fn main() {
 /// run`). `index.html` is the test, because a directory without it would serve a
 /// 404 page that looks like a broken app.
 fn resolve_ui_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("MELLIVORA_DESKTOP_UI_DIR").map(PathBuf::from) {
+    if let Some(dir) = std::env::var_os("GIMLET_DESKTOP_UI_DIR").map(PathBuf::from) {
         if dir.join("index.html").is_file() {
             return Some(dir);
         }
         eprintln!(
-            "mellivora: MELLIVORA_DESKTOP_UI_DIR points at {}, which has no index.html",
+            "gimlet: GIMLET_DESKTOP_UI_DIR points at {}, which has no index.html",
             dir.display()
         );
     }
@@ -144,7 +144,7 @@ fn resolve_ui_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
 
 /// Look for packs next to the binary (installed layout) or the checkout
 /// (development layout), and hand them to the engine via the documented
-/// `MELLIVORA_PLUGIN_PATH` variable.
+/// `GIMLET_PLUGIN_PATH` variable.
 fn discover_pack_dirs() {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
@@ -170,8 +170,8 @@ fn discover_pack_dirs() {
         return;
     }
     if let Ok(joined) = std::env::join_paths(existing) {
-        if std::env::var_os("MELLIVORA_PLUGIN_PATH").is_none() {
-            std::env::set_var("MELLIVORA_PLUGIN_PATH", joined);
+        if std::env::var_os("GIMLET_PLUGIN_PATH").is_none() {
+            std::env::set_var("GIMLET_PLUGIN_PATH", joined);
         }
     }
 }

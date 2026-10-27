@@ -17,12 +17,12 @@ cd "$root"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-export MELLIVORA_HOME="$work/home"
-mkdir -p "$MELLIVORA_HOME"
-M="./target/debug/mellivora"
+export GIMLET_HOME="$work/home"
+mkdir -p "$GIMLET_HOME"
+M="./target/debug/gimlet"
 
 if [ ! -x "$M" ]; then
-    echo "build the CLI first: cargo build -p mellivora-cli" >&2
+    echo "build the CLI first: cargo build -p gimlet-eye-cli" >&2
     exit 1
 fi
 
@@ -42,7 +42,7 @@ echo "== the front page, run as written"
 
 version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
 $M --version | grep -qF "$version"
-check "mellivora --version reports $version" $?
+check "gimlet --version reports $version" $?
 
 $M system-info --format json | jq -e '.data.load.avg_1m' >/dev/null
 check "system-info reports the load average" $?
@@ -65,11 +65,11 @@ check "keygen writes into the sealed keystore" $?
 $M crypto.key-export selector=alice output="$work/alice.pub" passphrase_env=KEY_PASS >/dev/null
 check "crypto.key-export writes a public key" $?
 
-$M crypto.encrypt input="$work/notes.txt" output="$work/notes.melv" to="$work/alice.pub" >/dev/null
+$M crypto.encrypt input="$work/notes.txt" output="$work/notes.gimlet" to="$work/alice.pub" >/dev/null
 check "crypto.encrypt to= a recipient, no shared secret" $?
 
 $M crypto.key-export selector=alice output="$work/alice.key" secret=true passphrase_env=KEY_PASS >/dev/null
-$M crypto.decrypt input="$work/notes.melv" output="$work/notes.clear" key="$work/alice.key" >/dev/null
+$M crypto.decrypt input="$work/notes.gimlet" output="$work/notes.clear" key="$work/alice.key" >/dev/null
 cmp -s "$work/notes.txt" "$work/notes.clear"
 check "crypto.decrypt with the recipient's key" $?
 
@@ -107,8 +107,8 @@ echo "== the claims about the catalogue and the packs"
 $M tools list --format json | jq -e 'length > 0' >/dev/null
 check "tools list answers in JSON" $?
 
-mkdir -p "$MELLIVORA_HOME/plugins"
-cp -r examples/packs/hostname "$MELLIVORA_HOME/plugins/"
+mkdir -p "$GIMLET_HOME/plugins"
+cp -r examples/packs/hostname "$GIMLET_HOME/plugins/"
 $M hostname.report >/dev/null
 check "a pack tool is indistinguishable from a builtin" $?
 
@@ -123,14 +123,14 @@ check "doctor runs" $?
 
 echo
 echo "== claims a command settles by refusing"
-$M crypto.decrypt input="$work/notes.melv" output="$work/x" passphrase_env=NOTES_PASS >/dev/null 2>&1
+$M crypto.decrypt input="$work/notes.gimlet" output="$work/x" passphrase_env=NOTES_PASS >/dev/null 2>&1
 [ $? -ne 0 ]
 check "a recipient container is not opened by a passphrase" $?
 
 # (Nothing that starts a server belongs here: `serve` blocks by design, and a
 # check script that hangs is worse than one that checks less.)
 
-rm -rf "$MELLIVORA_HOME"
+rm -rf "$GIMLET_HOME"
 printf '\n\033[1m%s ok, %s failed\033[0m\n' "$pass" "$fail"
 
 cat <<'EOF'

@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use mellivora_core::{
-    ArgKind, ArgSpec, Args, Capability, Category, MellivoraError, Report, Result, Severity, Tool,
+use gimlet_eye_core::{
+    ArgKind, ArgSpec, Args, Capability, Category, GimletEyeError, Report, Result, Severity, Tool,
     ToolContext, ToolManifest,
 };
 use serde_json::{json, Value};
@@ -283,7 +283,7 @@ impl Tool for MetadataStrip {
         // it by accident, since the byte-level rewrite starts from the file we
         // just read.
         if !in_place && same_file(&input, &target) {
-            return Err(MellivoraError::InvalidArgs(format!(
+            return Err(GimletEyeError::InvalidArgs(format!(
                 "output {} is the input file; use in_place=true to rewrite it",
                 target.display()
             )));
@@ -353,7 +353,7 @@ impl Tool for MetadataStrip {
             // `in_place` is the explicit permission to replace the input; every
             // other destination is only replaceable on request.
             if !in_place && target.exists() && !overwrite {
-                return Err(MellivoraError::Config(format!(
+                return Err(GimletEyeError::Config(format!(
                     "{} already exists (use overwrite=true to replace it)",
                     target.display()
                 )));
@@ -413,7 +413,7 @@ fn redact_gps(bytes: &mut [u8], precision: GpsPrecision) -> Result<Option<GpsRed
 fn read_input(args: &Args) -> Result<(PathBuf, Vec<u8>)> {
     let path = args.require_path("input")?;
     if !path.exists() {
-        return Err(MellivoraError::NotFound(path.display().to_string()));
+        return Err(GimletEyeError::NotFound(path.display().to_string()));
     }
     let bytes = fs::read(&path)?;
     Ok((path, bytes))
@@ -423,7 +423,7 @@ fn target_path(input: &Path, args: &Args) -> Result<PathBuf> {
     let in_place = args.bool_or("in_place", false)?;
     let output = args.opt_path("output")?;
     match (in_place, output) {
-        (true, Some(_)) => Err(MellivoraError::InvalidArgs(
+        (true, Some(_)) => Err(GimletEyeError::InvalidArgs(
             "'in_place' and 'output' are mutually exclusive".into(),
         )),
         (true, None) => Ok(input.to_path_buf()),
@@ -488,13 +488,13 @@ fn verify_clean(cleaned: &[u8], policy: &RemovalPolicy) -> Result<()> {
     // The input scanned, so a failure here is about what the strip produced —
     // say that rather than reporting the caller's file as malformed.
     let handler = handler_for(cleaned)
-        .map_err(|err| MellivoraError::Tool(format!("strip left no readable container: {err}")))?;
+        .map_err(|err| GimletEyeError::Tool(format!("strip left no readable container: {err}")))?;
     let after = handler
         .scan(cleaned)
-        .map_err(|err| MellivoraError::Tool(format!("strip left no readable container: {err}")))?;
+        .map_err(|err| GimletEyeError::Tool(format!("strip left no readable container: {err}")))?;
     let remaining = after.removable_bytes(policy);
     if remaining > 0 {
-        return Err(MellivoraError::Tool(format!(
+        return Err(GimletEyeError::Tool(format!(
             "strip incomplete for {}: {} bytes of metadata remain",
             after.format.as_str(),
             remaining
@@ -506,10 +506,10 @@ fn verify_clean(cleaned: &[u8], policy: &RemovalPolicy) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mellivora_core::AppPaths;
+    use gimlet_eye_core::AppPaths;
 
     fn workspace() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("mellivora-scrub-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("gimlet-eye-scrub-{}", std::process::id()));
         fs::create_dir_all(&dir).expect("dir");
         dir
     }
@@ -579,7 +579,7 @@ mod tests {
         let report = MetadataScan::new()
             .run(&context(), &args_for(&path))
             .expect("scan");
-        assert_eq!(report.status, mellivora_core::Status::Warning);
+        assert_eq!(report.status, gimlet_eye_core::Status::Warning);
         assert!(report.data["removable_bytes"].as_u64().unwrap() > 0);
     }
 
@@ -591,7 +591,7 @@ mod tests {
         let mut args = args_for(&path);
         args.insert("profile", "archive");
         let report = MetadataScan::new().run(&context(), &args).expect("scan");
-        assert_eq!(report.status, mellivora_core::Status::Ok);
+        assert_eq!(report.status, gimlet_eye_core::Status::Ok);
         assert_eq!(report.data["removable_bytes"], Value::from(0));
     }
 
@@ -616,7 +616,7 @@ mod tests {
         let verified = MetadataVerify::new()
             .run(&context(), &args_for(&output))
             .expect("verify");
-        assert_eq!(verified.status, mellivora_core::Status::Ok);
+        assert_eq!(verified.status, gimlet_eye_core::Status::Ok);
     }
 
     #[test]

@@ -3,8 +3,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/James-HoneyBadger/Mellivora_ToolKit.git
-cd Mellivora_ToolKit
+git clone https://github.com/James-HoneyBadger/GimletEye.git
+cd GimletEye
 
 rustup component add rustfmt clippy       # Rust 1.85+
 ./scripts/link-sources.sh                 # optional pack sources (warns if upstream is gone)
@@ -42,7 +42,7 @@ See [crates/scrub/fuzz/README.md](crates/scrub/fuzz/README.md).
 
 ## Ground rules
 
-1. **Respect the dependency direction.** `mellivora-core` must not depend on a
+1. **Respect the dependency direction.** `gimlet-eye-core` must not depend on a
    domain crate. Modules must not depend on each other. Surfaces hold no logic.
 2. **New capability? Add a tool, not a code path in a surface.** One line in
    `crates/toolkit/src/runtime.rs` (and the module's `tools()`).
@@ -59,7 +59,7 @@ See [crates/scrub/fuzz/README.md](crates/scrub/fuzz/README.md).
 
 ```rust
 // crates/newthing/src/lib.rs
-pub fn tools() -> mellivora_core::Result<Vec<std::sync::Arc<dyn Tool>>> {
+pub fn tools() -> gimlet_eye_core::Result<Vec<std::sync::Arc<dyn Tool>>> {
     Ok(vec![std::sync::Arc::new(MyTool::new())])
 }
 ```
@@ -70,7 +70,7 @@ pub fn tools() -> mellivora_core::Result<Vec<std::sync::Arc<dyn Tool>>> {
 
 ```rust
 // crates/toolkit/src/runtime.rs
-registry.register_all(mellivora_newthing::tools()?)?;
+registry.register_all(gimlet_newthing::tools()?)?;
 ```
 
 Then add a test that runs the tool with a `ToolContext` pointing at a temp
@@ -95,8 +95,8 @@ performance-sensitive, or security-critical code.
 
 ```bash
 cargo test --workspace                      # everything
-cargo test -p mellivora-scrub               # one crate
-cargo test -p mellivora-core report::       # one area
+cargo test -p gimlet-eye-scrub               # one crate
+cargo test -p gimlet-eye-core report::       # one area
 ```
 
 CI also runs the UI build, the UI test suite, the Perl pack syntax check, and a
@@ -107,4 +107,4 @@ makes `scripts/link-sources.sh` fail instead.
 ## Reporting problems
 
 Security issues: privately, per [SECURITY.md](SECURITY.md). Everything else: a
-GitHub issue including `mellivora doctor` output and the failing command.
+GitHub issue including `gimlet doctor` output and the failing command.

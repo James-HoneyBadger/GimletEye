@@ -13,13 +13,13 @@ pub use serve::{serve_blocking, serve_on_listener};
 
 use std::sync::Arc;
 
-use mellivora_core::{Result, Tool};
+use gimlet_eye_core::{Result, Tool};
 
 /// Every native tool, in registration order.
 pub fn tools() -> Result<Vec<Arc<dyn Tool>>> {
     let mut tools = Vec::new();
-    tools.extend(mellivora_sysadmin::tools()?);
-    tools.extend(mellivora_crypto::tools()?);
-    tools.extend(mellivora_scrub::tools()?);
+    tools.extend(gimlet_eye_sysadmin::tools()?);
+    tools.extend(gimlet_eye_crypto::tools()?);
+    tools.extend(gimlet_eye_scrub::tools()?);
     Ok(tools)
 }

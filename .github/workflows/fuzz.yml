@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       # Two crates, one matrix: the scrub parsers and, since the container is a
-      # parser too, the `.melv` reader. `extra` feeds a target the committed
+      # parser too, the `.gimlet` reader. `extra` feeds a target the committed
       # fixtures it does not own.
       matrix:
         include:

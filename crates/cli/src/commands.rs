@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use mellivora_core::{
-    plugin::PackManifest, Args, AuditEntry, Category, MellivoraError, OutputFormat, Report, Result,
+use gimlet_eye_core::{
+    plugin::PackManifest, Args, AuditEntry, Category, GimletEyeError, OutputFormat, Report, Result,
     Status, Tool,
 };
 
 use crate::batch;
 use crate::cli::{Cli, Command, ConfigCommand, PluginsCommand, ToolsCommand};
-use mellivora_toolkit::Runtime;
+use gimlet_eye_toolkit::Runtime;
 
 struct Globals {
     home: Option<PathBuf>,
@@ -126,7 +126,7 @@ fn parse_pairs(raw_args: &[String]) -> Result<Args> {
         match raw.split_once('=') {
             Some((key, value)) => pairs.push((key.to_string(), value.to_string())),
             None => {
-                return Err(MellivoraError::InvalidArgs(format!(
+                return Err(GimletEyeError::InvalidArgs(format!(
                     "argument '{raw}' must be key=value (for example length=32)"
                 )))
             }
@@ -176,8 +176,8 @@ fn resolve(runtime: &Runtime, query: &str) -> Result<std::sync::Arc<dyn Tool>> {
         1 => format!(" Did you mean '{}'?", suggestions[0]),
         _ => format!(" Did you mean one of: {}?", suggestions.join(", ")),
     };
-    Err(MellivoraError::NotFound(format!(
-        "tool '{query}'.{hint} Run `mellivora tools list` to see everything available."
+    Err(GimletEyeError::NotFound(format!(
+        "tool '{query}'.{hint} Run `gimlet tools list` to see everything available."
     )))
 }
 
@@ -297,7 +297,7 @@ fn list_plugins(globals: &Globals) -> Result<ExitCode> {
 fn conformance_plugins(globals: &Globals, dir: &Path) -> Result<ExitCode> {
     let _ = globals;
     let timeout = Duration::from_secs(30);
-    let report = mellivora_core::plugin::conformance::check_first_below(dir, timeout)?;
+    let report = gimlet_eye_core::plugin::conformance::check_first_below(dir, timeout)?;
 
     crate::outln!(
         "{} {}",
@@ -306,9 +306,9 @@ fn conformance_plugins(globals: &Globals, dir: &Path) -> Result<ExitCode> {
     );
     for check in &report.checks {
         let mark = match check.outcome {
-            mellivora_core::plugin::Outcome::Pass => "pass",
-            mellivora_core::plugin::Outcome::Fail => "FAIL",
-            mellivora_core::plugin::Outcome::Manual => "manual",
+            gimlet_eye_core::plugin::Outcome::Pass => "pass",
+            gimlet_eye_core::plugin::Outcome::Fail => "FAIL",
+            gimlet_eye_core::plugin::Outcome::Manual => "manual",
         };
         crate::outln!("  {:<7} {:<44} {}", mark, check.title, check.detail);
     }
@@ -332,25 +332,23 @@ fn conformance_plugins(globals: &Globals, dir: &Path) -> Result<ExitCode> {
 /// Print the digest a user can paste into `[trust]`.
 fn pin_plugin(globals: &Globals, dir: &Path) -> Result<ExitCode> {
     let _ = globals;
-    let pack_dir = if dir
-        .join(mellivora_core::plugin::MANIFEST_FILENAME)
-        .is_file()
-    {
+    let pack_dir = if gimlet_eye_core::plugin::find_manifest(dir).is_some() {
         dir.to_path_buf()
     } else {
-        let (found, _) = mellivora_core::plugin::discover(&[dir.to_path_buf()]);
+        let (found, _) = gimlet_eye_core::plugin::discover(&[dir.to_path_buf()]);
         match found.first() {
             Some((pack_dir, _)) => pack_dir.clone(),
             None => {
-                return Err(MellivoraError::NotFound(format!(
+                return Err(GimletEyeError::NotFound(format!(
                     "no pack found under {}",
                     dir.display()
                 )))
             }
         }
     };
-    let manifest = PackManifest::load(&pack_dir.join(mellivora_core::plugin::MANIFEST_FILENAME))?;
-    let digest = mellivora_toolkit::plugin_trust::digest(&pack_dir)?;
+    let manifest_path = gimlet_eye_core::plugin::manifest_path(&pack_dir);
+    let manifest = PackManifest::load(&manifest_path)?;
+    let digest = gimlet_eye_toolkit::plugin_trust::digest(&pack_dir)?;
 
     crate::outln!("pack   {}", manifest.name);
     crate::outln!("dir    {}", pack_dir.display());
@@ -398,7 +396,7 @@ fn doctor_plugins(globals: &Globals) -> Result<ExitCode> {
 
 /// A pack that failed to load is reported the same way everywhere: once, on
 /// stderr, with the manifest that could not be read.
-fn report_pack_failures(failures: &[mellivora_core::PackFailure]) {
+fn report_pack_failures(failures: &[gimlet_eye_core::PackFailure]) {
     for failure in failures {
         eprintln!(
             "failed: {} — {}",
@@ -419,7 +417,7 @@ fn init_config(globals: &Globals, force: bool) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), false)?;
     let path = &runtime.paths.config_file;
     if path.exists() && !force {
-        return Err(MellivoraError::Config(format!(
+        return Err(GimletEyeError::Config(format!(
             "{} already exists (use --force to overwrite)",
             path.display()
         )));
@@ -465,7 +463,7 @@ fn doctor(globals: &Globals) -> Result<ExitCode> {
     let runtime = Runtime::load(globals.home.clone(), true)?;
     let mut problems = 0usize;
 
-    crate::outln!("mellivora {}", mellivora_core::VERSION);
+    crate::outln!("gimlet {}", gimlet_eye_core::VERSION);
     crate::outln!("home        {}", runtime.paths.root.display());
     crate::outln!(
         "config      {}{}",
@@ -542,13 +540,13 @@ fn serve(
 
     let address = format!("{host}:{port}");
     let addr: std::net::SocketAddr = address.parse().map_err(|err| {
-        MellivoraError::InvalidArgs(format!("invalid host/port '{address}': {err}"))
+        GimletEyeError::InvalidArgs(format!("invalid host/port '{address}': {err}"))
     })?;
     guard_bind_address(addr, allow_remote)?;
 
     if let Some(dir) = &ui_dir {
         if !dir.is_dir() {
-            return Err(MellivoraError::NotFound(format!(
+            return Err(GimletEyeError::NotFound(format!(
                 "UI directory {} does not exist",
                 dir.display()
             )));
@@ -559,10 +557,7 @@ fn serve(
     // listener exists.
     let api_token = runtime.api_token()?;
 
-    crate::outln!(
-        "Mellivora ToolKit {} → http://{address}",
-        mellivora_core::VERSION
-    );
+    crate::outln!("Gimlet Eye {} → http://{address}", gimlet_eye_core::VERSION);
     crate::outln!("  API   http://{address}/api/v1/health");
     match &api_token {
         Some(token) => {
@@ -583,12 +578,12 @@ fn serve(
                 crate::outln!("  UI    http://{address}/");
             }
             eprintln!(
-                "mellivora: warning: [api] require_token = false — any local page can drive this API"
+                "gimlet: warning: [api] require_token = false — any local page can drive this API"
             );
         }
     }
 
-    mellivora_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run, api_token)?;
+    gimlet_eye_toolkit::serve_blocking(runtime, addr, ui_dir, globals.dry_run, api_token)?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -599,16 +594,16 @@ fn guard_bind_address(addr: std::net::SocketAddr, allow_remote: bool) -> Result<
         return Ok(());
     }
     if !allow_remote {
-        return Err(MellivoraError::InvalidArgs(format!(
+        return Err(GimletEyeError::InvalidArgs(format!(
             "refusing to bind {addr}: this API has no authentication \
              (pass --allow-remote to serve the network anyway)"
         )));
     }
-    eprintln!("mellivora: warning: serving on {addr} without authentication");
+    eprintln!("gimlet: warning: serving on {addr} without authentication");
     Ok(())
 }
 
-/// `mellivora system-info` is rewritten to `mellivora run system-info` before
+/// `gimlet system-info` is rewritten to `gimlet run system-info` before
 /// clap sees it, preserving Perl Den's shorthand ergonomics.
 pub fn normalize_args(mut argv: Vec<String>) -> Vec<String> {
     const KNOWN: [&str; 9] = [
@@ -641,14 +636,14 @@ mod tests {
 
     #[test]
     fn rewrites_shorthand_to_run() {
-        let argv = normalize_args(vec!["mellivora".into(), "system-info".into()]);
-        assert_eq!(argv, vec!["mellivora", "run", "system-info"]);
+        let argv = normalize_args(vec!["gimlet".into(), "system-info".into()]);
+        assert_eq!(argv, vec!["gimlet", "run", "system-info"]);
     }
 
     #[test]
     fn leaves_batch_alone() {
         let argv = normalize_args(vec![
-            "mellivora".into(),
+            "gimlet".into(),
             "batch".into(),
             "crypto.sha256".into(),
             "/tmp".into(),
@@ -659,28 +654,28 @@ mod tests {
 
     #[test]
     fn leaves_known_subcommands_alone() {
-        let argv = normalize_args(vec!["mellivora".into(), "tools".into(), "list".into()]);
-        assert_eq!(argv, vec!["mellivora", "tools", "list"]);
+        let argv = normalize_args(vec!["gimlet".into(), "tools".into(), "list".into()]);
+        assert_eq!(argv, vec!["gimlet", "tools", "list"]);
     }
 
     #[test]
     fn skips_global_flags_before_subcommand() {
         let argv = normalize_args(vec![
-            "mellivora".into(),
+            "gimlet".into(),
             "--format".into(),
             "json".into(),
             "system-info".into(),
         ]);
         assert_eq!(
             argv,
-            vec!["mellivora", "--format", "json", "run", "system-info"]
+            vec!["gimlet", "--format", "json", "run", "system-info"]
         );
     }
 
     #[test]
     fn does_not_rewrite_help_flags() {
-        let argv = normalize_args(vec!["mellivora".into(), "--help".into()]);
-        assert_eq!(argv, vec!["mellivora", "--help"]);
+        let argv = normalize_args(vec!["gimlet".into(), "--help".into()]);
+        assert_eq!(argv, vec!["gimlet", "--help"]);
     }
 
     #[test]

@@ -12,10 +12,15 @@ an optional compatibility pack that exposes external system-audit modules.
 
 ```
 my-pack/
-├── mellivora-pack.toml     # required
-├── pack.pl                 # the executable (any language)
+├── gimlet-pack.toml    # required
+├── pack.pl             # the executable (any language)
 └── README.md
 ```
+
+A pack whose manifest is still named `mellivora-pack.toml` loads as well: the
+host accepts either name and prefers `gimlet-pack.toml` when both exist. Renaming
+the file changes the pack digest, so a pinned pack has to be re-pinned with
+`plugins pin` — the pin is evidence about the files, and one of them changed.
 
 ## 2. Manifest
 
@@ -40,8 +45,8 @@ directory is the pack directory, and the host sets:
 
 | Variable | Meaning |
 |---|---|
-| `MELLIVORA_PACK_DIR` | absolute path of the pack directory |
-| `MELLIVORA_PROTOCOL_VERSION` | protocol version |
+| `GIMLET_PACK_DIR` | absolute path of the pack directory |
+| `GIMLET_PROTOCOL_VERSION` | protocol version |
 
 The host default timeout is 30 s (`plugins.timeout_ms`). A pack whose tools walk
 a filesystem should raise it in its manifest rather than forcing every user to
@@ -60,7 +65,7 @@ Host → pack:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"initialize",
- "params":{"protocol_version":1,"client":{"name":"mellivora","version":"0.1.0"}}}
+ "params":{"protocol_version":1,"client":{"name":"gimlet","version":"0.1.0"}}}
 ```
 
 Pack → host:
@@ -71,7 +76,7 @@ Pack → host:
 ```
 
 If `protocol_version` differs, the host refuses the pack and reports it in
-`mellivora plugins list` and `mellivora doctor` — other packs keep working.
+`gimlet plugins list` and `gimlet doctor` — other packs keep working.
 
 ### Tool listing
 
@@ -103,7 +108,7 @@ an interesting way.
 `mutates` (optional, default `false`) tells the surfaces whether the tool can
 write to the host. Set it for anything that creates, rewrites, or deletes files:
 the workbench then offers a dry run for that tool and marks it in the catalogue,
-and `mellivora tools list` shows it in the `WRITES` column. Declaring it
+and `gimlet tools list` shows it in the `WRITES` column. Declaring it
 truthfully is what lets a user point a pack at a directory without guessing.
 
 ### Execution
@@ -237,7 +242,7 @@ Same loop with `readline` over `process.stdin`; write with `process.stdout.write
 ### Rust
 
 Anything that produces lines on stdout works. If the pack needs the toolkit's
-types, depend on `mellivora-core` and `serde_json::to_string(&report)`. See
+types, depend on `gimlet-eye-core` and `serde_json::to_string(&report)`. See
 `RunningPack::request` in [`crates/core/src/plugin/host.rs`](../crates/core/src/plugin/host.rs)
 for the exact request shapes.
 
@@ -249,7 +254,7 @@ for the exact request shapes.
   normalize text from legacy modules — see `normalize_text` in the Perl pack.
 - **Long-running tools** must respect the host timeout (`plugins.timeout_ms`,
   30 s by default). A pack may declare its own `timeout_ms` in
-  `mellivora-pack.toml` when its tools legitimately walk a filesystem.
+  `gimlet-pack.toml` when its tools legitimately walk a filesystem.
 
 ## 6. Capabilities
 
@@ -275,17 +280,17 @@ Built-in capabilities: `fs:read`, `fs:write`, `process:exec`, `network`,
 Packs are discovered up to three levels deep in:
 
 1. directories in `plugins.dirs` (config),
-2. `$MELLIVORA_HOME/plugins`,
+2. `$GIMLET_HOME/plugins`,
 3. `./plugins` (relative to the working directory, for development),
-4. `$MELLIVORA_PLUGIN_PATH` (colon-separated).
+4. `$GIMLET_PLUGIN_PATH` (colon-separated).
 
 ```bash
-mellivora plugins list       # loaded packs, tool counts, failures
-mellivora plugins doctor     # start each pack and list its tools
-mellivora plugins conformance <dir>   # run the checklist in §8
-mellivora plugins pin <dir>  # print the digest to pin in [trust]
-mellivora doctor             # installation checks, including pack failures
-mellivora -v run mypack.greet name=Ada   # debug logging to stderr
+gimlet plugins list       # loaded packs, tool counts, failures
+gimlet plugins doctor     # start each pack and list its tools
+gimlet plugins conformance <dir>   # run the checklist in §8
+gimlet plugins pin <dir>  # print the digest to pin in [trust]
+gimlet doctor             # installation checks, including pack failures
+gimlet -v run mypack.greet name=Ada   # debug logging to stderr
 ```
 
 ### Pinning a pack
@@ -296,7 +301,7 @@ Pin it and the host verifies the whole directory — every file's path, size, an
 content hash — before starting it:
 
 ```bash
-mellivora plugins pin ~/packs/my-pack
+gimlet plugins pin ~/packs/my-pack
 #   pack   my-pack
 #   digest sha256:1f3a…
 ```
@@ -323,7 +328,7 @@ manifest path and the underlying error.
 Run it first:
 
 ```bash
-mellivora plugins conformance ~/packs/my-pack
+gimlet plugins conformance ~/packs/my-pack
 ```
 
 The runner checks the mechanical items below — manifest, handshake, tool ids,
@@ -339,7 +344,7 @@ Before publishing a pack:
 |---|---|
 | `initialize` returns the same `protocol_version` it received | `conformance` |
 | `list_tools` ids are stable, namespaced (`pack.tool`), and unique | `conformance` |
-| Every capability a tool lists is also declared in `mellivora-pack.toml` | `conformance` (and refused at load time) |
+| Every capability a tool lists is also declared in `gimlet-pack.toml` | `conformance` (and refused at load time) |
 | An unknown tool id is refused with `-32001`, not a generic failure | `conformance` |
 | Pack exits cleanly on `shutdown` | `conformance` |
 | `perl -c` / `node --check` / `python -m py_compile` passes | `conformance` |

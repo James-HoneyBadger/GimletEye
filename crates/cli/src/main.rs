@@ -6,7 +6,7 @@ mod output;
 use std::process::ExitCode;
 
 use clap::Parser;
-use mellivora_core::MellivoraError;
+use gimlet_eye_core::GimletEyeError;
 
 fn main() -> ExitCode {
     let argv = commands::normalize_args(std::env::args().collect());
@@ -16,8 +16,8 @@ fn main() -> ExitCode {
     match commands::dispatch(cli) {
         Ok(code) => code,
         Err(err) => {
-            eprintln!("mellivora: {err}");
-            ExitCode::from(if matches!(err, MellivoraError::InvalidArgs(_)) {
+            eprintln!("gimlet: {err}");
+            ExitCode::from(if matches!(err, GimletEyeError::InvalidArgs(_)) {
                 2
             } else {
                 1
