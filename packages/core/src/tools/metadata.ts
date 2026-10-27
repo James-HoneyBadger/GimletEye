@@ -371,14 +371,19 @@ function verifyClean(cleaned: Buffer, policy: RemovalPolicy): void {
  *
  * A strip that stops halfway — a full disk, a signal, a bug — must not leave a
  * truncated photo at the destination, and with `in_place` the destination is the
- * only copy. The temporary file is owner-only, so rewriting a `0600` file does
- * not widen it.
+ * only copy, so the bytes land by rename or not at all.
+ *
+ * An existing destination keeps its permission bits: rewriting a file must never
+ * be the reason it became readable by someone else, and `in_place` on a `0600`
+ * photo leaves it `0600`. A new file gets whatever the umask gives it, which is
+ * what writing any other new file does — a cleaned photo is meant to be shared.
  */
 async function writeAtomic(ctx: ToolRunContext, target: string, bytes: Buffer): Promise<void> {
   const temp = join(dirname(target), `${basename(target)}.tmp`);
   try {
+    const keep = await ctx.host.mode(target);
     await ctx.host.writeFile(temp, new Uint8Array(bytes));
-    await ctx.host.chmodOwnerOnly(temp);
+    if (keep !== undefined) await ctx.host.chmod(temp, keep);
     await ctx.host.rename(temp, target);
   } catch (error) {
     await ctx.host.removeTree(temp).catch(() => undefined);

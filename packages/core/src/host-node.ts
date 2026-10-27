@@ -55,6 +55,20 @@ export function nodeHost(): Host {
       // profile, which is the protection that exists there.
       if (nodePlatform() !== 'windows') await chmod(path, 0o600);
     },
+    mode: async (path) => {
+      if (nodePlatform() === 'windows') return undefined;
+      try {
+        return (await stat(path)).mode & 0o777;
+      } catch (error) {
+        // No mode to keep for a file that is not there yet, which is the
+        // ordinary case for a new `.clean` copy.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+        throw error;
+      }
+    },
+    chmod: async (path, bits) => {
+      if (nodePlatform() !== 'windows') await chmod(path, bits);
+    },
     exec: (program, args) => execOnce(program, args),
     resolve: (path) => realpath(path),
     engine: async () => spawnEngine(),

@@ -155,8 +155,11 @@ gimlet privacy.metadata-verify input=photo.clean.jpg
 
 Profiles: `privacy` removes identity, text, and time; `sharing` keeps time;
 `archive` removes nothing (pair it with `redact_gps=city`). `strip` writes a
-`.clean` copy by default, keeps the original's permissions, and writes through a
-temporary file so an interrupted run cannot truncate a photo.
+`.clean` copy by default and writes through a temporary file, so an interrupted
+run cannot truncate a photo. A file it *replaces* — `in_place`, or an `output`
+that already exists — keeps the permission bits it had; a new `.clean` file gets
+whatever your umask gives it, because a cleaned photo is usually on its way to
+being shared.
 
 ## The desktop app
 

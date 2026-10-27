@@ -13,11 +13,14 @@ export interface FakeHost extends Host {
   closed: number;
   /** Record of what was asked of the engine. */
   requests: unknown[];
+  /** Permission bits by path, for tests that care about modes. */
+  modes: Map<string, number>;
 }
 
 export function fakeHost(overrides: Partial<Host> = {}): FakeHost {
   const files = new Map<string, string>();
   const dirs = new Set<string>();
+  const modes = new Map<string, number>();
   const engineReplies = new Map<string, unknown>([
     ['handshake', { protocol_version: 1, version: '0.7.0' }],
     ['list', { tools: [] }],
@@ -36,6 +39,7 @@ export function fakeHost(overrides: Partial<Host> = {}): FakeHost {
     spawned: 0,
     closed: 0,
     requests: [],
+    modes,
 
     async readTextFile(path) {
       const value = files.get(path);
@@ -85,6 +89,12 @@ export function fakeHost(overrides: Partial<Host> = {}): FakeHost {
       files.set(to, value);
     },
     async chmodOwnerOnly() {},
+    async mode(path) {
+      return modes.get(path);
+    },
+    async chmod(path, bits) {
+      modes.set(path, bits);
+    },
     async exec() {
       return host.execResult;
     },

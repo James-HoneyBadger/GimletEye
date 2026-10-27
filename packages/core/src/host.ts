@@ -52,6 +52,10 @@ export interface Host {
   rename(from: string, to: string): Promise<void>;
   /** Restrict a file to owner-only where the platform has modes. */
   chmodOwnerOnly(path: string): Promise<void>;
+  /** The permission bits of a path, or `undefined` where the platform has none. */
+  mode(path: string): Promise<number | undefined>;
+  /** Set permission bits; a no-op where the platform has none. */
+  chmod(path: string, mode: number): Promise<void>;
   exec(program: string, args: readonly string[]): Promise<ExecResult>;
   resolve(path: string): Promise<string>;
   /** Start the verified engine, or throw when it cannot be found. */
