@@ -11,9 +11,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build -w @gimlet-eye/core -w @gimlet-eye/cli",
+    "build": "npm run build -w @gimlet-eye/core -w @gimlet-eye/engine -w @gimlet-eye/cli",
     "build:desktop": "npm run build -w @gimlet-eye/desktop",
-    "typecheck": "tsc -b packages/core packages/cli && npm run typecheck -w @gimlet-eye/desktop",
+    "typecheck": "tsc -b packages/core packages/engine packages/cli && npm run typecheck -w @gimlet-eye/desktop",
     "test": "vitest run",
     "cli": "node packages/cli/dist/main.js"
   },

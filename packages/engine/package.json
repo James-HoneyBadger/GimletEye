@@ -1,0 +1,16 @@
+{
+  "name": "@gimlet-eye/engine",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "description": "The .gimlet container and the cryptographic operations, in TypeScript",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b --force",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0"
+  }
+}

@@ -125,6 +125,14 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **A TypeScript container engine, stage 1 of retiring Rust.** `packages/engine`
+  reads version 1, 2, and 3 `.gimlet` containers and writes 2 and 3, using
+  `node:crypto` for AES-256-GCM, ChaCha20-Poly1305, X25519, and HKDF, and
+  `@noble/hashes` for Argon2id — the one primitive Node does not expose. The
+  acceptance test is not a round trip: the committed v1 and v3 fixtures, written
+  by 0.2.0 and 0.5.0, must open byte for byte, and the independent Python reader
+  must read what the new writer emits. Both do. [ADR 0010](docs/adr/0010-retire-rust.md)
+  records the remaining stages and the assurance that is lost with `cargo fuzz`.
 - **Two more system-administration tools**, both TypeScript and read-only.
   `sysadmin.kernel-hardening` reads the sysctls that decide what one user can
   learn about another — ASLR, `kptr_restrict`, `dmesg_restrict`, Yama ptrace
