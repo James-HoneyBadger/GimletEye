@@ -17,18 +17,13 @@ doc="docs/TOOL_REFERENCE.md"
     exit 1
 }
 
-binary="${GIMLET_BIN:-}"
-if [ -z "$binary" ]; then
-    for candidate in target/release/gimlet target/debug/gimlet; do
-        if [ -x "$candidate" ]; then
-            binary="$candidate"
-            break
-        fi
-    done
-fi
-if [ -z "$binary" ]; then
-    cargo build --quiet -p gimlet-eye-cli --bin gimlet
-    binary="target/debug/gimlet"
+# The CLI is JavaScript now, so the binary to check is the installed entry point.
+# A stale `target/*/gimlet` from a pre-0.8 build used to be picked up here and
+# would silently validate the reference against the wrong program.
+binary="${GIMLET_BIN:-packages/cli/bin/gimlet}"
+if [ ! -x "$binary" ]; then
+    echo "build the CLI first: npm run build" >&2
+    exit 1
 fi
 
 # A tool is covered when its id heads a section, which is what the generator

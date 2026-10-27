@@ -12,7 +12,7 @@ For one tool's arguments and a worked example, see the generated
 - [Keys](#keys)
 - [Signatures](#signatures)
 - [Metadata](#metadata)
-- [The workbench](#the-workbench)
+- [The desktop app](#the-desktop-app)
 - [Scripting](#scripting)
 - [Troubleshooting](#troubleshooting)
 
