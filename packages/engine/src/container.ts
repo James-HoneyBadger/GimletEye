@@ -47,6 +47,9 @@ const CHUNK_PLAINTEXT = 64 * 1024;
 const FLAG_FINAL = 0x01;
 const WRAP_INFO = Buffer.from('melv-v3-recipient', 'ascii');
 
+/** Bytes of a version 1 or 2 header: magic through the base nonce. */
+export const CONTAINER_HEADER_LEN = HEADER_LEN;
+
 export const VERSION_WHOLE_FILE = 1;
 export const VERSION_STREAMING = 2;
 export const VERSION_RECIPIENT = 3;
@@ -167,13 +170,7 @@ export function openWithPassphrase(blob: Buffer, passphrase: string | Uint8Array
     throw new ContainerError('this container is for a recipient key, not a passphrase');
   }
 
-  const key = deriveKey(
-    typeof passphrase === 'string' ? Buffer.from(passphrase, 'utf8') : passphrase,
-    header.salt,
-    header.memoryKib,
-    header.timeCost,
-    header.lanes,
-  );
+  const key = passphraseKey(header, passphrase);
   const aad = blob.subarray(0, HEADER_LEN);
   const body = blob.subarray(HEADER_LEN);
 
@@ -184,14 +181,42 @@ export function openWithPassphrase(blob: Buffer, passphrase: string | Uint8Array
   return openChunkStream(header.cipherId, key, aad, header.nonce, body);
 }
 
-/** Open a version 3 container with an X25519 secret key (32 raw bytes). */
-export function openWithRecipient(blob: Buffer, secret: Uint8Array): Buffer {
-  const header = inspect(blob);
+/** Bytes of a version 3 header before the recipient entries: magic through count. */
+export const RECIPIENT_HEADER_PREFIX = RECIPIENT_PREFIX_LEN;
+
+/**
+ * How long a version 3 header is, from its first {@link RECIPIENT_HEADER_PREFIX}
+ * bytes.
+ *
+ * A reader that streams has to know this before it can read the header, because
+ * the count is in the header and the header is the associated data of every
+ * chunk.
+ */
+export function recipientHeaderLength(prefix: Uint8Array): number {
+  if (prefix.length < RECIPIENT_PREFIX_LEN) {
+    throw new ContainerError('container is truncated: the recipient block header is incomplete');
+  }
+  const count = Buffer.from(prefix).readUInt32LE(40);
+  if (count < 1 || count > MAX_RECIPIENTS) {
+    throw new ContainerError(`recipient count ${count} is outside the accepted range`);
+  }
+  return RECIPIENT_PREFIX_LEN + count * RECIPIENT_ENTRY_LEN + NONCE_LEN;
+}
+
+/**
+ * Unwrap the file key from a version 3 header.
+ *
+ * Takes only the header, so the caller can stream the chunks rather than hold
+ * them: the wrapping is the header's business, the chunks are the body's.
+ */
+export function recipientFileKey(headerBytes: Uint8Array, secret: Uint8Array): Buffer {
+  const header = inspect(Buffer.from(headerBytes));
   if (header.version !== VERSION_RECIPIENT) {
     throw new ContainerError('this container is for a passphrase, not a recipient key');
   }
   if (secret.length !== 32) throw new ContainerError('a recipient secret key is 32 bytes');
 
+  const blob = Buffer.from(headerBytes);
   const privateKey = x25519Private(secret);
   const ourPublic = x25519PublicOf(privateKey);
   const shared = diffieHellman({ privateKey, publicKey: x25519Public(header.ephemeral) });
@@ -207,21 +232,42 @@ export function openWithRecipient(blob: Buffer, secret: Uint8Array): Buffer {
       hkdfSync('sha256', shared, header.ephemeral, Buffer.concat([WRAP_INFO, recipient]), 32),
     );
     const wrapAad = Buffer.concat([blob.subarray(0, RECIPIENT_PREFIX_LEN), recipient]);
-    const fileKey = aeadOpen(header.cipherId, kek, wrapNonce, wrapped, wrapAad);
-    return openChunkStream(
-      header.cipherId,
-      fileKey,
-      blob.subarray(0, header.headerLength),
-      header.nonce,
-      blob.subarray(header.headerLength),
-    );
+    return aeadOpen(header.cipherId, kek, wrapNonce, wrapped, wrapAad);
   }
 
   throw new ContainerError('this container is not encrypted for that key');
 }
 
-/** Seal with a passphrase. Writes version 2, the chunked layout. */
-export function sealWithPassphrase(plaintext: Uint8Array, passphrase: string | Uint8Array, options: SealOptions = {}): Buffer {
+/** Open a version 3 container with an X25519 secret key (32 raw bytes). */
+export function openWithRecipient(blob: Buffer, secret: Uint8Array): Buffer {
+  const header = inspect(blob);
+  if (header.version !== VERSION_RECIPIENT) {
+    throw new ContainerError('this container is for a passphrase, not a recipient key');
+  }
+  const headerBytes = blob.subarray(0, header.headerLength);
+  return openChunkStream(
+    header.cipherId,
+    recipientFileKey(headerBytes, secret),
+    headerBytes,
+    header.nonce,
+    blob.subarray(header.headerLength),
+  );
+}
+
+/**
+ * The parts of a version 2 container that must exist before any chunk does.
+ *
+ * Split out so a file can be sealed a chunk at a time: the header has to be
+ * written first, and the key derived once.
+ */
+export interface PassphraseSetup {
+  cipherId: CipherId;
+  header: Buffer;
+  key: Buffer;
+  nonce: Buffer;
+}
+
+export function passphraseSetup(passphrase: string | Uint8Array, options: SealOptions = {}): PassphraseSetup {
   const cipherId = options.cipher ?? CHACHA20_POLY1305;
   const memoryKib = options.memoryKib ?? 19_456;
   const timeCost = options.timeCost ?? 2;
@@ -249,11 +295,24 @@ export function sealWithPassphrase(plaintext: Uint8Array, passphrase: string | U
     timeCost,
     lanes,
   );
-  return Buffer.concat([header, sealChunkStream(cipherId, key, header, nonce, plaintext)]);
+  return { cipherId, header, key, nonce };
 }
 
-/** Seal to one or more X25519 public keys. Writes version 3. */
-export function sealForRecipients(plaintext: Uint8Array, recipients: readonly Uint8Array[], options: SealOptions = {}): Buffer {
+/** Seal with a passphrase. Writes version 2, the chunked layout. */
+export function sealWithPassphrase(plaintext: Uint8Array, passphrase: string | Uint8Array, options: SealOptions = {}): Buffer {
+  const setup = passphraseSetup(passphrase, options);
+  return Buffer.concat([setup.header, sealChunkStream(setup.cipherId, setup.key, setup.header, setup.nonce, plaintext)]);
+}
+
+export interface RecipientSetup {
+  cipherId: CipherId;
+  header: Buffer;
+  key: Buffer;
+  nonce: Buffer;
+}
+
+/** Everything a version 3 container needs before its first chunk. */
+export function recipientSetup(recipients: readonly Uint8Array[], options: SealOptions = {}): RecipientSetup {
   const cipherId = options.cipher ?? CHACHA20_POLY1305;
   if (recipients.length < 1 || recipients.length > MAX_RECIPIENTS) {
     throw new ContainerError(`a container needs 1 to ${MAX_RECIPIENTS} recipients`);
@@ -291,14 +350,30 @@ export function sealForRecipients(plaintext: Uint8Array, recipients: readonly Ui
     entries.push(Buffer.concat([Buffer.from(recipient), wrapNonce, wrapped]));
   }
 
-  const header = Buffer.concat([prefix, ...entries, baseNonce]);
-  return Buffer.concat([header, sealChunkStream(cipherId, fileKey, header, baseNonce, plaintext)]);
+  return { cipherId, header: Buffer.concat([prefix, ...entries, baseNonce]), key: fileKey, nonce: baseNonce };
+}
+
+/** Seal to one or more X25519 public keys. Writes version 3. */
+export function sealForRecipients(plaintext: Uint8Array, recipients: readonly Uint8Array[], options: SealOptions = {}): Buffer {
+  const setup = recipientSetup(recipients, options);
+  return Buffer.concat([setup.header, sealChunkStream(setup.cipherId, setup.key, setup.header, setup.nonce, plaintext)]);
 }
 
 export function deriveKey(passphrase: Uint8Array, salt: Uint8Array, memoryKib: number, timeCost: number, lanes: number): Buffer {
   assertParameters(memoryKib, timeCost, lanes);
   return Buffer.from(
     argon2id(passphrase, salt, { t: timeCost, m: memoryKib, p: lanes, dkLen: 32 }),
+  );
+}
+
+/** The chunk key for a version 1 or 2 header the caller has already parsed. */
+export function passphraseKey(header: PassphraseHeader, passphrase: string | Uint8Array): Buffer {
+  return deriveKey(
+    typeof passphrase === 'string' ? Buffer.from(passphrase, 'utf8') : passphrase,
+    header.salt,
+    header.memoryKib,
+    header.timeCost,
+    header.lanes,
   );
 }
 
@@ -310,70 +385,142 @@ export function generateRecipientKey(): { secret: Buffer; public: Buffer } {
   return { secret, public: rawPublic(publicKey) };
 }
 
-function sealChunkStream(cipherId: CipherId, key: Buffer, header: Buffer, baseNonce: Buffer, plaintext: Uint8Array): Buffer {
-  const frames: Buffer[] = [];
-  let offset = 0;
-  let index = 0;
-  do {
-    const end = Math.min(plaintext.length, offset + CHUNK_PLAINTEXT);
-    const slice = plaintext.subarray(offset, end);
-    const final = end === plaintext.length;
-    const flags = final ? FLAG_FINAL : 0;
-    const sealed = aeadSeal(cipherId, key, chunkNonce(baseNonce, index), slice, chunkAad(header, index, flags));
+/** How much plaintext one chunk carries; a reader never needs more than this. */
+export const STREAM_CHUNK_PLAINTEXT = CHUNK_PLAINTEXT;
+
+/**
+ * Seal a stream one chunk at a time.
+ *
+ * The final flag lives in the frame, so a chunk cannot be written until the next
+ * one proves it was not the last: one chunk is held back. That is the whole of
+ * the buffering — 64 KiB, however large the file is.
+ */
+export class ChunkSealer {
+  private held: Buffer | undefined;
+  private index = 0;
+
+  constructor(
+    private readonly cipherId: CipherId,
+    private readonly key: Buffer,
+    private readonly header: Buffer,
+    private readonly baseNonce: Buffer,
+  ) {}
+
+  /** Frames to write now. `plaintext` must be at most STREAM_CHUNK_PLAINTEXT. */
+  push(plaintext: Uint8Array): Buffer {
+    if (plaintext.length === 0) return Buffer.alloc(0);
+    if (plaintext.length > CHUNK_PLAINTEXT) {
+      throw new ContainerError(`a chunk of ${plaintext.length} bytes is larger than ${CHUNK_PLAINTEXT}`);
+    }
+    const frames: Buffer[] = [];
+    if (this.held !== undefined) frames.push(this.frame(this.held, 0));
+    this.held = Buffer.from(plaintext);
+    return Buffer.concat(frames);
+  }
+
+  /** The last chunk, flagged final. Safe on an empty stream. */
+  end(): Buffer {
+    return this.frame(this.held ?? Buffer.alloc(0), FLAG_FINAL);
+  }
+
+  private frame(plaintext: Uint8Array, flags: number): Buffer {
+    const sealed = aeadSeal(
+      this.cipherId,
+      this.key,
+      chunkNonce(this.baseNonce, this.index),
+      plaintext,
+      chunkAad(this.header, this.index, flags),
+    );
     const frame = Buffer.alloc(5);
     frame[0] = flags;
     frame.writeUInt32LE(sealed.length, 1);
-    frames.push(frame, sealed);
-    offset = end;
-    index += 1;
-  } while (offset < plaintext.length || index === 0);
+    this.index += 1;
+    return Buffer.concat([frame, sealed]);
+  }
+}
 
+function sealChunkStream(cipherId: CipherId, key: Buffer, header: Buffer, baseNonce: Buffer, plaintext: Uint8Array): Buffer {
+  const sealer = new ChunkSealer(cipherId, key, header, baseNonce);
+  const frames: Buffer[] = [];
+  for (let offset = 0; offset < plaintext.length; offset += CHUNK_PLAINTEXT) {
+    frames.push(sealer.push(plaintext.subarray(offset, Math.min(plaintext.length, offset + CHUNK_PLAINTEXT))));
+  }
+  frames.push(sealer.end());
   return Buffer.concat(frames);
 }
 
-function openChunkStream(cipherId: CipherId, key: Buffer, header: Buffer, baseNonce: Buffer, body: Buffer): Buffer {
-  const out: Buffer[] = [];
-  let offset = 0;
-  let index = 0;
-  let finalSeen = false;
+/**
+ * Open a stream as its bytes arrive.
+ *
+ * `push` returns the plaintext of every frame that is now complete, which is at
+ * most one chunk per call plus whatever the previous call left over; `end`
+ * insists the stream finished the way the format says it must.
+ */
+export class ChunkOpener {
+  private pending = Buffer.alloc(0);
+  private index = 0;
+  private finalSeen = false;
 
-  while (true) {
-    if (offset + 5 > body.length) {
-      if (offset === body.length && !finalSeen) {
-        throw new ContainerError('container is truncated: the last chunk was not flagged final');
+  constructor(
+    private readonly cipherId: CipherId,
+    private readonly key: Buffer,
+    private readonly header: Buffer,
+    private readonly baseNonce: Buffer,
+  ) {}
+
+  push(bytes: Uint8Array): Buffer {
+    if (this.finalSeen) {
+      if (bytes.length > 0) throw new ContainerError('trailing data after the final chunk');
+      return Buffer.alloc(0);
+    }
+    this.pending = this.pending.length === 0 ? Buffer.from(bytes) : Buffer.concat([this.pending, bytes]);
+
+    const out: Buffer[] = [];
+    while (!this.finalSeen) {
+      if (this.pending.length < 5) break;
+      const flags = this.pending[0] as number;
+      if ((flags & ~FLAG_FINAL) !== 0) {
+        throw new ContainerError(`chunk ${this.index} has unknown flag bits 0x${flags.toString(16)}`);
       }
-      throw new ContainerError('container is truncated: a chunk header is missing');
-    }
-    const flags = body[offset] as number;
-    if ((flags & ~FLAG_FINAL) !== 0) {
-      throw new ContainerError(`chunk ${index} has unknown flag bits 0x${flags.toString(16)}`);
-    }
-    const length = body.readUInt32LE(offset + 1);
-    offset += 5;
-    if (length < TAG_LEN || length > MAX_CHUNK_CIPHERTEXT) {
-      throw new ContainerError(`chunk ${index} declares an impossible length ${length}`);
-    }
-    if (offset + length > body.length) throw new ContainerError(`chunk ${index} is truncated`);
+      const length = this.pending.readUInt32LE(1);
+      if (length < TAG_LEN || length > MAX_CHUNK_CIPHERTEXT) {
+        throw new ContainerError(`chunk ${this.index} declares an impossible length ${length}`);
+      }
+      if (this.pending.length < 5 + length) break;
 
-    out.push(
-      aeadOpen(
-        cipherId,
-        key,
-        chunkNonce(baseNonce, index),
-        body.subarray(offset, offset + length),
-        chunkAad(header, index, flags),
-      ),
-    );
-    offset += length;
-    index += 1;
-    if ((flags & FLAG_FINAL) !== 0) {
-      finalSeen = true;
-      break;
+      const sealed = this.pending.subarray(5, 5 + length);
+      out.push(
+        aeadOpen(
+          this.cipherId,
+          this.key,
+          chunkNonce(this.baseNonce, this.index),
+          sealed,
+          chunkAad(this.header, this.index, flags),
+        ),
+      );
+      this.pending = this.pending.subarray(5 + length);
+      this.index += 1;
+      if ((flags & FLAG_FINAL) !== 0) {
+        this.finalSeen = true;
+        if (this.pending.length !== 0) throw new ContainerError('trailing data after the final chunk');
+      }
     }
+    return Buffer.concat(out);
   }
 
-  if (offset !== body.length) throw new ContainerError('trailing data after the final chunk');
-  return Buffer.concat(out);
+  end(): void {
+    if (!this.finalSeen) throw new ContainerError('container is truncated: the last chunk was not flagged final');
+    if (this.pending.length !== 0) throw new ContainerError('trailing data after the final chunk');
+  }
+}
+
+function openChunkStream(cipherId: CipherId, key: Buffer, header: Buffer, baseNonce: Buffer, body: Buffer): Buffer {
+  // One implementation: the whole-buffer reader is the streaming reader fed in
+  // a single call, so a bug cannot exist in one and not the other.
+  const opener = new ChunkOpener(cipherId, key, header, baseNonce);
+  const plaintext = opener.push(body);
+  opener.end();
+  return plaintext;
 }
 
 function chunkNonce(base: Buffer, index: number): Buffer {

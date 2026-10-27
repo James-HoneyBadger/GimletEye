@@ -96,7 +96,9 @@ only written after the tag verifies.
 
 Version 1 puts the whole file in one AEAD message, so encrypting a 2 GiB file
 costs about 4 GiB of memory. Version 2 keeps the same 49-byte header and adds a
-chunk stream after it. `crypto.encrypt` writes version 2; `crypto.decrypt`
+chunk stream after it. The framing is what makes a container streamable: each
+chunk carries its own length and its own tag, so a reader never needs the bytes
+before or after the chunk it is working on. `crypto.encrypt` writes version 2; `crypto.decrypt`
 reads both.
 
 Each chunk is framed as:

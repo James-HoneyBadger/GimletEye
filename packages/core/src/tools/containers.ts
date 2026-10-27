@@ -9,18 +9,46 @@
  * deriving a key.
  */
 
-import { chunkCount, inspect, openWithPassphrase, openWithRecipient, sealForRecipients, sealWithPassphrase } from '@gimlet-eye/engine';
+import {
+  ChunkOpener,
+  ChunkSealer,
+  CONTAINER_HEADER_LEN,
+  inspect,
+  openWithPassphrase,
+  passphraseKey,
+  passphraseSetup,
+  RECIPIENT_HEADER_PREFIX,
+  recipientFileKey,
+  recipientHeaderLength,
+  recipientSetup,
+  STREAM_CHUNK_PLAINTEXT,
+  VERSION_RECIPIENT,
+  VERSION_WHOLE_FILE,
+  type CipherId,
+  type PassphraseSetup,
+  type RecipientSetup,
+} from '@gimlet-eye/engine';
+import { chunkCount, sealForRecipients, sealWithPassphrase } from '@gimlet-eye/engine';
 import { decodePublic, decodeSecret } from '@gimlet-eye/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { refuseSamePath } from './guard.js';
-import { invalidArgs, io, notFound } from '../errors.js';
+import { GimletError, invalidArgs, io, notFound } from '../errors.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
 import type { ToolManifest } from '../manifest.js';
 
 const CONTAINER_EXTENSION = 'gimlet';
+
+/**
+ * How much is read from the source at a time.
+ *
+ * Larger than a chunk on purpose: one open/read per chunk would mean tens of
+ * thousands of system calls for a large file, and the window is still small
+ * enough to keep memory flat.
+ */
+const READ_WINDOW = 1024 * 1024;
 const LEGACY_EXTENSION = 'melv';
 
 /** What the tool will spend on Argon2id without being told it may. */
@@ -100,37 +128,41 @@ export const encryptFile: LocalTool = {
     // Before reading: a container written over its own plaintext is a file the
     // user no longer has.
     await refuseSamePath(ctx, input, output);
-    const plaintext = await readInput(ctx, input);
-    let sealedBytes: Buffer;
+    if (!(await ctx.host.exists(input))) throw notFound(input);
+    const plaintextBytes = (await ctx.host.stat(input)).size;
+
+    // The header has to exist before the first chunk, so the setup happens here
+    // and the chunks are then sealed as they are read: memory stays at one
+    // window plus one held-back chunk, whatever the file's size.
+    let setup;
     let kdf: string;
     let recipients: number | null = null;
-
     if (to !== undefined) {
       const keys = await recipientKeys(ctx, to);
-      sealedBytes = sealForRecipients(plaintext, keys);
+      setup = recipientSetup(keys);
       kdf = 'x25519-hkdf-sha256';
       recipients = keys.length;
     } else {
-      sealedBytes = sealWithPassphrase(plaintext, passphraseFrom(ctx, args));
+      setup = passphraseSetup(passphraseFrom(ctx, args));
       kdf = 'argon2id';
     }
 
-    await writeOutput(ctx, output, sealedBytes, overwrite);
+    const containerBytes = await sealToFile(ctx, input, output, setup, overwrite, plaintextBytes);
 
     return sealed({
       tool: ENCRYPT.id,
       status: 'ok',
       summary: ctx.dryRun
         ? `would encrypt ${input} → ${output}`
-        : `encrypted ${input} → ${output} (chacha20-poly1305, ${kdf}, ${chunkCount(sealedBytes)} chunk(s))`,
+        : `encrypted ${input} → ${output} (chacha20-poly1305, ${kdf}, ${chunksOf(plaintextBytes)} chunk(s))`,
       data: {
         input,
         output: ctx.dryRun ? null : output,
         algorithm: 'chacha20-poly1305',
         kdf,
         recipients,
-        plaintext_bytes: plaintext.length,
-        container_bytes: sealedBytes.length,
+        plaintext_bytes: plaintextBytes,
+        container_bytes: containerBytes,
         dry_run: ctx.dryRun,
       },
       duration_ms: Date.now() - started,
@@ -150,30 +182,50 @@ export const decryptFile: LocalTool = {
     // A container decrypted onto itself is gone: the plaintext replaces the only
     // copy of the key material needed to produce it.
     await refuseSamePath(ctx, input, output);
-    const blob = await readInput(ctx, input);
-    const header = inspect(blob);
+    const total = (await ctx.host.stat(input)).size;
+    const headerBytes = await readHeader(ctx, input, total);
+    const header = inspect(headerBytes);
     refuseExpensive(header, booleanOr(args, 'allow_expensive', false));
+    let plaintextBytes = 0;
 
-    const plaintext =
-      header.version === 3
-        ? openWithRecipient(blob, await recipientSecret(ctx, keyPath, input))
-        : openWithPassphrase(blob, passphraseFrom(ctx, args));
-
-    await writeOutput(ctx, output, plaintext, overwrite);
+    if (header.version === VERSION_WHOLE_FILE) {
+      // Version 1 authenticates the whole body in one tag, so there is nothing
+      // to stream; those files predate the chunked layout and are read whole.
+      const blob = await readInput(ctx, input);
+      const plaintext = openWithPassphrase(blob, passphraseFrom(ctx, args));
+      plaintextBytes = plaintext.length;
+      await writeOutput(ctx, output, plaintext, overwrite);
+    } else {
+      const key =
+        header.version === VERSION_RECIPIENT
+          ? recipientFileKey(headerBytes, await recipientSecret(ctx, keyPath, input))
+          : passphraseKey(header, passphraseFrom(ctx, args));
+      plaintextBytes = await openToFile(
+        ctx,
+        input,
+        output,
+        headerBytes,
+        header.cipherId,
+        key,
+        header.nonce,
+        total,
+        overwrite,
+      );
+    }
 
     return sealed({
       tool: DECRYPT.id,
       status: 'ok',
       summary: ctx.dryRun
         ? `would decrypt ${input} → ${output}`
-        : `decrypted ${input} → ${output} (${header.cipher}, ${chunkCount(blob)} chunk(s))`,
+        : `decrypted ${input} → ${output} (${header.cipher}, ${chunksOf(plaintextBytes)} chunk(s))`,
       data: {
         input,
         output: ctx.dryRun ? null : output,
         algorithm: header.cipher,
         container_version: header.version,
-        chunks: chunkCount(blob),
-        plaintext_bytes: plaintext.length,
+        chunks: chunksOf(plaintextBytes),
+        plaintext_bytes: plaintextBytes,
         dry_run: ctx.dryRun,
       },
       duration_ms: Date.now() - started,
@@ -241,6 +293,104 @@ async function recipientSecret(ctx: ToolRunContext, keyPath: string | undefined,
 async function readInput(ctx: ToolRunContext, path: string): Promise<Buffer> {
   if (!(await ctx.host.exists(path))) throw notFound(path);
   return Buffer.from(await ctx.host.readFile(path));
+}
+
+/** Chunks an empty container still has: one, holding nothing but a tag. */
+function chunksOf(plaintextBytes: number): number {
+  return Math.max(1, Math.ceil(plaintextBytes / STREAM_CHUNK_PLAINTEXT));
+}
+
+/** The header, read before anything else so the count is known. */
+async function readHeader(ctx: ToolRunContext, input: string, total: number): Promise<Buffer> {
+  if (total < CONTAINER_HEADER_LEN) throw io(`${input} is too short to be a container`);
+  const first = Buffer.from(await ctx.host.readRange(input, 0, CONTAINER_HEADER_LEN));
+  if ((first[4] as number) !== VERSION_RECIPIENT) return first;
+  const prefix = Buffer.from(await ctx.host.readRange(input, 0, RECIPIENT_HEADER_PREFIX));
+  const length = recipientHeaderLength(prefix);
+  if (total < length) throw io(`${input} is truncated: the recipient block is incomplete`);
+  return Buffer.from(await ctx.host.readRange(input, 0, length));
+}
+
+/**
+ * Seal `input` into `output` a chunk at a time.
+ *
+ * The destination is written through a sibling temporary file, so an interrupted
+ * run leaves the old file rather than half of a new one, and an existing file
+ * keeps its permission bits.
+ */
+async function sealToFile(
+  ctx: ToolRunContext,
+  input: string,
+  output: string,
+  setup: PassphraseSetup | RecipientSetup,
+  overwrite: boolean,
+  size: number,
+): Promise<number> {
+  if (ctx.dryRun) return 0;
+  if (!overwrite && (await ctx.host.exists(output))) {
+    throw io(`${output} already exists (pass overwrite=true to replace it)`);
+  }
+  const temp = `${output}.tmp`;
+  try {
+    const keep = await ctx.host.mode(output);
+    await ctx.host.appendFile(temp, new Uint8Array(setup.header));
+    const sealer = new ChunkSealer(setup.cipherId, setup.key, setup.header, setup.nonce);
+    for (let offset = 0; offset < size; offset += READ_WINDOW) {
+      const window = await ctx.host.readRange(input, offset, Math.min(READ_WINDOW, size - offset));
+      if (window.length === 0) break;
+      for (let at = 0; at < window.length; at += STREAM_CHUNK_PLAINTEXT) {
+        const frame = sealer.push(window.subarray(at, Math.min(window.length, at + STREAM_CHUNK_PLAINTEXT)));
+        if (frame.length > 0) await ctx.host.appendFile(temp, frame);
+      }
+    }
+    await ctx.host.appendFile(temp, sealer.end());
+    if (keep !== undefined) await ctx.host.chmod(temp, keep);
+    await ctx.host.rename(temp, output);
+  } catch (error) {
+    await ctx.host.removeTree(temp).catch(() => undefined);
+    throw error instanceof GimletError ? error : io(`${output}: ${(error as Error).message}`);
+  }
+  return (await ctx.host.stat(output)).size;
+}
+
+/** Open `input` into `output` a chunk at a time, for versions 2 and 3. */
+async function openToFile(
+  ctx: ToolRunContext,
+  input: string,
+  output: string,
+  headerBytes: Buffer,
+  cipherId: CipherId,
+  key: Buffer,
+  nonce: Buffer,
+  total: number,
+  overwrite: boolean,
+): Promise<number> {
+  if (ctx.dryRun) return 0;
+  if (!overwrite && (await ctx.host.exists(output))) {
+    throw io(`${output} already exists (pass overwrite=true to replace it)`);
+  }
+  const temp = `${output}.tmp`;
+  try {
+    const keep = await ctx.host.mode(output);
+    const opener = new ChunkOpener(cipherId, key, headerBytes, nonce);
+    let written = 0;
+    for (let offset = headerBytes.length; offset < total; offset += READ_WINDOW) {
+      const window = await ctx.host.readRange(input, offset, Math.min(READ_WINDOW, total - offset));
+      if (window.length === 0) break;
+      const plaintext = opener.push(window);
+      if (plaintext.length > 0) {
+        await ctx.host.appendFile(temp, plaintext);
+        written += plaintext.length;
+      }
+    }
+    opener.end();
+    if (keep !== undefined) await ctx.host.chmod(temp, keep);
+    await ctx.host.rename(temp, output);
+    return written;
+  } catch (error) {
+    await ctx.host.removeTree(temp).catch(() => undefined);
+    throw error instanceof GimletError ? error : io(`${output}: ${(error as Error).message}`);
+  }
 }
 
 async function writeOutput(ctx: ToolRunContext, path: string, bytes: Buffer, overwrite: boolean): Promise<void> {

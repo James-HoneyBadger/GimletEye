@@ -8,33 +8,19 @@ import { fakeHost, type FakeHost } from './fake-host.js';
 
 const ctxFor = (host: FakeHost) => ({ host, config: defaultConfig(), dryRun: false });
 
-/** A host with real bytes and a working write path, which the fake cannot do for binary. */
+/**
+ * A host holding real bytes.
+ *
+ * The fake host now keeps bytes and text separately, so this only has to seed
+ * the byte map — and exposing it lets a test read back what a tool wrote, which
+ * is the only way to check a container's framing.
+ */
 function binaryHost(initial: Record<string, Buffer | string>): FakeHost {
   const host = fakeHost();
-  const files = new Map<string, Buffer>();
   for (const [path, value] of Object.entries(initial)) {
-    files.set(path, Buffer.isBuffer(value) ? value : Buffer.from(value));
+    host.fileBytes.set(path, Buffer.isBuffer(value) ? value : Buffer.from(value));
   }
-
-  host.exists = async (path: string) => files.has(path);
-  host.readFile = async (path: string) => {
-    const value = files.get(path);
-    if (value === undefined) throw new Error(`ENOENT: ${path}`);
-    return new Uint8Array(value);
-  };
-  host.readTextFile = async (path: string) => {
-    const value = files.get(path);
-    if (value === undefined) throw new Error(`ENOENT: ${path}`);
-    return value.toString('utf8');
-  };
-  host.writeFile = async (path: string, bytes: Uint8Array) => {
-    files.set(path, Buffer.from(bytes));
-  };
-  host.writeTextFile = async (path: string, text: string) => {
-    files.set(path, Buffer.from(text, 'utf8'));
-  };
-  // Expose the bytes so a test can inspect what was written.
-  (host as FakeHost & { bytes: Map<string, Buffer> }).bytes = files;
+  (host as FakeHost & { bytes: Map<string, Buffer> }).bytes = host.fileBytes;
   return host;
 }
 
@@ -271,6 +257,39 @@ describe('writing over the input', () => {
     // The container is intact, so it can still be opened.
     const again = await decryptFile.run(ctxFor(host), { input: '/notes.gimlet', output: '/out.txt', passphrase: 'pw' });
     expect(again.status).toBe('ok');
+  });
+});
+
+describe('streaming a large file', () => {
+  it('bounds every read and write, however large the input', { timeout: 60_000 }, async () => {
+    // 8 MiB is 128 chunks: enough that a whole-file implementation would show up
+    // as a single 8 MiB read and an 8 MiB write.
+    const size = 8 * 1024 * 1024;
+    const plaintext = Buffer.alloc(size, 0x5a);
+    const host = binaryHost({ '/big.bin': plaintext });
+
+    await encryptFile.run(ctxFor(host), { input: '/big.bin', output: '/big.gimlet', passphrase: 'pw' });
+
+    // The window, and one frame of framing plus tag on top of a chunk.
+    expect(Math.max(...host.reads)).toBeLessThanOrEqual(1024 * 1024);
+    expect(Math.max(...host.writes)).toBeLessThanOrEqual(64 * 1024 + 16 + 5);
+
+    const sealReads = [...host.reads];
+    const sealWrites = [...host.writes];
+    await decryptFile.run(ctxFor(host), { input: '/big.gimlet', output: '/big.out', passphrase: 'pw' });
+
+    // Decryption emits whatever the window completed — up to one window — so the
+    // bound is the window either way, and never the file.
+    expect(Math.max(...host.reads.slice(sealReads.length))).toBeLessThanOrEqual(1024 * 1024);
+    expect(Math.max(...host.writes.slice(sealWrites.length))).toBeLessThanOrEqual(1024 * 1024);
+    expect(bytesOf(host).get('/big.out')?.equals(plaintext)).toBe(true);
+  });
+
+  it('counts the chunks it wrote', { timeout: 30_000 }, async () => {
+    const host = binaryHost({ '/small.bin': Buffer.alloc(64 * 1024, 1) });
+    const report = await encryptFile.run(ctxFor(host), { input: '/small.bin', output: '/small.gimlet', passphrase: 'pw' });
+    // Exactly one full chunk is one chunk, not two: the final flag rides on it.
+    expect((report.data as { container_bytes: number }).container_bytes).toBe(49 + 5 + 64 * 1024 + 16);
   });
 });
 

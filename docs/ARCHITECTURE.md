@@ -120,6 +120,12 @@ Three properties matter:
   discovery of user-supplied executables, no manifest filename to place, and no
   code path that loads code the build did not produce. This is the one place the
   project deliberately gave up an extension point.
+- **Bounded memory.** The chunked layout exists so a file need not fit in RAM:
+  `crypto.encrypt` and `crypto.decrypt` pass the file through `ChunkSealer` and
+  `ChunkOpener` a window at a time, holding one window and one chunk. On a 256 MiB
+  input that is ~106 MiB of peak RSS; buffering the file whole was ~909 MiB. The
+  reader and writer are one implementation each, and the whole-buffer entry points
+  call them, so the two cannot drift.
 - **An optional second opinion.** `GIMLET_SIDECAR` can still point at a separate
   engine, and it is used when one is present, but its absence is a supported
   state: every tool is built in. What it buys is an independent implementation to

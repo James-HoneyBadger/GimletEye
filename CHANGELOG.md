@@ -6,6 +6,17 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
+
 ### Fixed
 
 - **A strip through a symlink scrubbed nothing and reported success.** With
@@ -146,6 +157,17 @@ All notable changes to Gimlet Eye. Format follows
 
   The quiet countdown to 1.0 restarts, because a release that renames the crate
   names, the binary, and the environment variables is not a quiet one.
+
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
 
 ### Fixed
 
@@ -418,6 +440,17 @@ countdown to 1.0 now has one tick behind it.
   of `load.1m` / `5m` / `15m`, so its keys satisfy the `Report.data` convention.
   This is the kind of rename the 1.0 freeze will make expensive; better now.
 
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
+
 ### Fixed
 
 - **A pack is told when the run is a dry run.** The host sent `run_tool` with
@@ -532,6 +565,17 @@ release instead.
   aarch64), and Windows (x86_64); `.deb` + `.AppImage`, `.dmg`, and NSIS
   installers for the desktop app; and a `SHA256SUMS` file. The publish job waits
   for every build, so a partial release is impossible.
+
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
 
 ### Fixed
 
@@ -666,6 +710,17 @@ Highlights:
   single source of styling.
 - Dead store helpers left over from the previous interface.
 
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
+
 ### Fixed
 
 - `Segment.removable` was replaced by `Segment.category`; `metadata_bytes` now
@@ -755,6 +810,17 @@ First release: one contract, one registry, and three domain modules
 - **Tooling**: CI (fmt, clippy, tests, UI build, live Perl slice), Makefile,
   `deny.toml`, source-linking script, smoke test, architecture/plugin/migration
   documentation and ADRs.
+
+### Changed
+
+- **Encryption and decryption stream, so a file no longer has to fit in memory.**
+  `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
+  write as they go, through `ChunkSealer`/`ChunkOpener` in the engine. A 256 MiB
+  file peaks at ~106 MiB of resident memory, against ~909 MiB when the whole file
+  was buffered — and the format is unchanged, so files written either way read
+  the same. `crypto.decrypt` also writes through a temporary file and a rename
+  now, so an interrupted run cannot leave a half-written plaintext, and a file it
+  replaces keeps its permission bits.
 
 ### Fixed
 

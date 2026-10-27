@@ -7,7 +7,20 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { access, appendFile, chmod, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  access,
+  appendFile as appendToFile,
+  chmod,
+  mkdir,
+  open as openFile,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,10 +41,21 @@ export function nodeHost(): Host {
     tmpDir: tmpdir(),
     readTextFile: (path) => readFile(path, 'utf8'),
     readFile: async (path) => new Uint8Array(await readFile(path)),
+    readRange: async (path, offset, length) => {
+      const handle = await openFile(path, 'r');
+      try {
+        const buffer = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(buffer, 0, length, offset);
+        return new Uint8Array(buffer.subarray(0, bytesRead));
+      } finally {
+        await handle.close();
+      }
+    },
     writeTextFile: (path, text) => writeFile(path, text, 'utf8'),
     // `appendFile` opens with O_APPEND, so two processes appending at once
     // cannot overwrite each other's line the way a read-modify-write can.
-    appendTextFile: (path, text) => appendFile(path, text, 'utf8'),
+    appendTextFile: (path, text) => appendToFile(path, text, 'utf8'),
+    appendFile: (path, bytes) => appendToFile(path, bytes),
     writeFile: (path, bytes) => writeFile(path, bytes),
     createDir: async (path) => {
       await mkdir(path, { recursive: true });

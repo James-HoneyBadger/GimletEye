@@ -39,9 +39,17 @@ export interface Host {
 
   readTextFile(path: string): Promise<string>;
   readFile(path: string): Promise<Uint8Array>;
+  /**
+   * Read up to `length` bytes from `offset`. A short read means end of file, and
+   * an empty one means the offset is at or past it. This is what lets a tool
+   * work on a file larger than memory.
+   */
+  readRange(path: string, offset: number, length: number): Promise<Uint8Array>;
   writeTextFile(path: string, text: string): Promise<void>;
   /** Append, creating the file if needed. Atomic for a single small write. */
   appendTextFile(path: string, text: string): Promise<void>;
+  /** Append bytes, creating the file if needed. */
+  appendFile(path: string, bytes: Uint8Array): Promise<void>;
   writeFile(path: string, bytes: Uint8Array): Promise<void>;
   /** Create `path` and its parents; succeeds when it already exists. */
   createDir(path: string): Promise<void>;

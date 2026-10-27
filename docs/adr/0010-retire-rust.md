@@ -114,7 +114,11 @@ Deleting the Rust writer does **not** change the format:
 - Argon2id becomes a dependency instead of a crate: `@noble/hashes` is audited,
   but it is still a dependency in the trust boundary where there was none.
 - Streaming stays bounded only if the TypeScript reader keeps the chunk-at-a-time
-  discipline; nothing in the type system enforces it.
+  discipline; nothing in the type system enforces it. It did not, at first: the
+  port read and wrote whole files. `crypto.encrypt` and `crypto.decrypt` now go
+  through `ChunkSealer`/`ChunkOpener`, and a 256 MiB file peaks at about 106 MiB
+  of RSS instead of 909 MiB. A test pins the largest read and write so the
+  discipline cannot lapse silently.
 
 ## Rejected alternatives
 
