@@ -98,6 +98,26 @@ describe('paths', () => {
   });
 });
 
+describe('the audit cap', () => {
+  it('refuses a value it cannot honour instead of reading it as no cap', () => {
+    // Zero and negatives used to mean "unbounded", silently, in the one file
+    // whose job is to stay bounded. `audit.enabled = false` is how you say that.
+    for (const value of ['0', '-1', '1.5', '"many"']) {
+      expect(() => parseConfig(`[audit]\nmax_entries = ${value}\n`), value).toThrow(/at least 1/);
+    }
+  });
+
+  it('accepts a real cap, and keeps it', async () => {
+    const config = parseConfig('[audit]\nmax_entries = 3\n');
+    expect(config.audit.max_entries).toBe(3);
+
+    const host = fakeHost();
+    const log = new AuditLog(host, '/tmp/home/audit.jsonl', config.audit.max_entries);
+    for (let index = 0; index < 5; index += 1) await log.record(auditEntry(`a.b${index}`, 'ok', index));
+    expect(await log.readAll()).toHaveLength(3);
+  });
+});
+
 describe('parent directories', () => {
   it('names / for a top-level path rather than the working directory', () => {
     // These were both computed locally as `at <= 0 ? '.'`, so a root-level audit

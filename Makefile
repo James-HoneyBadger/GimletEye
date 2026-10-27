@@ -1,4 +1,4 @@
-.PHONY: help build cli ui package-check test typecheck check quiet-period surface gates \
+.PHONY: help build cli ui package-check test typecheck check mutation quiet-period surface gates \
         desktop run smoke doctor clean
 
 NPM ?= npm
@@ -25,6 +25,9 @@ test: ## Run the test suites
 
 typecheck: ## Type-check every TypeScript package
 	$(NPM) run typecheck
+
+mutation: ## Break the code on purpose and check the tests notice
+	./scripts/mutation-check.sh
 
 check: typecheck test ## Everything CI runs before the gates
 	./scripts/check-public-surface.sh

@@ -25,7 +25,12 @@ Requirements: Node 20+. `gpg` is only needed for the OpenPGP interop tools.
 ```bash
 make check        # tsc, vitest, and the documentation gates
 make smoke        # the CLI against real files
+make mutation     # break the code on purpose; every mutation must be caught
 ```
+
+`make mutation` is slower and is not a CI job, but it is how most of the gaps in
+this project were found: a green suite says the tests pass, not that they can
+fail. Add a row when you fix a bug the tests did not catch.
 
 `make check` is what CI runs. A pull request that fails it will not be reviewed
 until it passes, because a green baseline is what makes review cheap.

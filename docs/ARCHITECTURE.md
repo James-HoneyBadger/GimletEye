@@ -260,6 +260,7 @@ A tool that touches key material or a file format goes beside the primitives in
 | Parser corpus | The inputs the Rust fuzz targets saved, replayed | `packages/engine/test/corpus.test.ts` |
 | End to end | The CLI against real files | `scripts/smoke.sh` |
 | Claims | Every README example, run as written | `scripts/check-readme-claims.sh` |
+| The tests themselves | The code is broken on purpose; each break must fail a test | `scripts/mutation-check.sh` (`make mutation`) |
 
 The seed corpus those fuzz targets saved now runs on every test pass, which keeps
 their regression value even though the nightly soak did not survive the move. That

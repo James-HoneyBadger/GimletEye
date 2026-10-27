@@ -377,12 +377,25 @@ export function passphraseKey(header: PassphraseHeader, passphrase: string | Uin
   );
 }
 
+/**
+ * The DER prefix of an X25519 PKCS#8 private key, up to the 32 raw bytes.
+ *
+ * Node exposes no raw-key export for X25519, so the raw key is the tail of the
+ * DER. Slicing the tail without checking the prefix would keep working if Node
+ * ever changed the encoding and quietly hand out the wrong 32 bytes — which is
+ * a private key nobody can decrypt with, or worse, part of a different one.
+ */
+const X25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b656e04220420', 'hex');
+
 export function generateRecipientKey(): { secret: Buffer; public: Buffer } {
   const { privateKey, publicKey } = generateKeyPairSync('x25519');
-  const secret = Buffer.from(
-    (privateKey.export({ format: 'der', type: 'pkcs8' }) as Buffer).subarray(-32),
-  );
-  return { secret, public: rawPublic(publicKey) };
+  const der = privateKey.export({ format: 'der', type: 'pkcs8' }) as Buffer;
+  if (der.length !== X25519_PKCS8_PREFIX.length + 32 || !der.subarray(0, X25519_PKCS8_PREFIX.length).equals(X25519_PKCS8_PREFIX)) {
+    throw new ContainerError(
+      `unexpected X25519 private key encoding (${der.length} bytes of PKCS#8); refusing to guess at the raw key`,
+    );
+  }
+  return { secret: Buffer.from(der.subarray(X25519_PKCS8_PREFIX.length)), public: rawPublic(publicKey) };
 }
 
 /** How much plaintext one chunk carries; a reader never needs more than this. */

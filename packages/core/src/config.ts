@@ -79,7 +79,7 @@ export function parseConfig(raw: string): Config {
     audit: {
       enabled: booleanOr(audit['enabled'], base.audit.enabled),
       ...(stringOr(audit['path']) === undefined ? {} : { path: stringOr(audit['path'])! }),
-      max_entries: numberOr(audit['max_entries'], base.audit.max_entries),
+      max_entries: auditCap(audit['max_entries'], base.audit.max_entries),
     },
     modules,
   };
@@ -101,6 +101,21 @@ export function configToToml(config: Config): string {
 export async function saveConfig(config: Config, path: string, host: Host): Promise<void> {
   await host.createDir(dirname(path));
   await host.writeTextFile(path, configToToml(config));
+}
+
+/**
+ * The audit cap, refused rather than guessed.
+ *
+ * Zero used to mean "no cap", which is a silent promise of unbounded growth in a
+ * file whose whole job is to stay bounded; a negative value meant the same. A
+ * user who wants no trail has `audit.enabled = false`, which says so.
+ */
+function auditCap(value: unknown, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw configError(`audit.max_entries must be a whole number of at least 1 (got ${JSON.stringify(value)})`);
+  }
+  return value;
 }
 
 /** Read a module namespace without knowing what lives in it. */

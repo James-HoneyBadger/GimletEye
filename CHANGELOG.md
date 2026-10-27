@@ -6,7 +6,22 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -18,6 +33,22 @@ All notable changes to Gimlet Eye. Format follows
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - **A strip through a symlink scrubbed nothing and reported success.** With
   `in_place=true`, the rewrite landed on the link's own path: the link was
@@ -84,6 +115,15 @@ All notable changes to Gimlet Eye. Format follows
   `apps/desktop` now declares `@types/node` and lists it in `types`, because
   `vite` 6 stopped referencing node types implicitly and its tests import
   `node:fs`. `npm audit` is clean; no runtime dependency changed.
+
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
 
 ### Changed
 
@@ -158,7 +198,22 @@ All notable changes to Gimlet Eye. Format follows
   The quiet countdown to 1.0 restarts, because a release that renames the crate
   names, the binary, and the environment variables is not a quiet one.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -170,6 +225,22 @@ All notable changes to Gimlet Eye. Format follows
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - **The desktop window could not reach its own engine.** On Linux the webview
   loaded Tauri's embedded assets on `tauri://localhost` and then fetched
@@ -300,6 +371,15 @@ All notable changes to Gimlet Eye. Format follows
   key material survives, `--dry-run` changes nothing, refusals are safe), strip
   idempotency through the tool, and all seven HTTP routes in `smoke.sh`.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
 
 - The desktop bundle ships the built UI as a resource, and the desktop CI job
@@ -416,6 +496,15 @@ countdown to 1.0 now has one tick behind it.
   shell injects it into the window. `[api] require_token = false` turns it off and
   says so at startup.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
 
 - **The nightly fuzz soak accumulates.** `fuzz.yml` caches the working corpus per
@@ -440,7 +529,22 @@ countdown to 1.0 now has one tick behind it.
   of `load.1m` / `5m` / `15m`, so its keys satisfy the `Report.data` convention.
   This is the kind of rename the 1.0 freeze will make expensive; better now.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -452,6 +556,22 @@ countdown to 1.0 now has one tick behind it.
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - **A pack is told when the run is a dry run.** The host sent `run_tool` with
   the tool id and its arguments and nothing else, so a pack that would write had
@@ -541,6 +661,15 @@ this release are version 2 (chunked); every earlier container still opens.
   a compatibility fixture. Specified in [docs/CONTAINER.md](docs/CONTAINER.md),
   decided in [ADR 0005](docs/adr/0005-chunked-container-v2.md).
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
 
 - `crypto.encrypt`, `crypto.decrypt`, and `crypto.inspect` report
@@ -566,7 +695,22 @@ release instead.
   installers for the desktop app; and a `SHA256SUMS` file. The publish job waits
   for every build, so a partial release is impossible.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -578,6 +722,22 @@ release instead.
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - The desktop bundle shipped a single 128 px PNG as its icon, so a Windows build
   could not run at all: `tauri-build` needs `icons/icon.ico` for the resource
@@ -688,6 +848,15 @@ Highlights:
   rather than only on errors.
 - **`docs/ENHANCEMENTS.md`.** Prioritized backlog with effort and risk.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
 
 - **Workbench UX.** Search now covers capabilities and argument names, as its
@@ -710,7 +879,22 @@ Highlights:
   single source of styling.
 - Dead store helpers left over from the previous interface.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -722,6 +906,22 @@ Highlights:
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - `Segment.removable` was replaced by `Segment.category`; `metadata_bytes` now
   means "removable under the default policy", and reports add
@@ -811,7 +1011,22 @@ First release: one contract, one registry, and three domain modules
   `deny.toml`, source-linking script, smoke test, architecture/plugin/migration
   documentation and ADRs.
 
+### Added
+
+- **`make mutation`.** A table of deliberate breakages — the nonce index ignored,
+  the keystore mode loosened, the grid rounding reverted, the distinct-path guard
+  removed, the audit trail rewritten instead of appended — each of which must
+  make a test fail, plus two no-op controls that must not. Sixteen breakages are
+  caught; the controls prove a pass is not just a broken runner. Eight real test
+  gaps in this project were found this way, after the suite was green.
+
 ### Changed
+
+- **A TUI session test.** The pure parts were covered; the loop that owns raw
+  mode, redraws, and the call into `Runtime.run` was only ever exercised by hand
+  through a pty. It now runs against a scripted terminal: filtering, the argument
+  prompt, a failure held in the result view, terminal restoration on exit, and a
+  resize between keystrokes.
 
 - **Encryption and decryption stream, so a file no longer has to fit in memory.**
   `crypto.encrypt` and `crypto.decrypt` read the input a window at a time and
@@ -823,6 +1038,22 @@ First release: one contract, one registry, and three domain modules
   replaces keeps its permission bits.
 
 ### Fixed
+
+- **`audit.max_entries = 0` silently meant "no cap".** So did a negative number.
+  A cap that cannot be honoured is a promise of unbounded growth in the one file
+  whose job is to stay bounded, so both are now a configuration error with the
+  value in the message; `audit.enabled = false` is how you ask for no trail.
+
+- **The desktop accepted any shape of argument.** `main.ts` checked that `args`
+  was an object and nothing about its contents, so a nested object reached a tool
+  and was coerced to a string far from the boundary. Values must now be a string,
+  finite number, boolean, or null, with a bounded count and key length.
+
+- **`generateRecipientKey` took the last 32 bytes of a PKCS#8 blob on trust.** If
+  Node ever changed that encoding it would hand out the wrong key silently. The
+  DER prefix is asserted first, and a mismatch is a clear error rather than a key
+  that cannot decrypt.
+
 
 - `df` rows with wrapped device names are rejoined instead of dropped.
 - Custom `Display` implementations now honour format width, fixing CLI column

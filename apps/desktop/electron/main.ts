@@ -21,6 +21,7 @@ import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
 
 import type { Args } from '@gimlet-eye/core';
 import { createApi } from './api.js';
+import { validateRunArgs } from './validate.js';
 
 let window: BrowserWindow | null = null;
 let runtimePromise: Promise<Runtime> | undefined;
@@ -84,11 +85,8 @@ function register(): void {
   ipcMain.handle('gimlet:run', async (event, tool: unknown, args: unknown, dryRun: unknown) => {
     if (!senderIsWindow(event)) throw new Error('unexpected sender');
     if (typeof tool !== 'string' || tool === '') throw new Error('tool must be a non-empty string');
-    if (typeof args !== 'object' || args === null || Array.isArray(args)) {
-      throw new Error('args must be an object');
-    }
     if (typeof dryRun !== 'boolean') throw new Error('dryRun must be a boolean');
-    return api.run(tool, args as Args, dryRun);
+    return api.run(tool, validateRunArgs(args), dryRun);
   });
 
   ipcMain.handle('gimlet:audit', async (event, limit: unknown) => {
