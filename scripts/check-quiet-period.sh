@@ -18,8 +18,8 @@ cd "$root"
 # structure another program parses belongs here.
 surfaces=(
     crates/core/src/report.rs
-    crates/core/src/plugin/protocol.rs
     crates/core/src/config.rs
+    crates/sidecar/src/main.rs
     crates/crypto/src/container.rs
 )
 

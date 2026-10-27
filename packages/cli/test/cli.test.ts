@@ -4,9 +4,10 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { nodeHost } from '@gimlet-eye/core';
+import { nodeHost } from '@gimlet-eye/core/host-node';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
+import { BATCH_FLAGS, COMMANDS, GLOBAL_FLAGS } from '../src/surface.js';
 
 describe('command parsing', () => {
   it('treats a bare word as a tool id', () => {
@@ -174,5 +175,31 @@ describe('batch execution', () => {
         'text',
       ),
     ).rejects.toThrow(/conflicts with --input-arg/);
+  });
+});
+
+describe('declared surface', () => {
+  it('parses every command it documents', () => {
+    for (const entry of COMMANDS) {
+      const words = entry.command.split(' ');
+      const argv = [...words];
+      if (entry.command.startsWith('run')) argv.push('crypto.sha256');
+      if (entry.command.startsWith('batch')) argv.push('crypto.sha256', '/tmp');
+      if (entry.command.startsWith('tools show')) argv.push('crypto.sha256');
+      expect(() => parseArgs(argv)).not.toThrow();
+    }
+  });
+
+  it('parses every flag it documents', () => {
+    const flags = [...GLOBAL_FLAGS, ...BATCH_FLAGS]
+      .flatMap((entry) => entry.command.split(', '))
+      .filter((flag) => flag.startsWith('-') && flag !== '-h' && flag !== '-V');
+
+    for (const flag of flags) {
+      // A value flag gets a value it would accept, so the test is about the
+      // parser knowing the flag rather than about validation.
+      const value = flag === '--format' ? 'json' : flag === '-c' || flag === '--concurrency' ? '4' : 'x';
+      expect(() => parseArgs([flag, value, 'doctor'])).not.toThrow();
+    }
   });
 });

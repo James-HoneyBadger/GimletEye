@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
-# Debhelper builds the binary with cargo, then installs it by hand: this is a
-# Rust project, so the usual "auto_configure/auto_build" machinery has nothing
-# to do.
+# The engine is a cargo build; the CLI is a TypeScript build that ships as plain
+# JavaScript with one runtime dependency. Debhelper installs both by hand because
+# neither is a Python/setuptools/C project the helper scripts know about.
 
 export CARGO_INCREMENTAL=0
 export RUSTFLAGS=--remap-path-prefix=$(CURDIR)=.
@@ -10,7 +10,9 @@ export RUSTFLAGS=--remap-path-prefix=$(CURDIR)=.
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release --locked -p gimlet-eye-cli
+	cargo build --release --locked -p gimlet-eye-sidecar
+	npm ci
+	npm run build
 
 override_dh_auto_test:
 	# The suite is run in CI on every commit; rebuilding it here would double the
@@ -18,12 +20,24 @@ override_dh_auto_test:
 	true
 
 override_dh_auto_install:
-	install -Dm755 target/release/gimlet debian/gimlet/usr/bin/gimlet
+	# The engine first: the CLI looks for it beside itself, so both live in
+	# /usr/lib/gimlet and /usr/bin/gimlet is a symlink to the launcher there.
+	install -Dm755 target/release/gimlet-sidecar debian/gimlet-engine/usr/lib/gimlet/gimlet-sidecar
+	install -d debian/gimlet/usr/lib/gimlet
+	cp -r packages/core/dist debian/gimlet/usr/lib/gimlet/core
+	cp -r packages/cli/dist debian/gimlet/usr/lib/gimlet/cli
+	cp -r packages/cli/bin debian/gimlet/usr/lib/gimlet/bin
+	install -d debian/gimlet/usr/lib/gimlet/node_modules
+	cp -r node_modules/smol-toml debian/gimlet/usr/lib/gimlet/node_modules/
+	install -d debian/gimlet/usr/lib/gimlet/node_modules/@gimlet-eye
+	ln -s ../../core debian/gimlet/usr/lib/gimlet/node_modules/@gimlet-eye/core
+	install -d debian/gimlet/usr/bin
+	ln -s ../lib/gimlet/bin/gimlet debian/gimlet/usr/bin/gimlet
 	install -Dm644 README.md debian/gimlet/usr/share/doc/gimlet/README.md
 	install -Dm644 CHANGELOG.md debian/gimlet/usr/share/doc/gimlet/CHANGELOG.md
 	install -Dm644 LICENSE debian/gimlet/usr/share/doc/gimlet/copyright
 	install -Dm644 docs/CONTAINER.md debian/gimlet/usr/share/doc/gimlet/CONTAINER.md
-	install -Dm644 docs/PLUGIN_SDK.md debian/gimlet/usr/share/doc/gimlet/PLUGIN_SDK.md
+	install -Dm644 docs/COMPATIBILITY.md debian/gimlet/usr/share/doc/gimlet/COMPATIBILITY.md
 
 # No separate -dbgsym package: the release archives already ship an unstripped
 # binary, and a debug package doubles the build for a file nobody installs from
@@ -33,3 +47,4 @@ override_dh_strip:
 
 override_dh_auto_clean:
 	cargo clean || true
+	rm -rf packages/core/dist packages/cli/dist apps/desktop/dist

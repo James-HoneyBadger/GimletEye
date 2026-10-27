@@ -167,8 +167,8 @@ echo
 echo "Gate 3 — the freeze"
 run_check 3 "no versioned surface moved since the last release" ./scripts/check-quiet-period.sh
 run_check 3 "every command, flag, and route documented as public" ./scripts/check-public-surface.sh
-for doc in docs/COMPATIBILITY.md docs/CONTAINER.md docs/PLUGIN_SDK.md docs/USER_GUIDE.md \
-    docs/ADMIN_GUIDE.md docs/PACK_GALLERY.md; do
+for doc in docs/COMPATIBILITY.md docs/CONTAINER.md docs/USER_GUIDE.md \
+    docs/ADMIN_GUIDE.md docs/ARCHITECTURE.md; do
     if [ -s "$doc" ]; then
         row 3 ok "$(printf '%-42s' "$doc")" "$(wc -l <"$doc" | tr -d ' ') lines"
     else
@@ -197,11 +197,11 @@ fi
 echo
 
 echo "Gate 5 — documentation"
-ci_row 5 "claims (the README, run as written)" "every README claim has evidence"
-if [ -d examples/packs/hostname ]; then
-    row 5 ok "pack gallery: a pack beyond Perl Den" "examples/packs/hostname"
+ci_row 5 "docs (claims, surface, reference)" "every README claim has evidence"
+if [ -f docs/TOOL_REFERENCE.md ]; then
+    row 5 ok "tool reference covers every tool" "docs/TOOL_REFERENCE.md"
 else
-    row 5 fail "pack gallery: a pack beyond Perl Den" "examples/packs/hostname is missing"
+    row 5 fail "tool reference covers every tool" "docs/TOOL_REFERENCE.md is missing"
 fi
 echo
 

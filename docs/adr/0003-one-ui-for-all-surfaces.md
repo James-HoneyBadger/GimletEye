@@ -19,7 +19,9 @@ All four render the same thing: a list of operations, a form, and a result.
 
 ## Decision
 
-One TypeScript UI in `packages/ui`, built by Vite, rendered by:
+One TypeScript UI in `packages/ui`, built by Vite, rendered by: (the HTTP
+and browser surfaces were removed by [0008](0008-typescript-surfaces-rust-engine.md);
+the shared UI is now `apps/desktop/src`)
 
 - **Tauri 2** for the desktop app (`apps/desktop`, thin shell),
 - **`gimlet serve --ui-dir`** for the browser,

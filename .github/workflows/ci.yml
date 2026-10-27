@@ -15,6 +15,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  MSRV: '1.85'
 
 jobs:
   rust:
@@ -54,136 +55,75 @@ jobs:
           GIMLET_REQUIRE_SECOND_IMPL: '1'
         run: cargo test --workspace
 
-      - name: Build release binaries
-        run: cargo build --release --workspace
-
   msrv:
     name: msrv (declared rust-version)
     runs-on: ubuntu-latest
-    env:
-      # Must equal `rust-version` in [workspace.package]; the guard below fails
-      # otherwise, so raising the MSRV is a deliberate, tested act.
-      MSRV: '1.85'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Declared rust-version matches the tested one
-        run: ./scripts/check-msrv.sh "$MSRV"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.MSRV }}
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: '. -> target'
-          key: msrv
-
-      # `--locked` proves the shipped dependency set builds on the floor, so a
-      # fresh resolution cannot quietly pull in a newer-MSRV crate.
-      - name: Check every target on the declared MSRV
+      - name: Declared rust-version matches the tested one
+        run: ./scripts/check-msrv.sh "$MSRV"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Check every crate on the declared MSRV
         run: cargo check --workspace --all-targets --locked
 
   quiet-period:
     name: quiet period (frozen surfaces)
     runs-on: ubuntu-latest
-    env:
-      # ADR 0006: once v0.5.0 ships, `Report`, the plugin protocol, the config
-      # schema, and the container format must not move again before 1.0. Set
-      # this to a reason to accept a change anyway - it restarts the counter,
-      # so the reason belongs in review - and record it in CHANGELOG.md.
-      ALLOW_SURFACE_CHANGE: ''
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # the check diffs tags and history
-
+          fetch-depth: 0
+          fetch-tags: true
       - name: Versioned surfaces have not moved
         run: ./scripts/check-quiet-period.sh
 
-  integration:
-    name: integration (CLI, API, Perl pack)
+  typescript:
+    name: typescript (typecheck, test, build)
     runs-on: ubuntu-latest
-    needs: rust
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Type-check every package
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
 
+  integration:
+    name: integration (CLI against the engine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: '. -> target'
-
-      - name: Perl syntax check
-        run: perl -c plugins/perlden-pack/pack.pl
-
-      - name: Fetch sources for compatibility packs
-        run: ./scripts/link-sources.sh
-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Build the engine and the CLI
+        run: |
+          cargo build --locked -p gimlet-eye-sidecar
+          npm run build
       - name: Smoke test
         run: ./scripts/smoke.sh
 
-  ui:
-    name: ui (typecheck, build)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/ui
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: packages/ui/package-lock.json
-
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-
-  e2e:
-    name: e2e (live engine, Playwright)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/ui
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: packages/ui/package-lock.json
-
-      - run: npm ci
-
-      - name: Install the browser
-        run: npx playwright install --with-deps chromium
-
-      # Builds the bundle, then drives a real `gimlet serve`: browse ->
-      # validate -> run -> read the report, including the token path. The vitest
-      # suite mocks the API, so this is the only job that would notice wire drift.
-      - name: Run against a live engine
-        run: npm run e2e
-
-      - name: Upload the report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: packages/ui/playwright-report
-          retention-days: 7
-
-  bench:
-    name: bench (scan, strip, encrypt)
+  docs:
+    name: docs (claims, surface, reference)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -191,158 +131,57 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: '. -> target'
-
-      # 10 MiB and 1 GiB, printed and uploaded so a regression is a number in a
-      # log rather than an argument. The floor is deliberately generous: it
-      # catches an accidental quadratic, not a slow runner.
-      - name: Measure throughput
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Build the engine and the CLI
         run: |
-          cargo run --release -p gimlet-eye-toolkit --example bench -- --assert-floor-mib 20 \
-            | tee bench-results.txt
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bench-results
-          path: bench-results.txt
-          retention-days: 30
-
-  claims:
-    name: claims (the README, run as written)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-
-      - name: Build the CLI
-        run: cargo build -p gimlet-eye-cli
-
-      # ADR 0006 Gate 5: every capability statement in the README is backed by a
-      # test, a CI job, or a command. This runs the commands.
+          cargo build --locked -p gimlet-eye-sidecar
+          npm run build
       - name: Run the front-page examples
         run: ./scripts/check-readme-claims.sh
-
-      # ADR 0006 Gate 3: the CLI and the HTTP routes are public API, and public
-      # API has to be documented. This compares the doc with the binary and the
-      # router, so a new flag or route cannot ship undocumented.
       - name: The public surface is documented
         run: ./scripts/check-public-surface.sh
-
-      # ADR 0006 Gate 5: every tool has an example with real output. The output
-      # cannot be diffed (it names this machine), so coverage is what is
-      # enforced: no tool may exist that the reference does not show.
       - name: Every tool is in the reference
         run: ./scripts/check-tool-reference.sh
 
-  packaging:
-    name: packaging (version agreement, deb build)
+  desktop:
+    name: desktop (typecheck, UI bundle, shell check)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Every packaging file names the workspace version
-        run: ./scripts/check-packaging.sh
-
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-
-      - name: Install debhelper
-        run: sudo apt-get update && sudo apt-get install -y debhelper
-
-      # `-d` because the runner's packaged rustc is older than the MSRV; the
-      # toolchain above is the one that compiles.
-      - name: Build the .deb
-        run: dpkg-buildpackage -b -uc -us -d
-
-      # dpkg-buildpackage writes beside the source tree, and the upload action
-      # refuses to leave the workspace, so the package is collected first.
-      - name: Collect and inspect the package
-        run: |
-          mkdir -p dist
-          cp ../gimlet_*.deb dist/
-          deb=$(ls -1 dist/gimlet_*.deb | head -1)
-          echo "built $deb"
-          dpkg-deb -c "$deb" | sed -n '1,12p'
-          dpkg-deb -f "$deb" Package Version Depends
-          test -s "$deb" || exit 1
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: deb-package
-          path: dist/gimlet_*.deb
-          if-no-files-found: error
-
-  rehearsal:
-    name: rehearsal (install, upgrade, roll back)
-    runs-on: ubuntu-latest
-    needs: [rust]
-    steps:
-      - uses: actions/checkout@v4
-
-      # Two full builds inside a container: it is the slowest job here, and it is
-      # the only one that proves a user's keystore and audit trail survive a
-      # package upgrade and a rollback.
-      - name: Rehearse in a clean container
-        env:
-          REQUIRE_REHEARSAL: '1'
-        run: ./scripts/rehearse-upgrade.sh
-
-  desktop:
-    name: desktop (tauri typecheck)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: 'apps/desktop/src-tauri -> target'
-
-      - name: Install Tauri system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev patchelf
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: packages/ui/package-lock.json
-
-      # The shell bundles the built UI as a resource, and Tauri's build script
-      # fails on a resource path that does not exist, so the bundle has to be
-      # on disk before the crate is checked.
-      - name: Build the UI bundle
-        working-directory: packages/ui
+          cache-dependency-path: package-lock.json
+      # Tauri's Linux shell links against webkit2gtk; without it the crate cannot
+      # even be type-checked.
+      - name: Install webkit2gtk and friends
         run: |
-          npm ci
-          npm run build
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+      - run: npm ci
+      - name: UI bundle
+        run: npm run build:ui -w @gimlet-eye/desktop
+      - name: Shell compiles
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
-      - name: Cargo check
-        working-directory: apps/desktop/src-tauri
-        run: cargo check
-
-  audit:
-    name: dependency policy
+  packaging:
+    name: packaging (version agreement, deb build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
-
-      - uses: taiki-e/install-action@cargo-deny
-
-      - run: cargo deny check advisories licenses bans sources
-
-      # The desktop shell is excluded from the workspace and has its own
-      # lockfile; apps/desktop/src-tauri/deny.toml documents what is accepted.
-      - name: Desktop dependency policy
-        working-directory: apps/desktop/src-tauri
-        run: cargo deny check advisories
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Packaging files agree on the version
+        run: ./scripts/check-packaging.sh

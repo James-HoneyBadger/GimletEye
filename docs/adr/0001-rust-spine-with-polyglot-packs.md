@@ -56,7 +56,8 @@ stdio.
 
 - One schema (`ToolManifest`, `Report`) is shared by both paths, so a port is a
   new implementation of an existing contract, not a new API.
-- Protocol conformance checklist in [PLUGIN_SDK.md](../PLUGIN_SDK.md).
+- Protocol conformance checklist in `PLUGIN_SDK.md` (removed; the pack
+  protocol is superseded by [0008](0008-typescript-surfaces-rust-engine.md)).
 - `gimlet plugins doctor` plus a live CI slice catch framing regressions.
 
 ## Alternatives rejected

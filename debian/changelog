@@ -1,9 +1,8 @@
 gimlet-eye-toolkit (0.7.0) unstable; urgency=medium
 
-  * Local API requires a per-installation token, bound to loopback.
+  * TypeScript surfaces over one Rust engine; the HTTP API is gone.
+  * The command line and the desktop app share their implementation.
   * Sealed keystore, X25519 recipients in container v3, OpenPGP interop.
-  * Pack conformance runner, pack trust pinning, golden scrub corpus.
-  * Live-engine UI tests, recorded benchmarks, reproducible builds, packaging.
-  * User guide, admin guide, and pack gallery.
+  * Golden scrub corpus, reproducible builds, packaging, user and admin guides.
 
  -- Gimlet Eye maintainers <maintainers@example.invalid>  Sun, 26 Oct 2026 00:00:00 +0000

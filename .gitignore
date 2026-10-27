@@ -10,11 +10,8 @@ dist/
 *.tsbuildinfo
 
 # Playwright: traces, videos, and the HTML report from a failed run
-packages/ui/test-results/
-packages/ui/playwright-report/
-
-# Local checkout of the source projects (see scripts/link-sources.sh)
-/external/
+apps/desktop/test-results/
+apps/desktop/playwright-report/
 
 # Fuzz working state: crash reproducers and the corpus libFuzzer grows during a
 # run. The committed starting points live in crates/scrub/fuzz/seeds/.
@@ -33,5 +30,6 @@ crates/scrub/fuzz/corpus/
 !.vscode/extensions.json
 *.swp
 
-# Tauri generated schemas
+# Tauri generated schemas and the staged engine binary
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/

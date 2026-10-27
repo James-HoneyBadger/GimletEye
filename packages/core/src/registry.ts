@@ -16,7 +16,17 @@ export class Registry {
   register(manifest: ToolManifest): void {
     if (manifest.id === '') throw internal('tool registered with an empty id');
     if (this.byId.has(manifest.id)) throw configError(`duplicate tool id '${manifest.id}'`);
-    this.byId.set(manifest.id, manifest);
+    // Two sources produce manifests — TypeScript tools and the engine — and the
+    // engine omits empty lists. Fill them once here so a consumer never has to
+    // distinguish "absent" from "empty".
+    this.byId.set(manifest.id, {
+      ...manifest,
+      capabilities: manifest.capabilities ?? [],
+      args: manifest.args ?? [],
+      tags: manifest.tags ?? [],
+      platforms: manifest.platforms ?? [],
+      mutates: manifest.mutates ?? false,
+    });
   }
 
   registerAll(manifests: readonly ToolManifest[]): void {

@@ -13,7 +13,9 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::time::Instant;
 
-use gimlet_eye_core::{AppPaths, Args, CapabilitySet, Config, GimletEyeError, Registry, Report, ToolContext};
+use gimlet_eye_core::{
+    AppPaths, Args, CapabilitySet, Config, GimletEyeError, Registry, Report, ToolContext,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -70,7 +72,10 @@ fn main() {
             }),
         };
 
-        if writeln!(stdout, "{response}").and_then(|()| stdout.flush()).is_err() {
+        if writeln!(stdout, "{response}")
+            .and_then(|()| stdout.flush())
+            .is_err()
+        {
             // The surface went away; nothing is left to answer.
             break;
         }

@@ -21,9 +21,8 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Recipient containers (v3) | The recipient list and ephemeral public key are visible in the header; the payload key is wrapped per recipient and the plaintext is not |
 | `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` and are off in a `--no-default-features` build |
 | Audit entries | `$GIMLET_HOME/audit.jsonl` — tool, status, duration, argument **names** |
-| API token | `$GIMLET_HOME/api-token`, mode 0600, printed once by `serve` so it can be pasted |
-| Network | Only tools that declare `network` may use it |
-| Plugins | Separate processes; see below |
+| Network | Nothing opens a socket; no tool declares `network` |
+| The engine | A separate process the surfaces spawn; it runs only the tools this build compiled |
 
 There is no telemetry, no auto-update check, and no remote logging.
 
@@ -31,7 +30,7 @@ There is no telemetry, no auto-update check, and no remote logging.
 
 **In scope**
 
-- A malicious or buggy plugin pack.
+- A crafted container header, or a crafted image.
 - A crafted image or document causing a parser to mis-strip data (privacy leak).
 - A tool writing to an unintended path.
 - Secrets leaking into logs, audit records, or shell-visible output.
@@ -66,30 +65,30 @@ what a container can say, only how much work a stranger can ask for.
 
 ## Controls
 
-1. **Capabilities.** Tools declare `fs:read`, `fs:write`, `process:exec`,
-   `network`, `secrets`, `system`. The pack manifest is the contract: the host
-   refuses to dispatch any tool from a pack whose declared capabilities were not
-   granted, and refuses to load a pack whose tools request more than its
-   manifest declares. Built-ins check their own requirements at entry.
-2. **Process isolation for packs.** Packs run as separate processes with
-   timeouts (`plugins.timeout_ms`). A hung pack is killed; a crashed pack is
-   reported, not propagated.
-3. **argv-only execution.** Pack manifests contain `command` arrays, never shell
-   strings, so a manifest cannot inject shell syntax.
+1. **No network, no listener.** Nothing in the toolkit opens a socket or binds a
+   port. The desktop app is reachable only through its own window; the CLI is a
+   process that exits. There is no local API to authenticate because there is no
+   local API.
+2. **One engine, compiled in.** The crypto and metadata tools run in
+   `gimlet-sidecar`, which the build produces. There is no discovery of
+   user-supplied executables and no manifest that names a command, so the
+   "arbitrary code with declared capabilities" problem is designed out rather
+   than audited around.
+3. **argv-only execution.** The only external processes are `df` (disk-usage)
+   and `gpg` (the OpenPGP interop tools), invoked with argument vectors and never
+   through a shell.
 4. **No secrets in audit.** Enforced by a unit test in `crates/core/src/audit.rs`.
 5. **Verified stripping.** `privacy.metadata-strip` re-scans its output and
    fails if metadata remains, including under `--dry-run`.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel
    data is never re-encoded (which would both degrade quality and risk new
    metadata).
-7. **Authenticated, loopback-only API.** `gimlet serve` binds `127.0.0.1`,
-   requires `Authorization: Bearer <token>` on every `/api/` route, and refuses a
-   non-loopback bind unless `--allow-remote` is passed. The token is generated on
-   first run into `$GIMLET_HOME/api-token` (0600), compared in constant time,
-   and never written to a report, a log line, or the audit trail. CORS answers
-   only the desktop window, the local dev server, and loopback origins, so a page
-   the user visits can neither read nor drive the API.
-8. **Path traversal defence** in static file serving.
+7. **No secrets in reports.** Passphrases are read from an environment variable
+   or prompted for; argument *values* never reach a report, a log line, or the
+   audit trail, only their names.
+8. **Bounded work from untrusted input.** KDF parameters in a hostile header are
+   validated before key derivation, so a 75-byte file cannot demand minutes of
+   CPU.
 9. **Fuzzed parsers.** JPEG, PNG, WebP, and EXIF/TIFF have libFuzzer targets
    seeded from a committed corpus (`crates/scrub/fuzz`), soaked nightly in CI, and
    a deterministic mutation sweep runs on every commit. A strip that succeeds must

@@ -29,12 +29,11 @@ gimlet 0.7.0
 home        /home/you/.config/gimlet
 config      /home/you/.config/gimlet/config.toml (defaults)
 state dirs  ok
-tools       39 total
+tools       19 total
   crypto       14
   privacy      3
-  sysadmin     22
-packs       1 loaded
-  perlden          20 tool(s)
+  sysadmin     2
+engine      v0.7.0
 audit       /home/you/.config/gimlet/audit.jsonl
 ```
 
@@ -137,23 +136,20 @@ Profiles: `privacy` removes identity, text, and time; `sharing` keeps time;
 `.clean` copy by default, keeps the original's permissions, and writes through a
 temporary file so an interrupted run cannot truncate a photo.
 
-## The workbench
+## The desktop app
 
 ```bash
-gimlet serve --ui-dir packages/ui/dist
+./run.sh
 ```
 
-It prints a URL that carries its own token in the fragment:
+The window holds the same catalogue, the same forms (generated from each tool's
+manifest), and the same reports as the command line — because it is the same
+implementation, called directly. There is no server, no port, and no token: the
+app talks to the engine through its own process, and nothing else can reach it.
 
-```text
-Gimlet Eye 0.7.0 → http://127.0.0.1:7878
-  API   http://127.0.0.1:7878/api/v1/health
-  token … (stored in /home/you/.config/gimlet/api-token, mode 0600)
-```
-
-The token is required on every `/api/` request. The browser reads it from the
-fragment and strips it from the address bar; the desktop window has it injected.
-`[api] require_token = false` disables it and says so at startup.
+Every report carries the equivalent `gimlet run …` command, so a run in the
+window can be repeated in a script. The clock button lists recent runs from the
+local audit trail.
 
 ## Scripting
 
@@ -172,6 +168,6 @@ every outcome.
 | Symptom | Cause |
 |---|---|
 | `unsupported: … runs on linux, this is macos` | the tool declared `platforms`; it reads `/proc` or `df` |
-| `capability denied: process:exec` | the pack needs a capability `[plugins] allow` does not grant |
-| `401` from the API | the request has no `Authorization: Bearer …` header |
-| `unsupported: unrecognised container` | JPEG, PNG, and WebP are native; others need a pack |
+| `engine not found at …` | the CLI cannot find `gimlet-sidecar`; keep it beside the CLI or set `GIMLET_SIDECAR` |
+| `the engine speaks protocol N` | the CLI and the engine came from different builds; rebuild both |
+| `unsupported: unrecognised container` | JPEG, PNG, and WebP are supported; another format is refused rather than guessed |

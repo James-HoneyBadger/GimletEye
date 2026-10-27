@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Fail when a command, flag, or route exists but is not documented as public.
+# Fail when a command or flag exists but is not documented as public.
 #
-# ADR 0006 Gate 3 asks for the CLI and the HTTP routes to be *listed* as public
-# API. A list written once and maintained by hand drifts the moment someone adds
-# a flag, so the list is compared with reality here: the binary reports its own
-# commands and flags through `--help`, the router reports its own routes, and
-# anything missing from docs/COMPATIBILITY.md fails.
+# ADR 0006 Gate 3 asks for the command surface to be *listed* as public API. A
+# list written once and maintained by hand drifts the moment someone adds a flag,
+# so the list is compared with reality here: the CLI declares its own surface in
+# `packages/cli/src/surface.ts` (which `--help` renders), and anything missing
+# from docs/COMPATIBILITY.md fails.
 #
 # The reverse direction (documented but gone) is not checked: a surface may be
-# documented before it ships, and a removal is allowed to keep its alias.
+# documented before it ships.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,80 +20,29 @@ if [ ! -f "$doc" ]; then
     exit 1
 fi
 
-binary="${GIMLET_BIN:-}"
-if [ -z "$binary" ]; then
-    for candidate in target/release/gimlet target/debug/gimlet; do
-        if [ -x "$candidate" ]; then
-            binary="$candidate"
-            break
-        fi
-    done
+if [ ! -f packages/cli/dist/surface.js ]; then
+    npm run build --silent
 fi
-if [ -z "$binary" ]; then
-    cargo build --quiet -p gimlet-eye-cli --bin gimlet
-    binary="target/debug/gimlet"
-fi
+
+declared="$(node -e '
+import("./packages/cli/dist/surface.js").then((m) => {
+  const entries = [...m.COMMANDS, ...m.GLOBAL_FLAGS, ...m.BATCH_FLAGS];
+  for (const entry of entries) {
+    for (const name of entry.command.split(", ")) console.log(name);
+  }
+});
+')"
 
 missing=()
-
-# `--help` prints the subcommands under "Commands:" and the flags under
-# "Options:", one or two per line; long flags are all this needs.
-commands_of() {
-    "$binary" "$@" --help 2>&1 |
-        sed -n '/^Commands:/,/^$/p' |
-        awk 'NF && $1 != "Commands:" { print $1 }'
-}
-
-flags_of() {
-    "$binary" "$@" --help 2>&1 | grep -oE '\--[a-z][a-z0-9-]*' || true
-}
-
-global_flags="$(flags_of)"
-
-# One level of nesting is all the CLI has (`tools list`); a deeper level would be
-# a design change worth noticing here. A parent that has subcommands is not
-# itself runnable, so only the leaves are documented as commands.
-leaves=()
-for command in $(commands_of); do
-    subs="$(commands_of "$command")"
-    if [ -z "$subs" ]; then
-        leaves+=("$command")
-    else
-        for sub in $subs; do
-            leaves+=("$command $sub")
-        done
-    fi
-done
-
-for command in "${leaves[@]}"; do
-    if ! grep -qE "\`gimlet $command( |\`)" "$doc"; then
-        missing+=("command: gimlet $command")
-    fi
-done
-
-# Flags a subcommand accepts beyond the global set.
-for command in "${leaves[@]}"; do
-    for flag in $(flags_of $command); do
-        grep -qxF -- "$flag" <<<"$global_flags" && continue
-        if ! grep -qF -- "$flag" "$doc"; then
-            missing+=("flag: $flag (gimlet $command)")
-        fi
-    done
-done
-
-for flag in $global_flags; do
-    if ! grep -qF -- "$flag" "$doc"; then
-        missing+=("global flag: $flag")
-    fi
-done
-
-# Routes are declared in one place, so the router is the source of truth.
-while read -r method path; do
-    if ! grep -qF "$method $path" "$doc"; then
-        missing+=("route: $method $path")
-    fi
-done < <(grep -oE '\.route\("[^"]+", (get|post|put|patch|delete)\(' crates/server/src/routes.rs |
-    sed -E 's/\.route\("([^"]+)", ([a-z]+)\(/\U\2\E \1/')
+while read -r name; do
+    [ -z "$name" ] && continue
+    # A command is documented as `gimlet <command>`; a flag as `--flag`.
+    case "$name" in
+        --* | -*) needle="$name" ;;
+        *) needle="gimlet $name" ;;
+    esac
+    grep -qF -- "$needle" "$doc" || missing+=("$name")
+done <<<"$declared"
 
 if [ "${#missing[@]}" -gt 0 ]; then
     echo "undocumented public surface ($doc):" >&2
@@ -101,5 +50,5 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
-count="${#leaves[@]}"
-echo "ok   $count command(s), $(sort -u <<<"$global_flags" | wc -l | tr -d ' ') global flag(s), $(grep -cE '\.route\(' crates/server/src/routes.rs) route(s) documented"
+count="$(wc -l <<<"$declared" | tr -d ' ')"
+echo "ok   $count command(s) and flag(s) documented"

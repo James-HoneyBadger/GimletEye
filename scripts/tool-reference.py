@@ -126,12 +126,11 @@ def main() -> int:
 
     binary = args.binary
     if binary is None:
-        for candidate in ("target/release/gimlet", "target/debug/gimlet"):
-            if (ROOT / candidate).exists():
-                binary = str(ROOT / candidate)
-                break
+        candidate = ROOT / "packages/cli/bin/gimlet"
+        if candidate.exists():
+            binary = str(candidate)
     if binary is None:
-        sys.stderr.write("build the CLI first: cargo build -p gimlet-eye-cli\n")
+        sys.stderr.write("build the CLI first: npm run build\n")
         return 2
 
     work = pathlib.Path(tempfile.mkdtemp(prefix="gimlet-reference-"))
@@ -313,7 +312,10 @@ def main() -> int:
             badge = []
             if tool["mutates"]:
                 badge.append("writes")
-            badge.append("pack" if tool["origin"] != "builtin" else "native")
+            # Where a tool runs is the interesting fact now: the crypto and
+            # metadata tools go through the engine, the host tools do not.
+            category = tool.get("category")
+            badge.append("engine" if category in ("crypto", "privacy") else "native")
 
             lines.append(f"### `{tool['id']}`")
             lines.append("")

@@ -84,6 +84,9 @@ docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
     apt-get install -y -qq build-essential debhelper curl ca-certificates >/dev/null
     curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable >/dev/null
     . "$HOME/.cargo/env"
+    # The CLI is TypeScript: the package build needs Node 20 and npm.
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null
+    apt-get install -y -qq nodejs >/dev/null
     for kind in old new; do
         cd "/w/$kind"
         # Only the bumped tree needs its lock refreshed, and only for the
@@ -94,8 +97,10 @@ docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
         # The control file still names cargo and rustc, which is what a
         # distribution build with a new enough toolchain needs.
         dpkg-buildpackage -b -uc -us -d >/tmp/$kind.log 2>&1 || { tail -30 /tmp/$kind.log; exit 1; }
-        # `gimlet_*.deb` is the binary package; `gimlet-dbgsym_*` is not it.
-        mv /w/gimlet_*.deb "/w/$kind.deb"
+        # Two binary packages: the CLI and the engine it spawns. A `-dbgsym`
+        # build is not either of them.
+        mv /w/gimlet_[0-9]*.deb "/w/$kind.deb"
+        mv /w/gimlet-engine_[0-9]*.deb "/w/$kind-engine.deb"
         echo "built $kind"
     done
 ' || fail "the package build failed"
@@ -105,6 +110,7 @@ ls -l "$work"/*.deb
 # ── the rehearsal itself ──────────────────────────────────────────────────────
 step "install, use, upgrade, roll back"
 docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
+    -e OLD_ENGINE=/w/old-engine.deb -e NEW_ENGINE=/w/new-engine.deb \
     -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc '
     export DEBIAN_FRONTEND=noninteractive
     # python3 is for this harness (parsing a report), not for the package.
@@ -116,7 +122,8 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     install_as_tester() { su tester -s /bin/bash -c "$*"; }
 
     echo "--- install $VERSION"
-    dpkg -i "$OLD" >/dev/null
+    # The CLI depends on its engine, so both halves install together.
+    dpkg -i "$OLD_ENGINE" "$OLD" >/dev/null
     su tester -s /bin/bash -c "gimlet --version"
 
     echo "--- create state with $VERSION"
@@ -137,7 +144,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     echo "key id $key_id_before, keystore mode $mode_before, $entries_before audit entries"
 
     echo "--- upgrade to $NEXT"
-    dpkg -i "$NEW" >/dev/null
+    dpkg -i "$NEW_ENGINE" "$NEW" >/dev/null
     su tester -s /bin/bash -c "gimlet --version" | grep -q "$NEXT" || { echo "version did not change"; exit 1; }
 
     key_id_after=$(su tester -s /bin/bash -c "
@@ -163,7 +170,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     echo "$entries_after audit entries after the round trip"
 
     echo "--- upgrade again, and the state still opens"
-    dpkg -i "$NEW" >/dev/null
+    dpkg -i "$NEW_ENGINE" "$NEW" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
         gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"

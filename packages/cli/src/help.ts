@@ -1,7 +1,18 @@
 import { VERSION } from '@gimlet-eye/core';
 
+import { BATCH_FLAGS, COMMANDS, ENVIRONMENT, GLOBAL_FLAGS, type CommandEntry } from './surface.js';
+
 export function versionText(): string {
   return `gimlet ${VERSION}`;
+}
+
+function section(title: string, entries: readonly CommandEntry[]): string {
+  const width = entries.reduce((max, entry) => Math.max(max, `${entry.command} ${entry.args}`.trim().length), 0);
+  const lines = entries.map((entry) => {
+    const left = `${entry.command} ${entry.args}`.trim();
+    return `    ${left.padEnd(width)}  ${entry.summary}`;
+  });
+  return `${title}\n${lines.join('\n')}\n`;
 }
 
 export function helpText(): string {
@@ -10,41 +21,11 @@ export function helpText(): string {
 Any tool can be invoked directly: \`gimlet system-info\` is shorthand for
 \`gimlet run system-info\`.
 
-USAGE:
+USAGE
     gimlet [OPTIONS] <COMMAND>
 
-COMMANDS:
-    run <tool> [KEY=VALUE...]     Run one tool
-    batch <tool> <PATH...>        Run a tool over many files
-    tools list [--category C]     List the catalogue
-    tools show <id>               Print one tool's manifest as JSON
-    config show|init|path         Configuration
-    audit [--limit N]             Recent audit records
-    doctor                        Check the installation
-    help                          This text
-    version                       Print the version
-
-OPTIONS:
-        --home <DIR>      Override the toolkit home (config, audit, keystore)
-        --format <F>      text | json | markdown | csv
-        --json            Shorthand for --format json
-        --dry-run         Report intended changes without writing them
-        --strict          Treat warnings as failures
-    -v, --verbose         More logging on stderr (repeatable)
-    -h, --help            This text
-    -V, --version         Print the version
-
-BATCH OPTIONS:
-        --arg <KEY=VALUE>   Tool argument (repeatable)
-        --input-arg <NAME>  Argument that receives each path (default: input)
-    -c, --concurrency <N>   Files processed at once, 1-32 (default: 4)
-        --fail-fast         Stop after the first failure
-        --ext <EXT>         Only this extension (repeatable)
-        --no-recursive      Do not descend into subdirectories
-
-ENVIRONMENT:
-    GIMLET_HOME           Toolkit home; a config at ~/.config/gimlet is the default
-    GIMLET_SIDECAR        Path to the engine binary, when it is not installed
-                          beside this program
-`;
+${section('COMMANDS', COMMANDS)}
+${section('OPTIONS', GLOBAL_FLAGS)}
+${section('BATCH OPTIONS', BATCH_FLAGS)}
+${section('ENVIRONMENT', ENVIRONMENT)}`;
 }

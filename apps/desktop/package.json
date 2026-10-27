@@ -10,16 +10,13 @@
     "build:ui": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test",
     "dev:ui": "vite"
   },
   "dependencies": {
     "@gimlet-eye/core": "*",
-    "@tauri-apps/api": "^2.1.1",
-    "@tauri-apps/plugin-shell": "^2.2.0"
+    "@tauri-apps/api": "^2.1.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1",
     "@tauri-apps/cli": "^2.1.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",

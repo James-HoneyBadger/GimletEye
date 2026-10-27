@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+// The installed entry point: `npm link` or a package install puts this on PATH.
+import '../dist/main.js';

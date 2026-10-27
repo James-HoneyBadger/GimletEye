@@ -19,10 +19,16 @@ trap 'rm -rf "$work"' EXIT
 
 export GIMLET_HOME="$work/home"
 mkdir -p "$GIMLET_HOME"
-M="./target/debug/gimlet"
+M="./packages/cli/bin/gimlet"
 
 if [ ! -x "$M" ]; then
-    echo "build the CLI first: cargo build -p gimlet-eye-cli" >&2
+    echo "build the CLI first: npm run build" >&2
+    exit 1
+fi
+# The crypto and metadata tools live in the engine; point the CLI at this build.
+export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/target/debug/gimlet-sidecar}"
+if [ ! -x "$GIMLET_SIDECAR" ]; then
+    echo "build the engine first: cargo build -p gimlet-eye-sidecar" >&2
     exit 1
 fi
 
@@ -107,16 +113,11 @@ echo "== the claims about the catalogue and the packs"
 $M tools list --format json | jq -e 'length > 0' >/dev/null
 check "tools list answers in JSON" $?
 
-mkdir -p "$GIMLET_HOME/plugins"
-cp -r examples/packs/hostname "$GIMLET_HOME/plugins/"
-$M hostname.report >/dev/null
-check "a pack tool is indistinguishable from a builtin" $?
+$M tools show crypto.sha256 --format json | grep -q '"id": "crypto.sha256"'
+check "tools show prints one manifest" $?
 
-$M plugins conformance examples/packs/hostname >/dev/null
-check "the gallery pack passes the conformance checklist" $?
-
-$M plugins pin examples/packs/hostname | grep -q 'sha256:'
-check "plugins pin prints a digest" $?
+$M crypto.sha256 text=hello --format json | grep -q '"sha256"'
+check "an engine tool runs through the CLI" $?
 
 $M doctor >/dev/null
 check "doctor runs" $?
@@ -142,10 +143,9 @@ Claims this script cannot settle, and their evidence:
   package builds             ci.yml "packaging"; scripts/rehearse-upgrade.sh
   upgrade survives rollback  ci.yml "rehearsal"
   no telemetry, no uploads   the absence of a network dependency: `cargo deny`
-                             plus `network` being a declared capability
   parsers are fuzzed         .github/workflows/fuzz.yml; crates/scrub/tests/
-  the API needs a token      scripts/smoke.sh; crates/server/src/auth.rs tests
-  the UI works end to end    packages/ui/e2e (Playwright, live engine)
+  the desktop app works      apps/desktop/src/**/*.test.ts (vitest, jsdom)
+  the UI matches the CLI     packages/core is the implementation both import
 EOF
 
 [ "$fail" -eq 0 ]

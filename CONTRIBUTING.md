@@ -1,110 +1,78 @@
 # Contributing
 
-## Setup
+Thank you for considering a change. This project values small, verifiable
+increments over large ones: a fix with a test that fails without it is worth more
+than three without.
+
+## Set up
 
 ```bash
-git clone https://github.com/James-HoneyBadger/GimletEye.git
+git clone https://github.com/James-HoneyBadger/GimletEye
 cd GimletEye
 
-rustup component add rustfmt clippy       # Rust 1.85+
-./scripts/link-sources.sh                 # optional pack sources (warns if upstream is gone)
-(cd packages/ui && npm install)           # UI only
+cargo build --release -p gimlet-eye-sidecar   # the engine
+npm install                                   # CLI + desktop + tests
+npm run build                                 # packages/core and packages/cli
+./packages/cli/bin/gimlet doctor
 ```
 
-Verify:
+`./run.sh --cli system-info` builds whatever is out of date first, if you would
+rather not think about the order.
+
+Requirements: Rust 1.85+ and Node 20+. `gpg` is only needed for the OpenPGP
+interop tools.
+
+## Before you push
 
 ```bash
-make check                                # fmt check, clippy, tests
-make msrv                                 # builds on the declared rust-version
-make quiet-period                         # frozen surfaces unchanged since the last tag
-make ui                                   # UI type-check + build
-make ui-test                              # UI unit and DOM tests (vitest)
-make e2e                                  # UI + real engine (npx playwright install chromium once)
-make doctor                               # installation report, including packs
+make check        # cargo fmt --check, clippy -D warnings, tsc, cargo test, vitest
+make smoke        # the CLI against the real engine
 ```
 
-`rust-version` is tested, not aspirational: `scripts/check-msrv.sh` fails when
-the manifest and the `msrv` CI job disagree, so raising the floor means changing
-both, in the same commit.
+`make check` is what CI runs. A pull request that fails it will not be reviewed
+until it passes, because a green baseline is what makes review cheap.
 
-Parsers are fuzzed. The soak harness needs nightly, so it is not part of
-`make check`, but running it before touching JPEG/PNG/WebP/EXIF parsing is
-expected:
+## Where a change goes
 
-```bash
-rustup toolchain install nightly && cargo install cargo-fuzz
-cd crates/scrub/fuzz && cargo +nightly fuzz run jpeg corpus/jpeg seeds/jpeg
-```
+| You are changing | Put it in |
+|---|---|
+| What a run means: verdicts, reports, resolution, config, audit | `packages/core` |
+| A command, a flag, or terminal output | `packages/cli` |
+| The window, forms, and result rendering | `apps/desktop/src` |
+| A host-inspection tool (`/proc`, `df`) | `packages/core/src/tools` |
+| Anything touching key material or a file format | `crates/crypto`, `crates/scrub` |
+| The window or the OS boundary | `apps/desktop/src-tauri` |
 
-`cargo test` already runs the same entry points deterministically over the
-committed seeds and a mutation sweep, so a regression cannot pass CI unnoticed.
-See [crates/scrub/fuzz/README.md](crates/scrub/fuzz/README.md).
+Two rules decide most placement questions:
 
-## Ground rules
+1. **The surfaces hold no logic.** If both the CLI and the window need it, it
+   belongs in `packages/core`.
+2. **Risk follows the evidence.** Crypto and format parsing stay in Rust because
+   that is where the fuzz corpora, the fixtures, and the second implementation
+   live. Moving them to TypeScript means rebuilding that evidence, not just
+   translating the code.
 
-1. **Respect the dependency direction.** `gimlet-eye-core` must not depend on a
-   domain crate. Modules must not depend on each other. Surfaces hold no logic.
-2. **New capability? Add a tool, not a code path in a surface.** One line in
-   `crates/toolkit/src/runtime.rs` (and the module's `tools()`).
-3. **Findings, not prints.** A problem is `report.add_finding(severity, code,
-   message)`. `status` is derived by `sealed()`.
-4. **Honour `--dry-run`** in anything that writes, and say so in the report.
-5. **Parsers stay pure.** Filesystem and process access belongs in the tool, not
-   the parser, so tests need no fixtures on disk.
-6. **Never log secrets.** Audit records argument names only.
-7. **No new dependency without a reason** in the pull request. Crypto
-   dependencies need an ADR.
+## Adding a tool
 
-## Adding a module
+A host-inspection tool is a `LocalTool` in `packages/core/src/tools`, registered
+in `Runtime.load`. An engine tool is a `Tool` in `crates/crypto` or
+`crates/scrub`, added to that crate's `tools()`; both surfaces pick it up from
+the catalogue at start, so there is no frontend change either way.
+[ARCHITECTURE.md](docs/ARCHITECTURE.md) §8 has the details.
 
-```rust
-// crates/newthing/src/lib.rs
-pub fn tools() -> gimlet_eye_core::Result<Vec<std::sync::Arc<dyn Tool>>> {
-    Ok(vec![std::sync::Arc::new(MyTool::new())])
-}
-```
+Either way: give the manifest a summary worth reading, and add a test at the
+level where the behaviour lives.
 
-```toml
-# Cargo.toml — workspace members + [workspace.dependencies]
-```
+## Style
 
-```rust
-// crates/toolkit/src/runtime.rs
-registry.register_all(gimlet_newthing::tools()?)?;
-```
+- Rust: `cargo fmt`, no `unsafe` (the workspace forbids it), and clippy warnings
+  are errors.
+- TypeScript: `strict`, and no new runtime dependency without a reason in the
+  pull request — the CLI has exactly one.
+- Comments explain *why*. A comment that restates the line is noise.
+- Public behaviour gets a line in `CHANGELOG.md` under the release it ships in.
 
-Then add a test that runs the tool with a `ToolContext` pointing at a temp
-`AppPaths`, and one that asserts the finding/status relationship.
+## Reporting a security issue
 
-## Adding a pack
-
-See [docs/PLUGIN_SDK.md](docs/PLUGIN_SDK.md) and copy
-`plugins/perlden-pack/` as a starting point. Packs are the right choice for
-existing code in another language; modules are the right choice for new,
-performance-sensitive, or security-critical code.
-
-## Commit and pull request style
-
-- Imperative subject, ≤ 72 characters: `Add disk-usage threshold config`.
-- Explain *why* in the body; the diff explains *what*.
-- Reference the tool id or module affected.
-- Include tests for behaviour changes; include the output of `make check`.
-- One logical change per pull request.
-
-## Tests
-
-```bash
-cargo test --workspace                      # everything
-cargo test -p gimlet-eye-scrub               # one crate
-cargo test -p gimlet-eye-core report::       # one area
-```
-
-CI also runs the UI build, the UI test suite, the Perl pack syntax check, and a
-live end-to-end slice. That slice runs a pack module when the optional upstream
-sources are reachable and skips the pack when they are not; `REQUIRE_SOURCES=1`
-makes `scripts/link-sources.sh` fail instead.
-
-## Reporting problems
-
-Security issues: privately, per [SECURITY.md](SECURITY.md). Everything else: a
-GitHub issue including `gimlet doctor` output and the failing command.
+Do not open a public issue. See [SECURITY.md](SECURITY.md) for the private
+channel and what is in scope.

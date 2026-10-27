@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The gimlet command line",
   "bin": {
-    "gimlet": "./dist/main.js"
+    "gimlet": "./bin/gimlet"
   },
   "scripts": {
     "build": "tsc -b",

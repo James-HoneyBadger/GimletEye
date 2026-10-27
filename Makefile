@@ -1,17 +1,32 @@
-.PHONY: help build test fmt fmt-check clippy check msrv quiet-period surface gates fuzz-nights ui-install ui ui-test ui-dev desktop-install desktop pack-check doctor smoke clean
+.PHONY: help build engine cli ui test test-rust test-ts fmt fmt-check clippy check typecheck \
+        msrv quiet-period surface gates fuzz-nights desktop run smoke doctor clean
 
 CARGO ?= cargo
-UI_DIR := packages/ui
-CLI := $(CARGO) run -q -p gimlet-eye-cli --
+NPM ?= npm
+UI_DIR := apps/desktop
+CLI := node packages/cli/dist/main.js
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the workspace in release mode
-	$(CARGO) build --release --workspace
+build: engine cli ui ## Build the engine, the CLI, and the UI bundle
 
-test: ## Run the Rust test suite
-	$(CARGO) test --workspace
+engine: ## Build the verified engine
+	$(CARGO) build --release -p gimlet-eye-sidecar
+
+cli: ## Build the CLI
+	$(NPM) run build
+
+ui: ## Build the desktop UI bundle
+	$(NPM) run build:ui -w @gimlet-eye/desktop
+
+test: test-rust test-ts ## Everything: engine, CLI, and UI
+
+test-rust: ## Run the engine's test suite
+	$(CARGO) test -p gimlet-eye-core -p gimlet-eye-crypto -p gimlet-eye-scrub -p gimlet-eye-sidecar
+
+test-ts: ## Run the TypeScript test suites
+	$(NPM) test
 
 fmt: ## Format Rust sources
 	$(CARGO) fmt --all
@@ -19,19 +34,22 @@ fmt: ## Format Rust sources
 fmt-check: ## Verify formatting (what CI runs)
 	$(CARGO) fmt --all -- --check
 
-clippy: ## Lint with clippy, warnings as errors
-	$(CARGO) clippy --workspace --all-targets -- -D warnings
+clippy: ## Lint the engine with clippy, warnings as errors
+	$(CARGO) clippy -p gimlet-eye-core -p gimlet-eye-crypto -p gimlet-eye-scrub -p gimlet-eye-sidecar --all-targets -- -D warnings
 
-check: fmt-check clippy test ## Everything CI runs for Rust
+typecheck: ## Type-check every TypeScript package
+	$(NPM) run typecheck
 
-msrv: ## Build every target on the declared MSRV (what CI's msrv job runs)
+check: fmt-check clippy typecheck test ## Everything CI runs
+
+msrv: ## Build every crate on the declared MSRV (what CI's msrv job runs)
 	./scripts/check-msrv.sh "$${MSRV:-1.85}"
 	$(CARGO) +"$${MSRV:-1.85}" check --workspace --all-targets --locked
 
 quiet-period: ## Verify no frozen surface moved since the last release
 	./scripts/check-quiet-period.sh
 
-surface: ## Verify every command, flag, and route is documented as public API
+surface: ## Verify every command and flag is documented as public API
 	./scripts/check-public-surface.sh
 
 gates: ## Report whether 1.0 may be cut: every ADR 0006 gate, verified or open
@@ -40,45 +58,18 @@ gates: ## Report whether 1.0 may be cut: every ADR 0006 gate, verified or open
 fuzz-nights: ## Prove the fuzz soak has been green for seven scheduled nights
 	./scripts/check-fuzz-nights.sh
 
-ui-install: ## Install UI dependencies
-	cd $(UI_DIR) && npm install
+desktop: build ## Build the desktop app, engine included
+	$(NPM) run build -w @gimlet-eye/desktop
 
-ui: ## Type-check and build the shared UI
-	cd $(UI_DIR) && npm run build
+run: build ## Launch the desktop app from this checkout
+	./run.sh
 
-ui-test: ## Run the UI unit tests
-	cd $(UI_DIR) && npm test
-
-bench: ## Measure scan, strip, and encrypt at 10 MiB and 1 GiB
-	$(CARGO) run --release -p gimlet-eye-toolkit --example bench
-
-e2e: ## Drive the UI against a real engine (needs a built bundle)
-	cd $(UI_DIR) && npm run e2e
-
-ui-dev: ## Run the UI dev server (needs `make serve` in another terminal)
-	cd $(UI_DIR) && npm run dev
-
-desktop-install: ## Install desktop shell dependencies
-	cd apps/desktop && npm install
-
-desktop: ui ## Build the desktop app, engine included
-	cd apps/desktop && npm run build
-
-pack-check: ## Syntax-check the Perl pack
-	perl -c plugins/perlden-pack/pack.pl
-
-doctor: ## Report installation state, including packs
+doctor: ## Report installation state, including the engine
 	$(CLI) doctor
 
-serve: ## Serve the API and the built UI on loopback
-	$(CLI) serve --ui-dir $(UI_DIR)/dist
-
-claims: ## Run the README examples as written (ADR 0006 Gate 5)
-	./scripts/check-readme-claims.sh
-
-smoke: ## End-to-end check of CLI, API, and the Perl pack
+smoke: ## End-to-end check of the CLI against the real engine
 	./scripts/smoke.sh
 
 clean: ## Remove build artifacts
 	$(CARGO) clean
-	rm -rf $(UI_DIR)/dist $(UI_DIR)/node_modules
+	rm -rf $(UI_DIR)/dist packages/core/dist packages/cli/dist node_modules

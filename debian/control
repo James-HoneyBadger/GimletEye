@@ -2,10 +2,10 @@ Source: gimlet-eye-toolkit
 Section: utils
 Priority: optional
 Maintainer: Gimlet Eye maintainers <maintainers@example.invalid>
-# A distribution build with a rustc at or above the workspace `rust-version`
-# satisfies this. Building on an older archive is why scripts/rehearse-upgrade.sh
-# installs rustup and passes `-d`.
-Build-Depends: debhelper-compat (= 13), cargo, rustc
+# The engine is Rust; the CLI and the desktop frontend are TypeScript, so a
+# build needs both toolchains. scripts/rehearse-upgrade.sh installs rustup and
+# node into a container to prove that.
+Build-Depends: debhelper-compat (= 13), cargo, rustc, nodejs (>= 20), npm
 Standards-Version: 4.6.2
 Homepage: https://github.com/James-HoneyBadger/GimletEye
 Vcs-Git: https://github.com/James-HoneyBadger/GimletEye.git
@@ -13,12 +13,22 @@ Rules-Requires-Root: no
 
 Package: gimlet
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: perl
+Depends: ${misc:Depends}, nodejs (>= 20), gimlet-engine (= ${binary:Version})
+Recommends: gnupg
 Description: local workbench for system, crypto, and metadata tasks
  One tool registry, one report format, one configuration file, one audit trail,
- and one interface for system administration, file encryption and signing, and
- metadata removal.
+ and one command line for system administration, file encryption and signing,
+ and metadata removal.
  .
- Everything runs locally: no network calls, no telemetry, no auto-update. The
- HTTP API binds loopback only and requires a per-installation token.
+ Everything runs locally: no network calls, no telemetry, no auto-update.
+
+Package: gimlet-engine
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: verified crypto and metadata engine for Gimlet Eye
+ The Rust engine behind the Gimlet Eye command line and desktop app. It carries
+ the fuzz corpora, the golden fixtures, and a second implementation that pins
+ the container format, and it runs only the tools this build compiled.
+ .
+ It is spawned by the surfaces over a versioned JSON protocol and is not
+ intended to be invoked directly.

@@ -78,18 +78,31 @@ jobs:
           workspaces: '. -> target'
           key: ${{ matrix.target }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
       - name: Install the cross linker
         if: matrix.linker
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Build
+      # The engine is the only per-target artifact: the CLI is JavaScript.
+      - name: Build the engine
         shell: bash
         run: |
-          cargo build --release --locked -p gimlet-eye-cli --target "${{ matrix.target }}"
+          cargo build --release --locked -p gimlet-eye-sidecar --target "${{ matrix.target }}"
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
+
+      - name: Build the CLI
+        shell: bash
+        run: |
+          npm ci
+          npm run build
 
       - name: Package (unix)
         if: runner.os != 'Windows'
@@ -97,7 +110,11 @@ jobs:
         run: |
           name="gimlet-${RELEASE_TAG#v}-${{ matrix.target }}"
           mkdir -p "dist/$name"
-          cp "target/${{ matrix.target }}/release/gimlet" "dist/$name/"
+          cp "target/${{ matrix.target }}/release/gimlet-sidecar" "dist/$name/"
+          cp -r packages "dist/$name/"
+          mkdir -p "dist/$name/node_modules"
+          cp -r node_modules/smol-toml "dist/$name/node_modules/"
+          rm -rf "dist/$name/packages"/*/node_modules "dist/$name/packages"/*/*.tsbuildinfo
           cp README.md LICENSE CHANGELOG.md "dist/$name/"
           tar -czf "dist/$name.tar.gz" -C dist "$name"
           rm -rf "dist/$name"
@@ -109,7 +126,10 @@ jobs:
           $version = $env:RELEASE_TAG.TrimStart('v')
           $name = "gimlet-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/gimlet.exe" "dist/$name/"
+          Copy-Item "target/${{ matrix.target }}/release/gimlet-sidecar.exe" "dist/$name/"
+          Copy-Item -Recurse packages "dist/$name/packages"
+          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules" | Out-Null
+          Copy-Item -Recurse node_modules/smol-toml "dist/$name/node_modules/smol-toml"
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           Remove-Item -Recurse -Force "dist/$name"
@@ -152,7 +172,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: packages/ui/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -161,11 +181,24 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
             libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2
 
+      # The bundle is one workspace: the desktop frontend imports packages/core,
+      # so a partial install would build against a stale copy.
       - name: Install the JavaScript dependencies
+        run: npm ci
+
+      - name: Build the engine
+        run: cargo build --release --locked -p gimlet-eye-sidecar
+
+      # The engine is bundled as a Tauri `externalBin`, which expects it in
+      # apps/desktop/src-tauri/binaries with the target triple in the name.
+      - name: Stage the engine for bundling
+        shell: bash
         run: |
-          npm ci --prefix packages/ui
-          npm ci --prefix apps/desktop
-          npm run build --prefix packages/ui
+          mkdir -p apps/desktop/src-tauri/binaries
+          triple="$(rustc -vV | sed -n 's/^host: //p')"
+          src="target/release/gimlet-sidecar"
+          [ -f "$src" ] || src="target/release/gimlet-sidecar.exe"
+          cp "$src" "apps/desktop/src-tauri/binaries/gimlet-sidecar-$triple"
 
       - name: Build the installers
         uses: tauri-apps/tauri-action@v0
@@ -202,8 +235,8 @@ jobs:
 
       - name: Build here
         run: |
-          cargo build --release --locked -p gimlet-eye-cli
-          sha256sum target/release/gimlet | awk '{print $1}' > /tmp/here.txt
+          cargo build --release --locked -p gimlet-eye-sidecar
+          sha256sum target/release/gimlet-sidecar | awk '{print $1}' > /tmp/here.txt
 
       - name: Build in another directory
         run: |
@@ -212,8 +245,8 @@ jobs:
           cp Cargo.lock /tmp/elsewhere/
           cd /tmp/elsewhere
           RUSTFLAGS="--remap-path-prefix=/tmp/elsewhere=." \
-            cargo build --release --locked -p gimlet-eye-cli
-          sha256sum target/release/gimlet | awk '{print $1}' > /tmp/there.txt
+            cargo build --release --locked -p gimlet-eye-sidecar
+          sha256sum target/release/gimlet-sidecar | awk '{print $1}' > /tmp/there.txt
 
       - name: Compare
         run: |

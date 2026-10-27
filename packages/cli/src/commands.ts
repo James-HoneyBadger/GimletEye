@@ -5,11 +5,11 @@
  * the same code whether a person typed the command or a script did.
  */
 
+import { nodeHost } from '@gimlet-eye/core/host-node';
 import {
   GimletError,
   Runtime,
   configToToml,
-  nodeHost,
   parseCategory,
   render,
   fromPairs,

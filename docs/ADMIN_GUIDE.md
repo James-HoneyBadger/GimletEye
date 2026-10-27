@@ -1,14 +1,11 @@
 # Administrator guide
 
 For the person who installs this on a machine someone else will use: where state
-lives, what the API is allowed to do, how packs are trusted, and what the audit
-trail records.
+lives, what the configuration controls, and what the audit trail records.
 
 - [Installation](#installation)
 - [State on disk](#state-on-disk)
 - [Configuration](#configuration)
-- [The local API](#the-local-api)
-- [Packs](#packs)
 - [The audit trail](#the-audit-trail)
 - [Upgrading and rolling back](#upgrading-and-rolling-back)
 - [Verifying a release](#verifying-a-release)
@@ -23,15 +20,16 @@ dpkg -i gimlet_*.deb
 rpm -i gimlet-eye-toolkit-*.rpm
 makepkg -si            # packaging/arch/PKGBUILD
 
-# the release archive
+# the release archive: the CLI and the engine it spawns
 tar -xzf gimlet-<version>-<target>.tar.gz -C /usr/local
-
-# or from source, pinned to the tag
-cargo install --locked --git https://github.com/James-HoneyBadger/GimletEye --tag v<version> gimlet-eye-cli
 ```
 
-The binary is self-contained apart from libc. `perl` is optional and only needed
-by the compatibility pack; `gpg` is optional and only needed by `crypto.gpg-*`.
+Two programs matter: `gimlet` (the command line) and `gimlet-sidecar` (the
+engine). Keep them in the same directory — the CLI looks for the engine beside
+itself — or set `GIMLET_SIDECAR` to its path. The desktop app carries its own
+copy of the engine, so installing both packages is safe.
+
+The CLI needs Node 20+. `gpg` is optional and only needed by `crypto.gpg-*`.
 
 ## State on disk
 
@@ -43,7 +41,6 @@ Everything lives under one root, `$GIMLET_HOME`, which defaults to
 | `config.toml` | 0644 | configuration; safe to commit to a config-management repo | yes |
 | `keystore.gimlet` | **0600** | sealed keys; unreadable without the passphrase | **yes** |
 | `audit.jsonl` | 0644 | one JSON line per tool run, argument *names* only | yes |
-| `api-token` | **0600** | credential for `/api/v1`, created on first `serve` | no; regenerates |
 | `cache/`, `data/` | 0755 | working space | no |
 
 Backing up `keystore.gimlet` without its passphrase is worthless, and backing up
@@ -59,21 +56,9 @@ schema_version = 1
 [defaults]
 output = "json"        # a per-run --format still wins
 
-[plugins]
-dirs = []              # extra pack directories
-disabled = ["noisy-pack"]
-timeout_ms = 30000
-allow = ["fs:read", "system"]   # empty = grant whatever a pack declares
-
 [audit]
 enabled = true
 max_entries = 10000
-
-[api]
-require_token = true
-
-[trust]
-"perlden" = "sha256:…"  # pin a pack you did not write
 
 [modules.sysadmin]
 disk_warn_percent = 85
@@ -82,42 +67,6 @@ disk_warn_percent = 85
 `gimlet config show` prints the effective configuration after defaults are
 applied; `gimlet config path` prints which file was read. A config written by
 a newer release is refused rather than reinterpreted.
-
-## The local API
-
-`gimlet serve` binds loopback and requires a token:
-
-- `POST /api/v1/run` — the only endpoint that does anything
-- `GET /api/v1/health | tools | packs | audit | config`
-- CORS grants the desktop window, the Vite dev server, and loopback origins only
-- a non-loopback bind is refused unless `--allow-remote` is passed explicitly
-
-The token is printed once and stored at `api-token` (0600). To rotate it, delete
-the file and restart; every client that cached it gets `401` until it is updated.
-`[api] require_token = false` is the escape hatch for a single-user machine and
-prints a warning at startup, because it means any page the user visits can drive
-the tools.
-
-Treat the API as a local control plane, not a service: there are no accounts, no
-per-caller permissions, and no TLS.
-
-## Packs
-
-A pack is an executable that speaks JSON-RPC on stdin/stdout, which means a pack
-is arbitrary code. Discovery trusts what is on disk; pinning is how you stop
-trusting it blindly.
-
-```bash
-gimlet plugins list                       # what loaded, what failed
-gimlet plugins doctor                     # start each pack, list its tools
-gimlet plugins conformance ~/packs/foo    # the SDK checklist, mechanically
-gimlet plugins pin ~/packs/foo            # the digest to paste into [trust]
-```
-
-Grant the narrowest capability set that works. `allow = ["fs:read"]` means no
-pack may write, exec, or reach the network, whatever its manifest asks for. A
-tool may ask for a subset of its pack's capabilities and never more; a pack that
-tries is refused at load.
 
 ## The audit trail
 

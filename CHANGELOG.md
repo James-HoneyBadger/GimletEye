@@ -8,6 +8,37 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Changed
 
+- **The surfaces are TypeScript, over one Rust engine.** The HTTP API, the
+  browser surface, the API token, the Rust CLI, and the pack protocol are gone:
+
+  | Removed | Was |
+  |---|---|
+  | `gimlet serve`, `/api/v1/*`, `api-token` | a local HTTP API and a browser build |
+  | `gimlet plugins …`, `mellivora-pack.toml`, `[plugins]`, `[trust]` | the JSON-RPC pack protocol |
+  | `ToolManifest.origin` and `.version` | pack provenance |
+
+  What replaced them:
+
+  - `packages/core` — catalogue, report contract, arguments, configuration,
+    audit trail, and the engine client. Shared by both surfaces, so they cannot
+    drift apart.
+  - `packages/cli` — `gimlet`, now a Node CLI. Same commands minus `serve` and
+    `plugins`; same exit codes.
+  - `apps/desktop` — the Tauri window, whose frontend imports `packages/core`
+    directly. No port, no token, no web page can drive it.
+  - `crates/sidecar` — `gimlet-sidecar`, the crypto and metadata engine both
+    surfaces spawn. It runs only the tools this build compiled.
+
+  `sysadmin.system-info` and `sysadmin.disk-usage` are now TypeScript; crypto and
+  metadata parsing remain in Rust, where the fuzz corpora, the fixtures, the
+  Python second implementation, and the GPG interop tests already live. A config
+  file that still carries `[plugins]`, `[api]`, or `[trust]` loads, and those
+  sections are ignored.
+
+  The `gimlet` binary now requires Node 20+ and must be installed beside
+  `gimlet-sidecar` (or `GIMLET_SIDECAR` set) — a lone binary is no longer enough
+  to run the crypto tools.
+
 - **The project is now Gimlet Eye.** Mellivora is the name of a different project
   family, and this toolkit shares nothing with it but a name. The rename reaches
   the parts other people build against, so it is a breaking release:

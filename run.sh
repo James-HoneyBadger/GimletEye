@@ -1,28 +1,20 @@
 #!/usr/bin/env bash
-# Build and launch the Gimlet Eye.
+# Build and launch Gimlet Eye.
 #
-#   ./run.sh              native desktop window (builds it if needed)
-#   ./run.sh --serve      workbench in a browser, served from this checkout
-#   ./run.sh --dev        desktop window with hot reload
+#   ./run.sh              the desktop app (builds it if needed)
+#   ./run.sh --cli ...    the command line, e.g. ./run.sh --cli system-info
 #   ./run.sh --build      force a rebuild first
 #
-# The default is the desktop app because that needs nothing but this checkout:
-# the UI is compiled into the binary and the engine runs in-process.
+# The desktop app needs the engine (crates/sidecar) and the UI bundle; both are
+# built here, so a checkout is enough to run it.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$root"
 
 mode="app"
-port="${GIMLET_PORT:-7878}"
 force=0
-foreground=0
-
-ui_dir="$root/packages/ui"
-desktop_dir="$root/apps/desktop"
-desktop_bin="$desktop_dir/src-tauri/target/release/gimlet-desktop"
-cli_bin="$root/target/release/gimlet"
-ui_index="$ui_dir/dist/index.html"
+cli_args=()
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 info() { printf '   %s\n' "$*"; }
@@ -30,42 +22,22 @@ fail() { printf '\033[31mrun: %s\033[0m\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'USAGE'
-Build and launch the Gimlet Eye.
+Build and launch Gimlet Eye.
 
-  ./run.sh              native desktop window (builds it if needed)
-  ./run.sh --serve      workbench in a browser, served from this checkout
-  ./run.sh --dev        desktop window with hot reload
-  ./run.sh --build      force a rebuild first
+  ./run.sh                 the desktop app (default)
+  ./run.sh --cli <args>    run the command line instead
+  ./run.sh --build         rebuild before launching
 
-Options:
-  --app         native desktop window (default)
-  --serve       serve the workbench on loopback and print the URL
-  --dev         desktop window against the Vite dev server (hot reload)
-  --build       rebuild before launching, even when up to date
-  -f, --foreground  keep the app attached to this terminal
-  -p, --port N  port for --serve (default 7878, or GIMLET_PORT)
-  -h, --help    this text
-
-Environment: GIMLET_HOME, GIMLET_PLUGIN_PATH (see docs/PLUGIN_SDK.md).
+Environment: GIMLET_HOME, GIMLET_SIDECAR (see docs/USER_GUIDE.md).
 USAGE
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --app) mode="app" ;;
-        --serve) mode="serve" ;;
-        --dev) mode="dev" ;;
+        --cli) mode="cli"; shift; cli_args=("$@"); break ;;
         --build) force=1 ;;
-        -f | --foreground) foreground=1 ;;
-        -p | --port)
-            [ $# -ge 2 ] || fail "--port needs a number"
-            port="$2"
-            shift
-            ;;
-        -h | --help)
-            usage
-            exit 0
-            ;;
+        -h | --help) usage; exit 0 ;;
         *) fail "unknown option '$1' (try --help)" ;;
     esac
     shift
@@ -74,112 +46,72 @@ done
 have() { command -v "$1" >/dev/null 2>&1; }
 
 newer_than() {
-    # Any file under the given paths newer than the artifact?
     local artifact="$1"
     shift
     [ -f "$artifact" ] || return 0
     [ -n "$(find "$@" -type f -newer "$artifact" -print -quit 2>/dev/null)" ]
 }
 
-ui_stale() {
-    newer_than "$ui_index" "$ui_dir/src" "$ui_dir/index.html" "$ui_dir/package.json"
+engine_bin="target/release/gimlet-sidecar"
+cli_bin="packages/cli/dist/main.js"
+ui_bundle="apps/desktop/dist/index.html"
+
+engine_stale() { newer_than "$engine_bin" crates; }
+cli_stale() { newer_than "$cli_bin" packages/core/src packages/cli/src; }
+ui_stale() { newer_than "$ui_bundle" apps/desktop/src apps/desktop/index.html; }
+
+install_node_deps() {
+    [ -d node_modules ] && return 0
+    have npm || fail "npm is required (install Node 20+)"
+    step "installing dependencies"
+    npm ci --silent 2>/dev/null || npm install --silent
 }
 
-desktop_stale() {
-    newer_than "$desktop_bin" \
-        "$root/crates" \
-        "$desktop_dir/src-tauri/src" \
-        "$desktop_dir/src-tauri/Cargo.toml" \
-        "$desktop_dir/src-tauri/tauri.conf.json" \
-        "$ui_dir/dist"
-}
-
-cli_stale() {
-    newer_than "$cli_bin" "$root/crates" "$root/Cargo.toml" "$root/Cargo.lock"
-}
-
-install_ui_deps() {
-    [ -d "$ui_dir/node_modules" ] && return 0
-    have npm || fail "npm is required to build the UI (install Node 20+)"
-    step "installing UI dependencies"
-    (cd "$ui_dir" && npm ci --silent) || (cd "$ui_dir" && npm install --silent)
-}
-
-build_ui() {
-    if [ "$force" -eq 1 ] || ui_stale; then
-        install_ui_deps
-        step "building the UI"
-        (cd "$ui_dir" && npm run build)
-    else
-        info "UI is up to date"
-    fi
-}
-
-build_desktop() {
+build_engine() {
     have cargo || fail "cargo is required (install Rust 1.85+)"
-    build_ui
-    if [ "$force" -eq 1 ] || desktop_stale; then
-        step "building the desktop app"
-        info "first build takes a few minutes; later ones are incremental"
-        (cd "$desktop_dir/src-tauri" && cargo build --release --features custom-protocol)
+    if [ "$force" -eq 1 ] || engine_stale; then
+        step "building the engine"
+        cargo build --release -p gimlet-eye-sidecar
     else
-        info "desktop app is up to date"
+        info "engine is up to date"
     fi
 }
 
 build_cli() {
-    have cargo || fail "cargo is required (install Rust 1.85+)"
+    install_node_deps
     if [ "$force" -eq 1 ] || cli_stale; then
         step "building the CLI"
-        cargo build --release -p gimlet-eye-cli
+        npm run build --silent
     else
         info "CLI is up to date"
     fi
 }
 
-launch_app() {
-    build_desktop
-    if [ "$foreground" -eq 1 ]; then
-        step "starting the desktop app"
-        exec "$desktop_bin"
-    fi
-
-    # Detached on purpose: closing the terminal should not close the window.
-    # The log keeps the shell's own diagnostics (engine address, window events).
-    local log="${TMPDIR:-/tmp}/gimlet-desktop.log"
-    if have setsid; then
-        setsid "$desktop_bin" >"$log" 2>&1 &
+build_ui() {
+    install_node_deps
+    if [ "$force" -eq 1 ] || ui_stale; then
+        step "building the UI bundle"
+        npm run build:ui -w @gimlet-eye/desktop --silent
     else
-        "$desktop_bin" >"$log" 2>&1 &
+        info "UI is up to date"
     fi
-    local pid=$!
-    printf '\n\033[32mGimlet Eye is starting.\033[0m  Close the window to exit.\n'
-    info "binary: $desktop_bin"
-    info "pid:    $pid   (kill $pid to stop)"
-    info "log:    $log"
-}
-
-launch_serve() {
-    build_cli
-    build_ui
-    step "serving the workbench"
-    info "UI    http://127.0.0.1:$port/"
-    info "API   http://127.0.0.1:$port/api/v1/health"
-    info "Ctrl+C stops it"
-    exec "$cli_bin" serve --ui-dir "$ui_dir/dist" --port "$port"
-}
-
-launch_dev() {
-    have npm || fail "npm is required for --dev (install Node 20+)"
-    install_ui_deps
-    [ -d "$desktop_dir/node_modules" ] || (cd "$desktop_dir" && npm install --silent)
-    step "starting the desktop app with hot reload"
-    info "UI changes reload in place; Ctrl+C stops the app and the dev server"
-    exec npm --prefix "$desktop_dir" run dev
 }
 
 case "$mode" in
-    app) launch_app ;;
-    serve) launch_serve ;;
-    dev) launch_dev ;;
+    cli)
+        build_engine
+        build_cli
+        export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/$engine_bin}"
+        exec node "$cli_bin" "${cli_args[@]}"
+        ;;
+    app)
+        build_engine
+        build_ui
+        install_node_deps
+        step "starting the desktop app"
+        info "first build takes a few minutes; later ones are incremental"
+        export GIMLET_SIDECAR="${GIMLET_SIDECAR:-$root/$engine_bin}"
+        cd apps/desktop
+        exec npm run dev
+        ;;
 esac
