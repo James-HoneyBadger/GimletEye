@@ -125,6 +125,15 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Stage 2 of retiring Rust: keys, signing, hashing, passphrases, and the
+  sealed keystore.** `packages/engine` now generates Ed25519 and X25519 keys,
+  reads and writes the frozen key-file JSON, signs and verifies, hashes, and
+  generates passwords without modulo bias or fixed-class positions. The keystore
+  is what ADR 0007 said it should be — a `.gimlet` container whose plaintext is
+  the schema-1 JSON, written owner-only through a temporary file and renamed —
+  so a wrong passphrase fails the AEAD tag before any JSON is parsed. A test
+  pins the encoded document byte for byte against the shape the Rust writer
+  emitted.
 - **A TypeScript container engine, stage 1 of retiring Rust.** `packages/engine`
   reads version 1, 2, and 3 `.gimlet` containers and writes 2 and 3, using
   `node:crypto` for AES-256-GCM, ChaCha20-Poly1305, X25519, and HKDF, and

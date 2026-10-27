@@ -6,3 +6,8 @@
  */
 
 export * from './container.js';
+export * from './hex.js';
+export * from './keys.js';
+export * from './keystore.js';
+export * from './passgen.js';
+export * from './signing.js';

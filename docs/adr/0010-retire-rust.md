@@ -28,7 +28,7 @@ stage is verifiable on its own:
 | Stage | Scope | Gate |
 |---|---|---|
 | 1 ✅ | `.gimlet` container: read v1/v2/v3, write v2/v3 | the committed v1 and v3 fixtures open, byte for byte, and the Python second implementation reads what the new writer emits |
-| 2 | keystore, keys, signing, hashing, passphrase generation | the keystore's own tests and a wrong-passphrase check |
+| 2 ✅ | keystore, keys, signing, hashing, passphrase generation | the keystore round-trips owner-only and fails a wrong passphrase at the tag; key files round-trip through the frozen JSON; signing verifies what it signed and nothing else; the passphrase generator guarantees one character per class |
 | 3 | metadata scrub (JPEG/PNG/WebP/XMP) | the golden corpus, including pixel-identity of what is kept |
 | 4 | tool wiring, then delete `crates/`, the Cargo manifests, the MSRV and fuzz jobs, and both `deny.toml` files | `make check` green with no Rust toolchain installed |
 
