@@ -23,6 +23,9 @@ fuzz/*.tmp
 
 # Runtime state
 /.gimlet/
+# Exported key material: `crypto.key-export secret=true` writes one of these, and
+# a private key belongs in a keystore or on a token, never in a commit.
+*.key
 *.hbzf
 *.hbzf.tmp
 
