@@ -30,10 +30,10 @@ platform    linux/aarch64
 home        /home/you/.config/gimlet
 config      /home/you/.config/gimlet/config.toml (defaults)
 state dirs  ok
-tools       21 total
-  crypto       14
+tools       26 total
+  crypto       15
   privacy      3
-  sysadmin     4
+  sysadmin     8
 engine      built in (every tool runs in this process)
 audit       /home/you/.config/gimlet/audit.jsonl (0 record(s))
 ```

@@ -129,7 +129,8 @@ export function parseArgs(argv: readonly string[]): Parsed {
       case '--quiet':
       case '-q':
         globals.quiet = true;
-        break;
+        index += 1;
+        continue;
       case '--dry-run':
         globals.dryRun = true;
         index += 1;

@@ -57,13 +57,18 @@ EXAMPLES: dict[str, list[str]] = {
     "crypto.sha256": ["path={fixture}"],
     "crypto.sign": ["input={fixture}", "key={work}/signing.key", "output={work}/example.sig"],
     "crypto.verify": ["input={fixture}", "signature={work}/setup.sig", "key={work}/demo.pub"],
+    "crypto.pass-audit": ["password_env=DEMO_PASSPHRASE"],
     "privacy.metadata-scan": ["input={fixture}"],
     "privacy.metadata-strip": ["input={fixture}", "output={work}/stripped.jpg", "profile=privacy"],
     "privacy.metadata-verify": ["input={fixture}"],
+    "sysadmin.config-drift": ["input={work}", "max_depth=1", "snapshot=true"],
     "sysadmin.disk-usage": ["path=/"],
+    "sysadmin.failed-login-detector": [],
+    "sysadmin.file-permissions": ["path={work}", "max_depth=1"],
     "sysadmin.kernel-hardening": [],
     "sysadmin.network": [],
     "sysadmin.system-info": [],
+    "sysadmin.user-audit": [],
 }
 
 def run(command: list[str], env: dict[str, str], timeout: int) -> tuple[int, str]:
