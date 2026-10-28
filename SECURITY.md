@@ -19,10 +19,10 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Passwords, keys | Never logged, never audited, never placed in `summary` or `data`; the keystore is a sealed `.gimlet` file with mode 0600 |
 | Keystore (`keystore.gimlet`) | Argon2id → AEAD, so a wrong passphrase fails before any JSON is parsed; rotation re-seals the document and does not touch key material |
 | Recipient containers (v3) | The recipient list and ephemeral public key are visible in the header; the payload key is wrapped per recipient and the plaintext is not |
-| `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` and are off in a `--no-default-features` build |
+| `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` |
 | Audit entries | `$GIMLET_HOME/audit.jsonl` — tool, status, duration, argument **names** |
 | Network | Nothing opens a socket; no tool declares `network` |
-| The engine | A separate process the surfaces spawn; it runs only the tools this build compiled |
+| The engine | Compiled from this tree (`packages/engine`) and called in the same process; an optional `GIMLET_SIDECAR` engine exists only to compare against |
 
 There is no telemetry, no auto-update check, and no remote logging.
 
@@ -41,8 +41,8 @@ There is no telemetry, no auto-update check, and no remote logging.
 
 - An attacker with local code execution already.
 - Side-channel attacks on the host CPU.
-- Compromised upstream dependencies (mitigated by review and `deny.toml`, not
-  eliminated).
+- Compromised upstream dependencies (mitigated by review and `npm audit` in CI,
+  not eliminated).
 
 ### A hostile container and what it may cost
 
@@ -57,7 +57,7 @@ file. `crypto.inspect` reads the header without deriving anything.
 Without that line a 75-byte file could hold a core for 42 seconds. A fuzz target
 found it during the 1.0 soak: a header asking for 595 MiB and nine iterations,
 rejected only after the key had been derived, because the chunk check came last.
-`crates/crypto/tests/decrypt_cost_budget.rs` pins the refusal, the opt-in, and
+`packages/core/test/containers.test.ts` pins the refusal, the opt-in, and
 that containers written with default parameters still open unasked.
 
 This is a availability control, not a confidentiality one: it does not change
@@ -77,7 +77,7 @@ what a container can say, only how much work a stranger can ask for.
 3. **argv-only execution.** The only external processes are `df` (disk-usage)
    and `gpg` (the OpenPGP interop tools), invoked with argument vectors and never
    through a shell.
-4. **No secrets in audit.** Enforced by a unit test in `packages/core/test/audit.test.ts`.
+4. **No secrets in audit.** Enforced by a unit test in `packages/core/test/state.test.ts`.
 5. **Verified stripping.** `privacy.metadata-strip` re-scans its output and
    fails if metadata remains, including under `--dry-run`.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel

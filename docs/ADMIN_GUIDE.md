@@ -20,7 +20,7 @@ dpkg -i gimlet_*.deb
 rpm -i gimlet-eye-toolkit-*.rpm
 makepkg -si            # packaging/arch/PKGBUILD
 
-# the release archive: the CLI and the engine it spawns
+# the release archive: the CLI plus the core and engine packages
 tar -xzf gimlet-<version>-<target>.tar.gz -C /usr/local
 ```
 

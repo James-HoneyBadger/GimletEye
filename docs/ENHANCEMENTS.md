@@ -247,4 +247,4 @@ reasonable design but it is currently only documented in code.
 
 Open an issue with: the tool id, the user problem, the smallest acceptable
 behaviour, and what it must never do. Items that change a `Report` field, the
-plugin protocol, or on-disk format need an ADR first.
+CLI surface, or the on-disk format need an ADR first.

@@ -328,7 +328,7 @@ release, so it reports "not enforcing yet" until v0.8.0 is tagged and enforces
 from there — no standing waiver, and nothing to remember to switch on.
 
 - [x] **No unverified claims** — `scripts/check-readme-claims.sh` runs the front
-  page as written (17 commands, all green) and lists the claims a command cannot
+  page as written (16 commands, all green) and lists the claims a command cannot
   settle with where their evidence lives. New `claims` CI job.
 - [x] **Surfaces documented as public** — `docs/COMPATIBILITY.md` lists the
   CLI's commands and flags alongside the frozen types, and
@@ -336,7 +336,7 @@ from there — no standing waiver, and nothing to remember to switch on.
   declares (`packages/cli/src/surface.ts`), so a new flag fails CI until it is
   documented. Runs in the `docs` job.
 - [x] Release artifacts: CLI archives for Linux (x86_64, aarch64), macOS
-  (x86_64, aarch64), and Windows (x86_64), each carrying the engine it spawns;
+  (x86_64, aarch64), and Windows (x86_64), each carrying the engine packages;
   `.deb`/`.AppImage`, `.dmg`, and NSIS installers for the desktop app;
   checksums. `.github/workflows/release.yml`
   builds and attaches them from a tag, and publishes nothing unless every build
@@ -350,10 +350,11 @@ from there — no standing waiver, and nothing to remember to switch on.
   `scripts/check-release-gates.sh` (`make gates`) prints every ADR 0006 gate with
   three states: `ok` (verified just now), `ci` (verified by the newest green run
   on main, read through `gh`), and `open` (with the reason — elapsed time, or a
-  human). A `cargo test <filter>` that matches no tests counts as a failure, so a
-  row cannot look green while proving nothing. `scripts/check-fuzz-nights.sh`
-  (`make fuzz-nights`) reads the *scheduled* soak history and refuses to count a
-  dispatched run, a cancellation, or a missing night.
+  human). A gate whose evidence cannot be produced counts as a failure, so a row
+  cannot look green while proving nothing. The soak is added up by
+  `scripts/check-fuzz-soak.sh` (`make soak` records one); it sums
+  `fuzz/soak-ledger.jsonl` as it stands and cannot yet tell a scheduled night
+  from a dispatched run, which is why the seven-night bar is still open below.
 - [x] **Gate 1 audit** (2026-10-26) — every ✅ in the README status table is
   backed by a test or a CI job that fails when it breaks:
 
@@ -361,7 +362,7 @@ from there — no standing waiver, and nothing to remember to switch on.
   |---|---|
   | `Report`, registry, config, audit trail | 54 tests in `gimlet-eye-core`; `tests/data_shape.rs` holds every native tool to the documented shape |
   | Plugin protocol and host | protocol conformance runner; the `integration` job runs a real Perl pack |
-  | CLI commands | `check-public-surface.sh` (documented) + `check-readme-claims.sh` (17 commands executed) |
+  | CLI commands | `check-public-surface.sh` (documented) + `check-readme-claims.sh` (16 commands executed) |
   | HTTP API, UI, desktop shell | `smoke.sh` now calls all seven routes; `e2e` job runs Playwright against a live engine; `desktop` job typechecks the shell |
   | `sysadmin.*` | 16 tests in `gimlet-eye-sysadmin` |
   | `crypto.passgen`, `crypto.sha256` | `gimlet-eye-crypto` unit tests |
@@ -380,8 +381,8 @@ from there — no standing waiver, and nothing to remember to switch on.
   well as the four scrub parsers, and a failed night opens an issue instead of
   waiting to be noticed. Per the **2026-10-26 amendment to ADR 0006** the evidence
   bar is seven consecutive *scheduled* nights **or** 350 target-minutes of green
-  soak; `make fuzz-nights` reports both numbers, never counts a dispatched run as
-  a night, and never counts a cancellation at all. The nightly schedule stays in
+  soak; `make fuzz-nights` must report both numbers, never count a dispatched run
+  as a night, and never count a cancellation at all. The nightly schedule stays in
   place either way — it is what notices a soak that stopped building.
 - [x] **Gate 3 audit** (2026-10-26) — the six surfaces are named and versioned in
   [COMPATIBILITY.md](COMPATIBILITY.md) (which now also lists the CLI and HTTP

@@ -137,6 +137,8 @@ Claims this script cannot settle, and their evidence:
   reproducible builds        .github/workflows/release.yml "reproducible" job
   signed releases            .github/workflows/release.yml "Sign the checksums"
   package builds             ci.yml "packaging"; scripts/rehearse-upgrade.sh
+  packages need Node 20+     debian/control `Depends: nodejs (>= 20)`, and
+                             scripts/rehearse-upgrade.sh installs it first
   upgrade survives rollback  ci.yml "rehearsal"
   no telemetry, no uploads   `npm audit --omit=dev` over the runtime dependency
                              set, in ci.yml "dependency policy"

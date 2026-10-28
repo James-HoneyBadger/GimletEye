@@ -18,7 +18,7 @@ The constraints are not generic:
    jsdom). It renders argument forms from `ToolManifest` and reports from
    `Report`, and it contains no tool-specific code.
 2. **The boundary is already abstracted.** `apps/desktop/src/lib/tauri-host.ts`
-   implements the `Host` interface over IPC; [main.rs](../apps/desktop/src-tauri/src/main.rs)
+   implements the `Host` interface over IPC; `apps/desktop/src-tauri/src/main.rs`
    exposes fifteen commands — `host_info`, `read_text_file`, `read_file`,
    `write_text_file`, `write_file`, `create_dir`, `remove_tree`, `path_exists`,
    `path_stat`, `read_dir`, `rename_path`, `chmod_owner_only`, `resolve_path`,

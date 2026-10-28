@@ -18,8 +18,8 @@
 ## Reading order for a new contributor
 
 1. `README.md` — run it.
-2. `ARCHITECTURE.md` §2–§4 — the layers, the `Report` contract, and the engine
-   protocol.
+2. `ARCHITECTURE.md` §2–§4 — the layers, the tool contract, and why there is
+   one implementation.
 3. The smallest complete example of each kind of tool:
    - TypeScript: `packages/core/src/tools/disk-usage.ts`
    - engine: `packages/engine/src/signing.ts`

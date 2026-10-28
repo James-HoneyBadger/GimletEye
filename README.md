@@ -90,12 +90,21 @@ Tagged releases carry prebuilt artifacts:
 
 - `gimlet-<version>-<target>.tar.gz` / `.zip` — the CLI **and** the engine, for
   Linux (x86_64, aarch64), macOS (x86_64, aarch64), and Windows (x86_64)
-- `.deb`, `.rpm`, and an Electron bundle (`.AppImage`, `.dmg`, NSIS `.exe`) — the
-  desktop app, engine included
+- `.deb` and an Electron bundle (`.AppImage`, `.dmg`, NSIS `.exe`) — the desktop
+  app, engine included; RPM and Arch recipes live in `packaging/` for building
+  from source
 - `SHA256SUMS` for all of the above
 
-The CLI finds the engine next to itself. If you place it somewhere else, set
-`GIMLET_SIDECAR` to its path.
+The archive carries the engine with the CLI: `packages/engine` is a workspace
+dependency of `packages/core`, resolved from the tree, so there is no second
+binary to place beside anything. An optional `GIMLET_SIDECAR` can point at a
+separate engine when you want to compare two implementations.
+
+The packages need Node 20 or newer on the system. Current distributions ship
+older: Debian 12 has 18, Ubuntu 22.04 has 12. Install a newer one from
+[NodeSource](https://github.com/nodesource/distributions) (or Debian backports)
+first, because the `.deb` declares `nodejs (>= 20)` and `dpkg` refuses to unpack
+it otherwise.
 
 ## Quick start
 

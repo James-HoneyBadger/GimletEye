@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate docs/TOOL_REFERENCE.md: every tool, with an example and real output.
 
-ADR 0006 Gate 5 asks that every tool have "an example with real output". Hand-
-writing 39 examples guarantees two things: they will drift, and some will never
+ADR 0006 Gate 5 asks that every tool have "an example with real output".
+Writing one by hand guarantees two things: they will drift, and some will never
 have been run. So they are run here, on this machine, and the output in the
 document is what the tool actually printed.
 
@@ -65,33 +65,6 @@ EXAMPLES: dict[str, list[str]] = {
     "sysadmin.network": [],
     "sysadmin.system-info": [],
 }
-
-# Everything the pack provides takes no arguments, which is why it is listed
-# rather than hand-written: the pack is the part most likely to grow.
-for module in (
-    "backup-manager",
-    "bandwidth-monitor",
-    "config-diff",
-    "cron-manager",
-    "disk-usage",
-    "docker-monitor",
-    "duplicate-finder",
-    "failed-login-detector",
-    "file-permissions",
-    "firewall-auditor",
-    "log-analyzer",
-    "network-diag",
-    "package-auditor",
-    "port-scanner",
-    "process-manager",
-    "service-monitor",
-    "ssl-checker",
-    "system-info",
-    "systemd-analyzer",
-    "user-audit",
-):
-    EXAMPLES[f"perlden.{module}"] = []
-
 
 def run(command: list[str], env: dict[str, str], timeout: int) -> tuple[int, str]:
     try:

@@ -43,7 +43,7 @@ until it passes, because a green baseline is what makes review cheap.
 | A command, a flag, or terminal output | `packages/cli` |
 | The window, forms, and result rendering | `apps/desktop/src` |
 | A host-inspection tool (`/proc`, `df`) | `packages/core/src/tools` |
-| Anything touching key material or a file format | `crates/crypto`, `crates/scrub` |
+| Anything touching key material or a file format | `packages/engine` |
 | The window or the OS boundary | `apps/desktop/electron` |
 
 Two rules decide most placement questions:
@@ -76,8 +76,10 @@ level where the behaviour lives.
 
 ## Merging to `main`
 
-`main` is protected: no force pushes, no deletion, and a pull request cannot be
-merged until `ci` is green. Two consequences worth knowing before a branch goes
+`main` takes no force pushes and no deletion, and a pull request does not merge
+until `ci` is green. That protection is repository configuration on GitHub rather
+than a file here, so confirm it in *Settings → Rules* rather than treating this
+paragraph as proof of it. Two consequences are worth knowing before a branch goes
 up.
 
 **Job names are part of the contract.** The required checks are the job names in

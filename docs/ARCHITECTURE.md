@@ -277,12 +277,12 @@ nothing that can be out of step.
 
 ## 11. Known limitations
 
-- **The desktop app cannot be built here.** This environment has no
-  webkit2gtk, so the shell and its IPC host are type-checked but never run;
-  the bundle and its e2e coverage belong to CI.
-- **Two engines on one machine.** A dev checkout and an installed app each build
-  their own; they share a home, so the audit trail interleaves. That is why the
-  trail is written through a rename.
+- **The window needs a display.** The shell is Electron, so a headless checkout
+  can type-check it and the `e2e` job can drive it under `xvfb-run`, but opening
+  the window by hand needs a desktop session.
+- **Two builds on one machine.** A dev checkout and an installed app share
+  `$GIMLET_HOME`, so the audit trail interleaves. That is why the trail is
+  written through a rename.
 - **Windows paths.** Path arithmetic in `packages/core` handles both separators,
   but only Linux has been exercised end to end.
 - **No scheduler, no watch mode.** A run is a run.

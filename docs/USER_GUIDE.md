@@ -25,16 +25,17 @@ gimlet doctor
 `doctor` prints where state lives, what was found, and where the audit trail is:
 
 ```text
-gimlet 0.7.0
+gimlet 0.8.0
+platform    linux/aarch64
 home        /home/you/.config/gimlet
 config      /home/you/.config/gimlet/config.toml (defaults)
 state dirs  ok
-tools       19 total
+tools       21 total
   crypto       14
   privacy      3
-  sysadmin     2
-engine      v0.7.0
-audit       /home/you/.config/gimlet/audit.jsonl
+  sysadmin     4
+engine      built in (every tool runs in this process)
+audit       /home/you/.config/gimlet/audit.jsonl (0 record(s))
 ```
 
 There is no configuration to write before the first command: defaults are used
