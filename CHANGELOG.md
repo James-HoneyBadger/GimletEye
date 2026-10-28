@@ -6,6 +6,52 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-10-27
+
+The first quiet minor after the restructure: no versioned surface moved
+(`scripts/check-quiet-period.sh` proves it), so the evidence grew instead of the
+contract. The fuzz soak passed 361.2 target-minutes over six targets with no
+crashes, past the 350 the 1.0 gate asks for.
+
+### Added
+
+- **Four host audits, and one for passwords.** `sysadmin.file-permissions` finds
+  entries anyone may write and setuid/setgid files, treating a sticky
+  world-writable directory as what it is; `sysadmin.user-audit` looks for a
+  second uid 0, duplicate ids, a passwordless account, and a shadow file the
+  wrong people can read — without ever putting a hash in the report;
+  `sysadmin.failed-login-detector` counts one failure per attempt rather than
+  per log line, because `sshd` writes two; `sysadmin.config-drift` snapshots
+  file hashes under `$GIMLET_HOME` and reports what moved since; and
+  `crypto.pass-audit` judges an existing password offline — length, character
+  classes, repeats, sequences, a year suffix, common passwords — and reports the
+  measurements, never the password.
+
+- **The automations now read out of the command line.** `sysadmin.disk-usage`'s
+  companion `sysadmin.config-drift` is on the `--dry-run` path like every other
+  writing tool, and `sysadmin.file-permissions`, `user-audit`, and
+  `failed-login-detector` declare `platforms: ['linux']`/`['linux', 'macos']` and
+  refuse elsewhere instead of returning an empty table.
+
+- **`--output <FILE>` and `-q`/`--quiet`.** A report goes to a file when a
+  destination is named, and stdout stays empty when silence is asked for, so a CI
+  step reads an artifact and the exit status rather than parsing a table. Both
+  are global, so `batch`, `doctor`, and `tools list` honour them too.
+
+- **`gimlet completions <bash|zsh|fish>` and `gimlet man`.** Both are generated
+  from `packages/cli/src/surface.ts` — the same declaration `--help` renders — so
+  a new flag cannot appear in three places and be missing from the fourth.
+
+- **`make bench`.** `scripts/bench.mjs` times hashing, the container, and the
+  metadata scrub against a generated file and fails under a floor, because a
+  suite that asserts bounded reads still cannot notice an accidental n².
+
+### Changed
+
+- The generated tool reference and the `doctor` sample follow the catalogue: 26
+  tools, crypto 15, sysadmin 8, privacy 3.
+
+
 ## [0.8.0] — 2026-10-27
 
 The release that retires the Rust, and the one the 1.0 quiet period restarts

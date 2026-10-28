@@ -1,5 +1,5 @@
 .PHONY: help build cli ui package-check test typecheck check mutation quiet-period surface gates \
-        desktop run smoke e2e soak doctor clean
+        desktop run smoke e2e soak bench doctor clean
 
 NPM ?= npm
 UI_DIR := apps/desktop
@@ -61,6 +61,9 @@ e2e: build ## Drive the real window: run a tool, read the report and the trail
 
 soak: ## Run the fuzz targets for a budget and record it
 	./scripts/fuzz-soak.sh --minutes 10
+
+bench: build ## Time hashing, the container, and the scrub; fail under the floor
+	node scripts/bench.mjs
 
 clean: ## Remove build artifacts
 	rm -rf $(UI_DIR)/dist packages/core/dist packages/engine/dist packages/cli/dist node_modules

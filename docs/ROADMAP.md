@@ -319,12 +319,13 @@ again from the 0.8 release:
 | Quiet release | Status |
 |---|---|
 | 0.7.0 (surface work done, nothing versioned moved) | released |
-| 0.8.0 (the restructure; surfaces deliberately moved) | not yet cut — this is the reset |
-| 0.9.0 and 0.10.0 | not yet cut — these two must be quiet |
+| 0.8.0 (the restructure; surfaces deliberately moved) | released — the reset |
+| 0.9.0 (audits and ergonomics; nothing versioned moved) | released — the first quiet minor |
+| 0.10.0 | not yet cut — it must be quiet too |
 
 1.0 is therefore at least two quiet minors after 0.8.0, and
 `scripts/check-quiet-period.sh` is what proves each one. It carries the restart
-release, so it reports "not enforcing yet" until v0.8.0 is tagged and enforces
+release, so it reported "not enforcing yet" until v0.8.0 was tagged and enforces
 from there — no standing waiver, and nothing to remember to switch on.
 
 - [x] **No unverified claims** — `scripts/check-readme-claims.sh` runs the front

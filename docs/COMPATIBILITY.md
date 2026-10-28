@@ -69,6 +69,8 @@ policy just like a field rename.
 | `gimlet audit` | Recent audit records | `--limit` |
 | `gimlet doctor` | Check the installation | — |
 | `gimlet tui` | Browse and run tools in the terminal | — |
+| `gimlet completions <shell>` | A completion script for bash, zsh, or fish | — |
+| `gimlet man` | The man page, in roff | — |
 | `gimlet help` | The help text | — |
 | `gimlet version` | The version | — |
 

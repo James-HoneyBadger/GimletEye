@@ -26,6 +26,7 @@ Requirements: Node 20+. `gpg` is only needed for the OpenPGP interop tools.
 make check        # tsc, vitest, and the documentation gates
 make smoke        # the CLI against real files
 make mutation     # break the code on purpose; every mutation must be caught
+make bench        # hashing, the container, and the scrub, against time floors
 ```
 
 `make mutation` is slower and is not a CI job, but it is how most of the gaps in

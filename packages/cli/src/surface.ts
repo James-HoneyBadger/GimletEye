@@ -26,6 +26,8 @@ export const COMMANDS: readonly CommandEntry[] = [
   { command: 'audit', args: '[--limit N]', summary: 'Recent audit records' },
   { command: 'doctor', args: '', summary: 'Check the installation' },
   { command: 'tui', args: '', summary: 'Browse and run tools in the terminal' },
+  { command: 'completions', args: '<bash|zsh|fish>', summary: 'A completion script for that shell' },
+  { command: 'man', args: '', summary: 'The man page, in roff' },
   { command: 'help', args: '', summary: 'This text' },
   { command: 'version', args: '', summary: 'Print the version' },
 ];

@@ -1,3 +1,13 @@
+gimlet-eye-toolkit (0.9.0) unstable; urgency=medium
+
+  * The first quiet minor since 0.8.0: no versioned surface moved.
+  * Five audits: file-permissions, user-audit, failed-login-detector,
+    config-drift, and crypto.pass-audit.
+  * --output and --quiet, plus generated shell completions and a man page.
+  * make bench: floors for hashing, the container, and the metadata scrub.
+
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Tue, 27 Oct 2026 00:00:00 +0000
+
 gimlet-eye-toolkit (0.8.0) unstable; urgency=medium
 
   * TypeScript surfaces over one Rust engine; the HTTP API is gone.

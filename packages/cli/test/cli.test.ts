@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nodeHost } from '@gimlet-eye/core/host-node';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
+import { completionScript, manPage } from '../src/completions.js';
 import { configure, finish, formatFromArgv, write, writeFailure } from '../src/output.js';
 import { BATCH_FLAGS, COMMANDS, GLOBAL_FLAGS } from '../src/surface.js';
 
@@ -91,6 +92,29 @@ describe('command parsing', () => {
 
   it('refuses a destination it cannot open', () => {
     expect(() => configure({ output: '/nonexistent-directory/report.txt' })).toThrow(/cannot write/);
+  });
+
+  it('parses the generator commands', () => {
+    expect(parseArgs(['completions', 'bash']).command).toEqual({ kind: 'completions', shell: 'bash' });
+    expect(parseArgs(['man']).command).toEqual({ kind: 'man' });
+    expect(() => parseArgs(['completions'])).toThrow(/needs a shell/);
+    expect(() => parseArgs(['completions', 'powershell'])).toThrow(/unknown shell/);
+  });
+
+  it('generates every shell and the man page from the declared surface', () => {
+    for (const shell of ['bash', 'zsh', 'fish'] as const) {
+      const script = completionScript(shell);
+      for (const entry of COMMANDS) expect(script).toContain(entry.command.split(' ')[0]);
+    }
+    expect(completionScript('bash')).toContain('complete -F _gimlet gimlet');
+    expect(completionScript('fish')).toContain('complete -c gimlet');
+    expect(completionScript('zsh')).toContain('#compdef gimlet');
+
+    const man = manPage();
+    expect(man).toContain('.TH GIMLET 1');
+    expect(man).toContain('.SH COMMANDS');
+    expect(man).toContain('.SH BATCH OPTIONS');
+    expect(man).toContain('.SH ENVIRONMENT');
   });
 
   it('parses batch options without treating their values as paths', () => {
@@ -252,6 +276,7 @@ describe('declared surface', () => {
       if (entry.command.startsWith('run')) argv.push('crypto.sha256');
       if (entry.command.startsWith('batch')) argv.push('crypto.sha256', '/tmp');
       if (entry.command.startsWith('tools show')) argv.push('crypto.sha256');
+      if (entry.command.startsWith('completions')) argv.push('bash');
       expect(() => parseArgs(argv)).not.toThrow();
     }
   });

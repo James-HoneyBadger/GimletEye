@@ -8,6 +8,7 @@
  */
 
 import { invalidArgs } from '@gimlet-eye/core';
+import { isShell, type Shell } from './completions.js';
 import type { OutputFormat } from '@gimlet-eye/core';
 
 export interface Globals {
@@ -43,6 +44,8 @@ export type Command =
   | { kind: 'audit'; limit: number }
   | { kind: 'doctor' }
   | { kind: 'tui' }
+  | { kind: 'completions'; shell: Shell }
+  | { kind: 'man' }
   | { kind: 'help' }
   | { kind: 'version' };
 
@@ -52,7 +55,19 @@ export interface Parsed {
 }
 
 /** Commands a bare word may name; anything else is a tool id. */
-const COMMANDS = new Set(['run', 'batch', 'tools', 'config', 'audit', 'doctor', 'tui', 'help', 'version']);
+const COMMANDS = new Set([
+  'run',
+  'batch',
+  'tools',
+  'config',
+  'audit',
+  'doctor',
+  'tui',
+  'completions',
+  'man',
+  'help',
+  'version',
+]);
 
 /** Flags that take a value, so the next token is not a positional. */
 const VALUE_FLAGS = new Set([
@@ -267,6 +282,14 @@ function parseCommand(positional: string[], argv: readonly string[]): Command {
       return { kind: 'doctor' };
     case 'tui':
       return { kind: 'tui' };
+    case 'completions': {
+      const [shell] = rest;
+      if (shell === undefined) throw invalidArgs('completions needs a shell: bash, zsh, or fish');
+      if (!isShell(shell)) throw invalidArgs(`unknown shell '${shell}' (bash, zsh, fish)`);
+      return { kind: 'completions', shell };
+    }
+    case 'man':
+      return { kind: 'man' };
     default:
       throw invalidArgs(`unknown command '${head}' (try --help)`);
   }

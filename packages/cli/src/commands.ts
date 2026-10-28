@@ -19,6 +19,7 @@ import {
 } from '@gimlet-eye/core';
 
 import { executeBatch, type BatchRunner } from './batch.js';
+import { completionScript, manPage } from './completions.js';
 import { parseArgs, type Command, type Globals } from './cli.js';
 import { configure, finish, formatFromArgv, write, writeFailure, writeLine } from './output.js';
 import { helpText, versionText } from './help.js';
@@ -100,6 +101,12 @@ async function dispatch(runtime: Runtime, globals: Globals, command: Command): P
       return doctor(runtime);
     case 'tui':
       return runTui(runtime);
+    case 'completions':
+      write(completionScript(command.shell));
+      return 0;
+    case 'man':
+      write(manPage());
+      return 0;
     case 'help':
     case 'version':
       return 0;

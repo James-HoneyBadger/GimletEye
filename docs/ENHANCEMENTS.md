@@ -20,15 +20,20 @@ These are ordered by value per unit of risk. Everything else can wait.
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
 | 1 | [Complete the crypto pillar](#1-complete-the-crypto-pillar) | Encryption and signatures shipped; streaming, keystore, and key exchange remain. | L | High |
-| 2 | [hb-scrub pack for the remaining formats](#2-hb-scrub-pack-for-the-remaining-formats) | Format parity for a manifest and a small adapter. | S–M | Low |
+| 2 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each; there is no pack to borrow one from any more. | L | Medium |
 | 3 | [Golden corpus and fuzzing](#3-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
-| 4 | [Pack trust and conformance](#4-pack-trust-and-conformance) | Packs are the extension story; they need a safety story. | M | Medium |
+| 4 | [Observe declared capabilities](#4-observe-declared-capabilities) | The declaration is the security story; nothing checks the code against it. | M | Low |
+| 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
 
 Shipped since this list was written: **batch execution** (`gimlet batch`,
-below), **manifest `mutates`**, **`GET /api/v1/audit`** with a recent-runs view,
-a **UI test suite**, and **API authentication** (a bearer token on every
-`/api/` route plus a bind guard, both landed in 0.3.x).
+below), **manifest `mutates`**, a **UI test suite**, the **TUI**
+(`gimlet tui`), **shell completions and a man page** (`gimlet completions`,
+`gimlet man`), the **five audits** (`sysadmin.file-permissions`,
+`sysadmin.user-audit`, `sysadmin.failed-login-detector`,
+`sysadmin.config-drift`, `crypto.pass-audit`), and `--output`/`--quiet`. The HTTP
+API, its bearer token, and the pack protocol were **removed** at 0.8, so the
+items below that lean on packs describe a mechanism this tree no longer has.
 
 ---
 
@@ -48,31 +53,37 @@ files still open — see [ADR 0005](adr/0005-chunked-container-v2.md)); the seal
 keystore, X25519 recipients in container v3, and OpenPGP interop through the
 system `gpg` (see [ADR 0007](adr/0007-keystore-and-recipients.md)).
 
-**Remaining.**
+**Remaining.** Each of these touches `keystore.ts` or `keys.ts`, which the 1.0
+quiet period freezes until after 1.1 — landing one now would restart the
+countdown, so they are planned rather than pending:
 1. **Key expiry and audit** — the keystore lists and rotates, but nothing tracks
-   an expiry date or reports a weak or duplicated key.
+   an expiry date or reports a weak or duplicated key. (`crypto.pass-audit`
+   covers the password half of this; the key half does not ship until 1.1.)
 2. **RSA recipients** — X25519 covers the modern case; RSA is for talking to
    older tooling, and survives review only if it earns its weight.
 3. **Shamir split/combine and secure shred**, with `--dry-run` by default.
+   Shred is host-only and could land sooner; secret sharing needs `keys.ts`.
 
 **Effort** L · **Risk** High — a container or key-format regression here is
 unrecoverable data loss. Every change needs a golden-file test and an ADR.
 
-### 2. hb-scrub pack for the remaining formats
+### 2. Native parsers for the remaining formats
 
 **Problem.** Native support covers JPEG, PNG, and WebP. HEIC, AVIF, TIFF, PDF,
 MP4, RAW, GIF, and SVG all return `unsupported`.
 
-**Why.** The TypeScript implementation already exists and is tested. A pack
-adapter buys parity immediately and keeps the roadmap honest while native ports
-land one at a time.
+**Why.** The earlier plan was a pack over an existing TypeScript library; the
+plugin protocol was removed at 0.8, so parity now means writing the parser here,
+next to the corpus and the fixtures, which is where the other three live. This
+is the largest open item and the one most likely to want an ADR.
 
-**Shape.** `plugins/hb-scrub-pack/` with a Node adapter that maps
-`readMetadata`/`removeMetadata`/`verifyClean` onto the report contract. Each
-format ported natively later simply shadows the pack.
+**Shape.** One module per format in `packages/engine/src/scrub`, each with a
+fixture and a `scan`/`strip`/`verify` triple, plus a manifest entry. A format
+whose parser would need a native dependency waits for a decision rather than
+arriving as one.
 
-**Effort** S–M · **Risk** Low — the implementation is unchanged; only the
-transport is new.
+**Effort** L · **Risk** Medium — a wrong parser silently corrupts bytes, which is
+why the corpus requirement below comes with it.
 
 ### 3. Golden corpus and fuzzing
 
@@ -93,23 +104,23 @@ The corpus and fuzzers are the only real safety net.
 
 **Effort** M · **Risk** Low.
 
-### 4. Pack trust and conformance
+### 4. Observe declared capabilities
 
-**Problem.** A pack is an arbitrary executable. Today trust means "you put it in
-the directory". Packs can also declare capabilities they do not use.
+**Problem.** Every manifest declares capabilities (`fs:write`, `process:exec`,
+`network`, `secrets`), and a test can check that the set is drawn from a known
+list — but nothing checks that a tool *uses* only what it declared. The pack
+machinery that would have answered this was removed at 0.8; the question
+survives it.
 
-**Why.** As soon as packs are distributed, "just don't install bad ones" stops
-being an answer.
+**Why.** The declaration is the security story for the desktop shell and for a
+future scheduler: a tool that writes files without saying so is the one that
+matters.
 
-**Shape.**
-- `gimlet plugins conformance <dir>` runs the SDK checklist automatically
-  (handshake, ids unique, findings drive status, dry-run honoured, clean exit).
-- Manifest `[trust] sha256 = "..."` pinning the entry point, verified before
-  spawn; warn on mismatch, refuse when `plugins.require_signature = true`.
-- Report the declared capabilities in `plugins list` and surface a diff between
-  declared and observed (exec, network) once the host can observe it.
+**Shape.** A test harness that runs each tool against the fake host and records
+which operations it touched, compared with its declaration. `network` already has
+no implementation in `Host`, so the interesting rows are write, exec, and secrets.
 
-**Effort** M · **Risk** Medium — a false "untrusted" blocks legitimate packs.
+**Effort** M · **Risk** Low — a test, not a runtime check.
 
 ### 5. Scheduled runs
 
@@ -200,9 +211,9 @@ reasonable design but it is currently only documented in code.
 
 | Item | Why | Effort |
 |---|---|---|
-| Port `FailedLoginDetector`, `FilePermissions`, `UserAudit` | Security-relevant, read-only, and currently only available through the Perl pack. | M |
-| `automation` module (scheduled runs) | Perl Den's crontab scheduler is not ported. Prefer systemd timers on Linux, cron as fallback, `--dry-run` default. | L |
-| `sysadmin.config-drift` | Perl Den's `ConfigDiff` is the cheapest way to add real value: snapshot, diff, report drift as findings. | M |
+| ~~Port `FailedLoginDetector`, `FilePermissions`, `UserAudit`~~ | **Done in 0.9** as `sysadmin.failed-login-detector`, `sysadmin.file-permissions`, and `sysadmin.user-audit`. | — |
+| `automation` module (scheduled runs) | Nothing schedules a job today. Prefer systemd timers on Linux, cron as fallback, `--dry-run` default. | L |
+| ~~`sysadmin.config-drift`~~ | **Done in 0.9**: snapshot, diff, report drift as findings. | — |
 | Fixture-driven ports of the remaining modules | Keeps behaviour honest as they move out of the pack. | M |
 | Explicit platform contract | Several tools read `/proc` and shell out to `df`. State "Linux" in the manifest and degrade cleanly elsewhere. | S |
 
@@ -213,9 +224,9 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | WASM target | Metadata scan/strip, hashing, and password generation all work on `&[u8]` and would run in a browser with no upload. High privacy value. | M |
-| TUI | A terminal browser makes the toolkit usable over SSH, which is where sysadmin work happens. | M |
-| Shell completions + man pages | `clap_complete` and `clap_mangen`; near-zero cost, real ergonomics. | S |
-| `--output <file>` and `--quiet` | CI wants a report artifact, not stdout parsing. | S |
+| ~~TUI~~ | **Shipped**: `gimlet tui`. | — |
+| ~~Shell completions + man pages~~ | **Shipped in 0.9**: `gimlet completions <shell>` and `gimlet man`, generated from `packages/cli/src/surface.ts`. | — |
+| ~~`--output <file>` and `--quiet`~~ | **Shipped in 0.9** as global flags, so `batch` and `doctor` honour them too. | — |
 | Structured logging / OpenTelemetry spans | Turns "why was that slow" into a query. Packs are already timed per request. | M |
 
 ---
@@ -225,11 +236,11 @@ reasonable design but it is currently only documented in code.
 | Item | Why | Effort |
 |---|---|---|
 | ~~MSRV CI job~~ | gone with the Rust; the Node floor is `engines.node` and `setup-node`. | — |
-| End-to-end UI tests against a live engine | The vitest suite mocks the API; a Playwright pass would catch wire-format drift. | M |
-| Conformance tests in CI for packs | The Perl pack is exercised; a general harness keeps the SDK honest. | M |
-| Benchmarks for large files | Catches accidental quadratic behaviour in scan/strip. | S |
+| ~~End-to-end UI tests against a live engine~~ | **Shipped**: the `e2e` job drives the real window with Playwright. | — |
+| ~~Benchmarks for large files~~ | **Shipped in 0.9**: `make bench` (`scripts/bench.mjs`) with floors for hashing, the container, and the scrub. | — |
+| ~~Reproducible release artifacts~~ | **Shipped**: the `reproducible` job rebuilds and compares, and `SHA256SUMS` is signed. | — |
+| An SBOM over the npm tree | Signed artifacts and checksums exist; a bill of materials does not. | M |
 | Docs site | Markdown is fine now; linked HTML with search pays off past ~10 documents. | M |
-| Reproducible release artifacts | Signed artifacts and an SBOM over the npm tree. | M |
 
 ---
 
