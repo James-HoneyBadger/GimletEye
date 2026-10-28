@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nodeHost } from '@gimlet-eye/core/host-node';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
-import { formatFromArgv, writeFailure } from '../src/output.js';
+import { configure, finish, formatFromArgv, write, writeFailure } from '../src/output.js';
 import { BATCH_FLAGS, COMMANDS, GLOBAL_FLAGS } from '../src/surface.js';
 
 describe('failures in the shape the caller asked for', () => {
@@ -53,6 +53,44 @@ describe('command parsing', () => {
     expect(parseArgs(['doctor', '--format', 'markdown']).globals.format).toBe('markdown');
     expect(parseArgs(['--home=/tmp/x', 'doctor']).globals.home).toBe('/tmp/x');
     expect(parseArgs(['-vv', 'doctor']).globals.verbose).toBe(2);
+  });
+
+  it('takes a report destination and a silent switch', () => {
+    expect(parseArgs(['--output', '/tmp/report.json', 'doctor']).globals.output).toBe('/tmp/report.json');
+    expect(parseArgs(['doctor', '--output=/tmp/report.json']).globals.output).toBe('/tmp/report.json');
+    expect(parseArgs(['-q', 'doctor']).globals.quiet).toBe(true);
+    expect(parseArgs(['doctor', '--quiet']).globals.quiet).toBe(true);
+    expect(parseArgs(['doctor']).globals.output).toBeUndefined();
+    expect(parseArgs(['doctor']).globals.quiet).toBe(false);
+  });
+
+  it('sends every line to the file, and nothing to stdout when quiet', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'gimlet-output-'));
+    const report = join(dir, 'report.txt');
+    const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      configure({ output: report });
+      write('hello\n');
+      finish();
+      expect(await readFile(report, 'utf8')).toBe('hello\n');
+      expect(stdout).not.toHaveBeenCalled();
+
+      configure({ quiet: true });
+      write('hidden\n');
+      finish();
+      expect(stdout).not.toHaveBeenCalled();
+
+      configure({ quiet: false });
+      write('shown\n');
+      expect(stdout).toHaveBeenCalledWith('shown\n');
+    } finally {
+      stdout.mockRestore();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a destination it cannot open', () => {
+    expect(() => configure({ output: '/nonexistent-directory/report.txt' })).toThrow(/cannot write/);
   });
 
   it('parses batch options without treating their values as paths', () => {

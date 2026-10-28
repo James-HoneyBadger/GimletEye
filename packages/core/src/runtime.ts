@@ -10,9 +10,12 @@ import { AuditLog, auditEntry } from './audit.js';
 import { loadConfig, type Config } from './config.js';
 import { GimletError, asGimletError, notFound } from './errors.js';
 import { diskUsage } from './tools/disk-usage.js';
+import { failedLoginDetector } from './tools/failed-login.js';
+import { filePermissions } from './tools/file-permissions.js';
 import { kernelHardening } from './tools/kernel-hardening.js';
 import { network } from './tools/network.js';
 import { systemInfo } from './tools/system-info.js';
+import { userAudit } from './tools/user-audit.js';
 import { discoverPaths, ensurePaths, type AppPaths } from './paths.js';
 import { Registry } from './registry.js';
 import { Sidecar } from './sidecar.js';
@@ -46,7 +49,15 @@ export interface RuntimeOptions {
 }
 
 /** Tools that need nothing from Node beyond the `Host` interface. */
-export const HOST_TOOLS: readonly LocalTool[] = [systemInfo, diskUsage, kernelHardening, network];
+export const HOST_TOOLS: readonly LocalTool[] = [
+  systemInfo,
+  diskUsage,
+  kernelHardening,
+  network,
+  filePermissions,
+  userAudit,
+  failedLoginDetector,
+];
 
 export class Runtime {
   private constructor(

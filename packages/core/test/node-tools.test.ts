@@ -11,12 +11,14 @@ import { describe, expect, it } from 'vitest';
 
 import { NODE_TOOLS } from '../src/node.js';
 import { HOST_TOOLS } from '../src/runtime.js';
+import { configDrift } from '../src/tools/config-drift.js';
 import { CONTAINER_TOOLS } from '../src/tools/containers.js';
 import { GPG_TOOLS } from '../src/tools/gpg.js';
 import { sha256 } from '../src/tools/hash.js';
 import { INSPECT_TOOLS } from '../src/tools/keys.js';
 import { KEYSTORE_TOOLS } from '../src/tools/keystore-tools.js';
 import { metadataScan, metadataStrip, metadataVerify } from '../src/tools/metadata.js';
+import { passAudit } from '../src/tools/pass-audit.js';
 import { passgen } from '../src/tools/passwords.js';
 import { SIGNING_TOOLS } from '../src/tools/signatures.js';
 import type { LocalTool } from '../src/local.js';
@@ -33,6 +35,8 @@ const IMPLEMENTED: readonly LocalTool[] = [
   ...INSPECT_TOOLS,
   ...KEYSTORE_TOOLS,
   ...GPG_TOOLS,
+  configDrift,
+  passAudit,
 ];
 
 describe('the Node tool list', () => {

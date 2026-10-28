@@ -34,6 +34,8 @@ export const GLOBAL_FLAGS: readonly CommandEntry[] = [
   { command: '--home', args: '<DIR>', summary: 'Override the toolkit home' },
   { command: '--format', args: '<F>', summary: 'text | json | markdown | csv | html' },
   { command: '--json', args: '', summary: 'Shorthand for --format json' },
+  { command: '--output', args: '<FILE>', summary: 'Write the report to a file instead of stdout' },
+  { command: '-q, --quiet', args: '', summary: 'Nothing on stdout; the exit status is the answer' },
   { command: '--dry-run', args: '', summary: 'Report intended changes without writing them' },
   { command: '--strict', args: '', summary: 'Treat warnings as failures' },
   { command: '-v, --verbose', args: '', summary: 'More logging on stderr (repeatable)' },

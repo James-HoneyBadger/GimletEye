@@ -4,3 +4,9 @@
 {"target":"exif","seed":1,"minutes":0.2,"iterations":2714682,"parsed":948005,"crashes":0,"details":[]}
 {"target":"gps","seed":1,"minutes":0.2,"iterations":1722562,"parsed":191691,"crashes":0,"details":[]}
 {"target":"container","seed":1,"minutes":0.2,"iterations":220,"parsed":0,"crashes":0,"details":[]}
+{"target":"webp","seed":7,"minutes":60,"iterations":425916064,"parsed":114745498,"crashes":0,"details":[]}
+{"target":"png","seed":7,"minutes":60,"iterations":466961742,"parsed":170379173,"crashes":0,"details":[]}
+{"target":"jpeg","seed":7,"minutes":60,"iterations":633896011,"parsed":284317296,"crashes":0,"details":[]}
+{"target":"gps","seed":7,"minutes":60,"iterations":367068451,"parsed":40779084,"crashes":0,"details":[]}
+{"target":"exif","seed":7,"minutes":60,"iterations":487571852,"parsed":170138572,"crashes":0,"details":[]}
+{"target":"container","seed":7,"minutes":60,"iterations":35248,"parsed":3,"crashes":0,"details":[]}

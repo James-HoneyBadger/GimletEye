@@ -6,7 +6,40 @@
  * backtrace, so every line goes through here.
  */
 
+import { closeSync, openSync, writeSync } from 'node:fs';
+
+import { GimletError } from '@gimlet-eye/core';
+
 let patched = false;
+
+/**
+ * Where stdout goes, once the flags are known.
+ *
+ * `--output <file>` sends every line this module writes to a file, and `--quiet`
+ * keeps them out of stdout entirely; both leave stderr alone, so a failure is
+ * still visible. Doing it here rather than at each call site is what makes the
+ * switches work for `batch`, `tools list`, and `doctor` without threading a
+ * writer through them.
+ */
+let sink: number | undefined;
+let silent = false;
+
+export function configure(options: { output?: string | undefined; quiet: boolean }): void {
+  silent = options.quiet;
+  if (options.output === undefined) return;
+  try {
+    sink = openSync(options.output, 'w');
+  } catch (error) {
+    throw new GimletError('io', `cannot write ${options.output}: ${(error as Error).message}`);
+  }
+}
+
+/** Close the file, if there is one. Safe to call more than once. */
+export function finish(): void {
+  if (sink === undefined) return;
+  closeSync(sink);
+  sink = undefined;
+}
 
 function tolerateClosedPipe(): void {
   if (patched) return;
@@ -19,6 +52,11 @@ function tolerateClosedPipe(): void {
 }
 
 export function write(text: string): void {
+  if (sink !== undefined) {
+    writeSync(sink, text);
+    return;
+  }
+  if (silent) return;
   tolerateClosedPipe();
   process.stdout.write(text);
 }

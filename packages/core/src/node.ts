@@ -6,6 +6,7 @@
  * tools from the engine over the sidecar instead.
  */
 
+import { configDrift } from './tools/config-drift.js';
 import { CONTAINER_TOOLS } from './tools/containers.js';
 import { GPG_TOOLS } from './tools/gpg.js';
 import { INSPECT_TOOLS } from './tools/keys.js';
@@ -13,6 +14,7 @@ import { KEYSTORE_TOOLS } from './tools/keystore-tools.js';
 import { metadataScan, metadataStrip, metadataVerify } from './tools/metadata.js';
 import { SIGNING_TOOLS } from './tools/signatures.js';
 import { sha256 } from './tools/hash.js';
+import { passAudit } from './tools/pass-audit.js';
 import { passgen } from './tools/passwords.js';
 import { HOST_TOOLS } from './runtime.js';
 import type { LocalTool } from './local.js';
@@ -39,4 +41,6 @@ export const NODE_TOOLS: readonly LocalTool[] = [
   ...INSPECT_TOOLS,
   ...KEYSTORE_TOOLS,
   ...GPG_TOOLS,
+  configDrift,
+  passAudit,
 ];

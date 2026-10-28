@@ -20,7 +20,7 @@ import {
 
 import { executeBatch, type BatchRunner } from './batch.js';
 import { parseArgs, type Command, type Globals } from './cli.js';
-import { formatFromArgv, write, writeFailure, writeLine } from './output.js';
+import { configure, finish, formatFromArgv, write, writeFailure, writeLine } from './output.js';
 import { helpText, versionText } from './help.js';
 import { runTui } from './tui/session.js';
 
@@ -36,13 +36,27 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
     throw error;
   }
 
-  if (parsed.command.kind === 'help') {
-    write(helpText());
-    return 0;
+  // A bad `--output` path is a usage problem, so it is reported like one and
+  // fails before anything expensive happens.
+  try {
+    configure(parsed.globals);
+  } catch (error) {
+    const failure = error instanceof GimletError ? error : new GimletError('io', String(error));
+    writeFailure(failure.code, failure.message, formatFromArgv(argv));
+    return 1;
   }
-  if (parsed.command.kind === 'version') {
-    writeLine(versionText());
-    return 0;
+
+  try {
+    if (parsed.command.kind === 'help') {
+      write(helpText());
+      return 0;
+    }
+    if (parsed.command.kind === 'version') {
+      writeLine(versionText());
+      return 0;
+    }
+  } finally {
+    finish();
   }
 
   let runtime: Runtime | undefined;
@@ -59,6 +73,7 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
     return failure.code === 'invalid_args' ? 2 : 1;
   } finally {
     runtime?.close();
+    finish();
   }
 }
 

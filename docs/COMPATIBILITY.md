@@ -79,6 +79,8 @@ Global flags, accepted before or after the command:
 | `--home <DIR>` | Toolkit home (config, audit, keystore) |
 | `--format <text\|json\|markdown\|csv\|html>` | Report format |
 | `--json` | Shorthand for `--format json` |
+| `--output <FILE>` | Write the report to a file instead of stdout |
+| `-q`, `--quiet` | Nothing on stdout; the exit status carries the verdict |
 | `--dry-run` | Report intended changes without writing them |
 | `--strict` | Exit non-zero on a warning verdict |
 | `-v`, `--verbose` | More logging on stderr, repeatable |

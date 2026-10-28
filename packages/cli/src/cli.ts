@@ -13,6 +13,10 @@ import type { OutputFormat } from '@gimlet-eye/core';
 export interface Globals {
   home: string | undefined;
   format: OutputFormat | undefined;
+  /** Redirect the report here instead of stdout. */
+  output: string | undefined;
+  /** Nothing on stdout; the exit status is the answer. */
+  quiet: boolean;
   dryRun: boolean;
   strict: boolean;
   verbose: number;
@@ -54,6 +58,7 @@ const COMMANDS = new Set(['run', 'batch', 'tools', 'config', 'audit', 'doctor', 
 const VALUE_FLAGS = new Set([
   '--home',
   '--format',
+  '--output',
   '--arg',
   '--input-arg',
   '--concurrency',
@@ -67,6 +72,8 @@ const VALUE_FLAGS = new Set([
 /** Flags that stand alone. */
 const BOOLEAN_FLAGS = new Set([
   '--json',
+  '--quiet',
+  '-q',
   '--dry-run',
   '--strict',
   '--fail-fast',
@@ -81,6 +88,8 @@ export function parseArgs(argv: readonly string[]): Parsed {
   const globals: Globals = {
     home: undefined,
     format: undefined,
+    output: undefined,
+    quiet: false,
     dryRun: false,
     strict: false,
     verbose: 0,
@@ -95,7 +104,7 @@ export function parseArgs(argv: readonly string[]): Parsed {
     if (inline) {
       // Only the global flags are applied here; a command flag's value is read
       // where the command is parsed.
-      if (inline.flag === '--home' || inline.flag === '--format') {
+      if (inline.flag === '--home' || inline.flag === '--format' || inline.flag === '--output') {
         applyGlobal(globals, inline.flag, inline.value);
       } else if (!VALUE_FLAGS.has(inline.flag) && !BOOLEAN_FLAGS.has(inline.flag)) {
         throw invalidArgs(`unknown flag '${inline.flag}' (try --help)`);
@@ -107,7 +116,7 @@ export function parseArgs(argv: readonly string[]): Parsed {
     if (VALUE_FLAGS.has(token)) {
       const next = argv[index + 1];
       if (next === undefined) throw invalidArgs(`${token} needs a value`);
-      if (token === '--home' || token === '--format') applyGlobal(globals, token, next);
+      if (token === '--home' || token === '--format' || token === '--output') applyGlobal(globals, token, next);
       index += 2;
       continue;
     }
@@ -117,6 +126,10 @@ export function parseArgs(argv: readonly string[]): Parsed {
         globals.format = 'json';
         index += 1;
         continue;
+      case '--quiet':
+      case '-q':
+        globals.quiet = true;
+        break;
       case '--dry-run':
         globals.dryRun = true;
         index += 1;
@@ -170,6 +183,9 @@ function applyGlobal(globals: Globals, flag: string, value: string): void {
       return;
     case '--format':
       globals.format = parseFormat(value);
+      return;
+    case '--output':
+      globals.output = value;
       return;
     default:
       throw invalidArgs(`unknown flag '${flag}' (try --help)`);
