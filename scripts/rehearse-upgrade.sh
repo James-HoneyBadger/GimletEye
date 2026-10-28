@@ -125,7 +125,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     apt-get update -qq && apt-get install -y -qq python3 curl ca-certificates >/dev/null
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null
     apt-get install -y -qq nodejs >/dev/null
-    node --version | grep -qE \"^v(2[0-9]|[3-9][0-9])\" || { echo "the package needs node 20 or newer"; exit 1; }
+    node --version | grep -qE "^v(2[0-9]|[3-9][0-9])" || { echo "the package needs node 20 or newer"; exit 1; }
     export GIMLET_HOME=/home/tester/.config/gimlet
     export KEEP_PASS=rehearsal-passphrase
     useradd -m tester >/dev/null 2>&1 || true
@@ -147,7 +147,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     "
     key_id_before=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     mode_before=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
     entries_before=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
@@ -159,7 +159,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
 
     key_id_after=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_after" = "$key_id_before" ] || { echo "the keystore changed across the upgrade"; exit 1; }
     su tester -s /bin/bash -c "
@@ -183,7 +183,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     dpkg -i "$NEW" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c \"import json,sys; print(json.load(sys.stdin)[\\\"data\\\"][\\\"keys\\\"][0][\\\"id\\\"])\"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"

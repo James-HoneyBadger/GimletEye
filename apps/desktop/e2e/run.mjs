@@ -19,6 +19,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { NODE_TOOLS } from '@gimlet-eye/core/node';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const app = join(here, '..');
 
@@ -53,8 +55,10 @@ try {
   // count below is of rows rendered, not of tools known.
   await window.getByRole('tab', { name: /^All/ }).click();
   const rows = await window.locator('.tool').count();
-  assert.equal(rows, 21, `expected 21 tools in the sidebar, saw ${rows}`);
-  step('the catalogue arrives over IPC (21 tools)');
+  // The count comes from the same list the main process registers, so adding a
+  // tool cannot leave this asserting a number from two releases ago.
+  assert.equal(rows, NODE_TOOLS.length, `expected ${NODE_TOOLS.length} tools in the sidebar, saw ${rows}`);
+  step(`the catalogue arrives over IPC (${NODE_TOOLS.length} tools)`);
 
   const footer = await window.locator('.sidebar-footer').innerText();
   assert.match(footer, /engine built in/, `footer read: ${footer}`);
