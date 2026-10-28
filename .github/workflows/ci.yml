@@ -168,6 +168,10 @@ jobs:
       # that used to stall this job is gone.
       - name: Shell builds
         run: npm run electron:build -w @gimlet-eye/desktop
+      # The installer icon is rendered rather than checked in, so this proves the
+      # script that renders it still runs. xvfb stands in for the display.
+      - name: The installer icon renders
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-eye/desktop
 
   packaging:
     name: packaging (version agreement, staged layout)

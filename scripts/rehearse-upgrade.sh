@@ -118,8 +118,14 @@ step "install, use, upgrade, roll back"
 docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc '
     export DEBIAN_FRONTEND=noninteractive
-    # python3 is for this harness (parsing a report), not for the package.
-    apt-get update -qq && apt-get install -y -qq python3 >/dev/null
+    # Nothing below may contain a single quote: this whole block is one quoted
+    # argument, and an apostrophe ends it early. Use \" for inner quoting.
+    # python3 is for this harness (parsing a report), not for the package. Node is
+    # a real dependency: the distro nodejs is 18 and the package needs 20.
+    apt-get update -qq && apt-get install -y -qq python3 curl ca-certificates >/dev/null
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null
+    apt-get install -y -qq nodejs >/dev/null
+    node --version | grep -qE \"^v(2[0-9]|[3-9][0-9])\" || { echo "the package needs node 20 or newer"; exit 1; }
     export GIMLET_HOME=/home/tester/.config/gimlet
     export KEEP_PASS=rehearsal-passphrase
     useradd -m tester >/dev/null 2>&1 || true

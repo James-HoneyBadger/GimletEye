@@ -476,9 +476,38 @@ it starts empty.
 
 ### Changed
 
-- The desktop bundle ships the built UI as a resource, and the desktop CI job
-  builds that bundle before type-checking the shell — Tauri refuses a missing
-  resource path.
+- The desktop bundle ships the built UI, and the desktop CI job builds that
+  bundle before type-checking the shell.
+
+### Added
+
+- **The installers carry the project's own mark.** `scripts/make-icon.mjs`
+  renders `apps/desktop/build/icon.png` with the app's own Chromium, so the icon
+  cannot drift from the UI tokens and there is no opaque binary nobody can
+  regenerate; the release workflow renders it once and hands it to each desktop
+  job.
+
+- **Desktop artifacts are named for the project.** They land as
+  `gimlet-eye-<version>-<arch>.<ext>` and the executable is `gimlet-eye`.
+
+### Changed
+
+- Electron is pinned to `45.0.0` exactly rather than `^45.0.0`, so rebuilding a
+  release resolves the same Electron.
+
+### Fixed
+
+- **The upgrade rehearsal runs again.** `scripts/rehearse-upgrade.sh` installs
+  Node 20 before the package — the `.deb` declares `nodejs (>= 20)` and Debian 12
+  ships 18 — and the block that does it no longer closes its own quoting early.
+
+- **The Windows CLI zip no longer carries junctions.** `@gimlet-eye/core` and
+  `@gimlet-eye/engine` are copied into `node_modules`; an NTFS junction stores an
+  absolute target, so the ones it shipped pointed back at the build agent after
+  unzip.
+
+- **The release workflow stopped installing a Rust toolchain** it no longer has
+  anything to compile.
 
 ## [0.7.0] — 2026-10-26
 

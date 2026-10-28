@@ -23,16 +23,8 @@ permissions:
   contents: write
 
 env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
   # `inputs.tag` on a manual run, the pushed tag otherwise.
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-  # Reproducibility: absolute paths are the one thing a Rust build embeds that
-  # differs between machines and checkouts. Remapping them to `.` makes the same
-  # source produce the same bytes, so a release can be rebuilt and compared.
-  # Incremental compilation is off for the same reason.
-  CARGO_INCREMENTAL: '0'
-  RUSTFLAGS: '--remap-path-prefix=${{ github.workspace }}=.' 
 
 jobs:
   cli:
@@ -45,50 +37,29 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            arch: tar.gz
           - name: linux-aarch64
             os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
-            arch: tar.gz
-            linker: aarch64-linux-gnu-gcc
           - name: macos-x86_64
             os: macos-14
             target: x86_64-apple-darwin
-            arch: tar.gz
           - name: macos-aarch64
             os: macos-14
             target: aarch64-apple-darwin
-            arch: tar.gz
           - name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            arch: zip
 
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: '. -> target'
-          key: ${{ matrix.target }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
           cache-dependency-path: package-lock.json
-
-      - name: Install the cross linker
-        if: matrix.linker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
 
       # Everything a release contains is JavaScript now: one build, no per-target
       # artifact, and the same tree on every platform.
@@ -130,12 +101,15 @@ jobs:
           }
           New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@gimlet-eye" | Out-Null
           New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@noble" | Out-Null
-          # Junctions rather than symlinks: Windows needs no privilege for them,
-          # and they keep the tree relocatable the way the POSIX links do.
-          New-Item -ItemType Junction -Path "dist/$name/node_modules/@gimlet-eye/core" `
-            -Target "dist/$name/packages/core" | Out-Null
-          New-Item -ItemType Junction -Path "dist/$name/node_modules/@gimlet-eye/engine" `
-            -Target "dist/$name/packages/engine" | Out-Null
+          # A copy, not a junction: an NTFS junction stores an absolute target, so
+          # one created here would point back at the build agent after unzip.
+          "core", "engine" | ForEach-Object {
+            Copy-Item -Recurse "dist/$name/packages/$_" "dist/$name/node_modules/@gimlet-eye/$_"
+          }
+          # `*.tsbuildinfo` holds absolute paths from the build agent, which is the
+          # one thing the unix tarball strips and this step used to keep.
+          Get-ChildItem "dist/$name/packages" -Recurse -Filter *.tsbuildinfo -File |
+            Remove-Item -Force
           Copy-Item -Recurse node_modules/smol-toml "dist/$name/node_modules/smol-toml"
           Copy-Item -Recurse node_modules/@noble/hashes "dist/$name/node_modules/@noble/hashes"
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
@@ -148,9 +122,38 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # The installer icon is the app's own Chromium drawing the UI tokens, so it is
+  # rendered once here and handed to each desktop job: only the Linux runner has
+  # an xvfb display to render it on.
+  icon:
+    name: icon (rendered from the UI tokens)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Render the icon
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-eye/desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-icon
+          path: apps/desktop/build/icon.png
+          if-no-files-found: error
+
   desktop:
     name: desktop (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    needs: icon
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +172,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
+
+      # electron-builder picks up `build/icon.png` from the project directory.
+      - name: Take the rendered icon
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-icon
+          path: apps/desktop/build
 
       - uses: actions/setup-node@v4
         with:
@@ -267,10 +277,12 @@ jobs:
       # Artifacts keep the directory structure of their `path:` glob, so the
       # installers arrive as appimage/, deb/, dmg/, nsis/. Flatten them: a
       # release listing is flat, and checksums are meaningless across folders.
+      # The rendered icon travels through the same download but is an input to
+      # the desktop builds, not something to publish.
       - name: Collect the files
         run: |
           mkdir -p release
-          find artifacts -type f -exec cp {} release/ \;
+          find artifacts -type f ! -name icon.png -exec cp {} release/ \;
           ls -l release
           test -n "$(ls -A release)" || { echo "no artifacts to publish" >&2; exit 1; }
           (cd release && sha256sum * > SHA256SUMS)

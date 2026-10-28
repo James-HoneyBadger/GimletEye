@@ -15,6 +15,7 @@
     "electron:build": "tsc -p electron",
     "electron:start": "npm run electron:build && electron .",
     "package": "npm run build && electron-builder",
+    "icon": "electron ../../scripts/make-icon.mjs",
     "e2e": "node e2e/run.mjs"
   },
   "dependencies": {
@@ -22,7 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "electron": "^45.0.0",
+    "electron": "45.0.0",
     "electron-builder": "^26.18.0",
     "jsdom": "^25.0.1",
     "playwright": "^1.64.1",
@@ -59,6 +60,10 @@
       "target": [
         "nsis"
       ]
-    }
-  }
+    },
+    "executableName": "gimlet-eye",
+    "artifactName": "gimlet-eye-${version}-${arch}.${ext}"
+  },
+  "author": "Gimlet Eye contributors",
+  "homepage": "https://github.com/James-HoneyBadger/GimletEye"
 }

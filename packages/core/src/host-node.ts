@@ -165,8 +165,7 @@ function execOnce(program: string, args: readonly string[]): Promise<ExecResult>
 /**
  * Where the engine binary lives.
  *
- * `GIMLET_SIDECAR` wins, then the install layout, then the build tree, then
- * `PATH`.
+ * `GIMLET_SIDECAR` wins, then the install layout, then `PATH`.
  *
  * This only matters for the optional engine: every tool is built in, so an
  * install with no `gimlet-sidecar` anywhere is normal and complete. The install
@@ -201,27 +200,9 @@ export function sidecarPath(lookup: SidecarLookup = {}): string {
   const beside = join(dirname(lookup.execPath ?? process.execPath), name);
   if (existsSync(beside)) return beside;
 
-  for (const relative of ['target/release', 'target/debug']) {
-    for (const root of checkoutRoots(dirname(modulePath))) {
-      const candidate = join(root, relative, name);
-      if (existsSync(candidate)) return candidate;
-    }
-  }
+  // No build-tree tier: the engine is TypeScript and in the bundle, so a separate
+  // implementation is reached by pointing GIMLET_SIDECAR at it.
   return name;
-}
-
-/** Directories from this module upwards that look like the source checkout. */
-function checkoutRoots(from: string): string[] {
-  const roots: string[] = [];
-  let current = from;
-  for (let depth = 0; depth < 8; depth += 1) {
-    roots.push(current);
-    if (existsSync(join(current, 'Cargo.toml'))) break;
-    const parent = dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return roots;
 }
 
 interface Pending {

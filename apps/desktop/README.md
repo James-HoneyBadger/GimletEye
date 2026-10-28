@@ -13,6 +13,7 @@ apps/desktop/
 ├── src/                  frontend: components, store, actions
 │   └── lib/bridge.ts     the renderer's view of the machine
 ├── dist/                 the built UI (vite)
+├── build/                the installer icon, rendered from the UI tokens
 └── release/              installers, when `npm run package` is used
 ```
 
@@ -36,19 +37,26 @@ renderer (no Node)  ──window.gimlet.health/tools/run/audit──▶  main pr
   `sandbox: true`, navigation prevented, `window.open` denied, every permission
   request refused, and a single-instance lock so two windows cannot race on one
   keystore.
-- **The engine is bundled.** Until ADR 0010 reaches stage 4 the engine is still
-  `gimlet-sidecar`; `scripts/stage-engine.sh` puts it in `electron/bin`, and
-  `main.ts` points `GIMLET_SIDECAR` at the copy inside the package.
+- **The engine is in the bundle, not beside it.** `packages/engine` is TypeScript
+  imported by `packages/core`, and the shell imports `@gimlet-eye/core/host-node`,
+  so the window runs exactly the code the CLI does, with nothing staged next to
+  it and no second binary to keep in step.
 
 ## Commands
 
 ```bash
 npm run dev            # build the UI, compile the shell, open the window
 npm run build          # build the UI and compile the shell
+npm run icon           # render build/icon.png, which the installers use
 npm run package        # build, then produce deb/AppImage/dmg/nsis in release/
 npm run typecheck
 npm test
 ```
+
+`npm run icon` needs a display — it opens the app's own Chromium to draw the
+mark, so the icon cannot drift from the UI — which means `xvfb-run` on a
+headless machine. It is not part of `npm run package`; CI renders it before
+packaging, and `.gitignore` keeps the PNG a build output.
 
 ## Requirements
 

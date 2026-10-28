@@ -17,6 +17,9 @@ apps/desktop/playwright-report/
 # run. The committed starting points live in crates/scrub/fuzz/seeds/.
 crates/scrub/fuzz/artifacts/
 crates/scrub/fuzz/corpus/
+# A soak stages its rows here and appends them to the ledger when it finishes, so
+# the file is only ever half-written state.
+fuzz/*.tmp
 
 # Runtime state
 /.gimlet/
@@ -30,9 +33,9 @@ crates/scrub/fuzz/corpus/
 !.vscode/extensions.json
 *.swp
 
-# Tauri generated schemas and the staged engine binary
-
 # Electron shell output, and the installers it produces
 apps/desktop/electron/dist/
 apps/desktop/release/
-apps/desktop/electron/bin/
+# The installer icon is rendered from the UI tokens by scripts/make-icon.mjs, so
+# it is a build output rather than a checked-in binary.
+apps/desktop/build/
