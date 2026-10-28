@@ -10,8 +10,10 @@
 //   npx electron scripts/make-icon.mjs          # the same thing, from the root
 //
 // Writes apps/desktop/build/icon.png at 512x512, which electron-builder picks up
-// for every target (deb, AppImage, dmg, nsis). The same tokens and the same
-// Chromium produce a byte-identical PNG, so a rebuilt release keeps its icon.
+// for every target (deb, AppImage, dmg, nsis). The mark is the UI tokens drawn by
+// the app's own Chromium, so it cannot drift from the window. The bytes are not
+// identical between machines — font rasterisation differs — which is why the
+// workflow renders it per build instead of keeping one in the tree.
 // On a headless machine run it under xvfb-run: Electron still wants a display
 // server to start.
 import { app, BrowserWindow } from 'electron'
