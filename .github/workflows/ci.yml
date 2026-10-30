@@ -168,13 +168,22 @@ jobs:
       # that used to stall this job is gone.
       - name: Shell builds
         run: npm run electron:build -w @gimlet-eye/desktop
-      # ubuntu-latest forbids unprivileged user namespaces, so Chromium falls back
-      # to its setuid helper and refuses to start unless the helper looks like a
-      # package installed it. The alternative is turning the sandbox off.
-      - name: Give Chromium its sandbox helper
+      # Where the runner forbids unprivileged user namespaces, Chromium needs its
+      # setuid helper. Where Electron was installed decides the path, and a
+      # runner that does not need the helper (the e2e job launches the window
+      # without it) must not fail here — so adjust it when it exists and say so
+      # when it does not.
+      - name: Give Chromium its sandbox helper, when there is one
         run: |
-          sudo chown root:root node_modules/electron/dist/chrome-sandbox
-          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+          for helper in node_modules/electron/dist/chrome-sandbox apps/desktop/node_modules/electron/dist/chrome-sandbox; do
+            if [ -e "$helper" ]; then
+              sudo chown root:root "$helper"
+              sudo chmod 4755 "$helper"
+              echo "adjusted $helper"
+              exit 0
+            fi
+          done
+          echo "no chrome-sandbox helper installed; this runner does not need one"
       # The installer icon is rendered rather than checked in, so this proves the
       # script that renders it still runs. xvfb stands in for the display.
       - name: The installer icon renders

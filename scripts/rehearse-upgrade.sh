@@ -147,7 +147,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     "
     key_id_before=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
     ")
     mode_before=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
     entries_before=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
@@ -159,7 +159,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
 
     key_id_after=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
     ")
     [ "$key_id_after" = "$key_id_before" ] || { echo "the keystore changed across the upgrade"; exit 1; }
     su tester -s /bin/bash -c "
@@ -183,7 +183,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     dpkg -i "$NEW" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
     ")
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"
