@@ -114,17 +114,17 @@ what a container can say, only how much work a stranger can ask for.
 
 - **No primitives are written here.** AES-256-GCM, ChaCha20-Poly1305, Ed25519,
   X25519, HKDF, and SHA-256 come from OpenSSL through `node:crypto`; Argon2id is
-  the one gap in Nodnot wiped.** JavaScript has no reliable way to zero a
-  `Buffer` or a string: the runtime may copy it, and garbage collection decides
-  when the memory is reused. The earlier Rust engine could zeroize; this one
-  cannot, and saying so is better than a claim the code does not implementaker than Rust's `zeroize`, and the ADR says
-  so rather than claiming otherwise.
+  the one gap in Node's own API, and comes from `@noble/hashes`.
+- **Secrets are not wiped.** JavaScript has no reliable way to zero a `Buffer` or
+  a string: the runtime may copy it, and garbage collection decides when the
+  memory is reused. The earlier Rust engine could zeroize; this one cannot, and
+  saying so is better than a claim the code does not implement.
 - Password generation uses the OS CSPRNG with rejection sampling (no modulo
-  The secret half of a generated keypair, an exported secret key, the sealed
+  bias) and guarantees at least one character from each enabled class.
+- The secret half of a generated keypair, an exported secret key, the sealed
   keystore, and decrypted plaintext are **created** with mode `0600` — not
   chmod'ed afterwards, which would leave a window in which they are readable by
-  everyoneing buffers; the secret half of a generated keypair is written with mode
-  `0600`.
+  everyone.
 - The `.gimlet` container authenticates its own header, so altering the cipher,
   the KDF parameters, or the salt fails decryption instead of weakening it.
   KDF parameters are validated *before* key derivation, so a crafted file

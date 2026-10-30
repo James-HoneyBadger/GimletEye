@@ -7,7 +7,7 @@
  */
 
 import { integerOr, optString } from '../args.js';
-import { invalidArgs, notFound, toolFailed } from '../errors.js';
+import { invalidArgs, notFound, unsupported } from '../errors.js';
 import { sealed, type Finding, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
@@ -78,7 +78,7 @@ export const failedLoginDetector: LocalTool = {
   async run(ctx, args: Args): Promise<Report> {
     const started = Date.now();
     if (ctx.host.platform !== 'linux') {
-      throw toolFailed('sysadmin.failed-login-detector targets Linux auth logs');
+      throw unsupported('sysadmin.failed-login-detector targets Linux auth logs');
     }
 
     const threshold = integerOr(args, 'threshold', 5);

@@ -354,22 +354,28 @@ from there — no standing waiver, and nothing to remember to switch on.
   checksums. `.github/workflows/release.yml`
   builds and attaches them from a tag, and publishes nothing unless every build
   succeeds.
-- [x] **A `.gimlet` a second implementation can read** — `crates/crypto/tests/interop/read_container.py`
-  is a Python reader written from `docs/CONTAINER.md` alone; it opens the v1 and
-  v3 fixtures and a multi-chunk file the current build writes, and refuses a
-  tampered chunk. `second_implementation.rs` runs it in the `rust` job, where a
-  missing interpreter fails instead of skipping.
+- [x] **A `.gimlet` a second implementation can read** —
+  `packages/engine/test/fixtures/read_container.py` is a Python reader written
+  from `docs/CONTAINER.md` alone; it opens a multi-chunk file this build writes
+  and reports the header it read. It moved with the Rust retirement and its
+  guarantee did not: the `typescript` job now installs its KDF and sets
+  `GIMLET_REQUIRE_SECOND_IMPL=1`, so a missing interpreter fails the test instead
+  of skipping it. A test that skips is not evidence.
 - [x] **The gates are one command, not a memory test** —
   `scripts/check-release-gates.sh` (`make gates`) prints every ADR 0006 gate with
   three states: `ok` (verified just now), `ci` (verified by the newest green run
   on main, read through `gh`), and `open` (with the reason — elapsed time, or a
   human). A gate whose evidence cannot be produced counts as a failure, so a row
   cannot look green while proving nothing. The soak is added up by
-  `scripts/check-fuzz-soak.sh` (`make soak` records one); it sums
-  `fuzz/soak-ledger.jsonl` as it stands and cannot yet tell a scheduled night
-  from a dispatched run, which is why the seven-night bar is still open below.
-- [x] **Gate 1 audit** (2026-10-26) — every ✅ in the README status table is
-  backed by a test or a CI job that fails when it breaks:
+  `scripts/check-fuzz-soak.sh` (`make soak` records an entry); it sums
+  `fuzz/soak-ledger.jsonl`, which is why the 350-target-minute branch of Gate 2
+  is the one the audit below uses. The nightly schedule still runs: it is what
+  notices a soak that stopped building.
+- [x] **Gate 1 audit** (2026-10-26) — **superseded, kept as the record.** ADR 0008
+  and ADR 0011 removed the plugin protocol, the HTTP API, and the Rust tree this
+  table audits, so it describes a product that no longer exists. The audit of the
+  tree 1.0 is cut from is directly below. Original finding: every ✅ in the README
+  status table was backed by a test or a CI job that fails when it breaks:
 
   | Claim | Evidence |
   |---|---|
@@ -386,45 +392,89 @@ from there — no standing waiver, and nothing to remember to switch on.
   | OpenPGP interop | `gpg_interop` against a real `gpg`, which now fails rather than skips in CI |
 
   One manifest claim needed a caveat rather than a tick:
-  `perlden.ssl-checker` cannot load without `IO::Socket::SSL`, which the pack's
-  requirements did not mention. It is documented there now, and the reference
-  lists it under "did not run here" instead of implying it works everywhere.
-- [ ] **Gate 2 audit** — corpus, token, pack trust, MSRV, `cargo deny`, and the
-  live-engine UI test are green in CI; the soak now covers the `.gimlet` reader as
-  well as the four scrub parsers, and a failed night opens an issue instead of
-  waiting to be noticed. Per the **2026-10-26 amendment to ADR 0006** the evidence
-  bar is seven consecutive *scheduled* nights **or** 350 target-minutes of green
-  soak; `make fuzz-nights` must report both numbers, never count a dispatched run
-  as a night, and never count a cancellation at all. The nightly schedule stays in
-  place either way — it is what notices a soak that stopped building.
-- [x] **Gate 3 audit** (2026-10-26) — the six surfaces are named and versioned in
-  [COMPATIBILITY.md](COMPATIBILITY.md) (which now also lists the CLI and HTTP
-  routes); `check-quiet-period.sh` proves none moved since v0.7.0; the one-minor
-  deprecation rule and the twelve-month support window are written in
-  COMPATIBILITY.md and SECURITY.md; `check-public-surface.sh` keeps the
-  documentation and the binary in step.
-- [ ] **Gate 4 audit** — reproducible, packaged, and rehearsed in CI. **Blocked
-  on the maintainer:** a minisign key (`minisign -G`, secret into
-  `MINISIGN_SECRET_KEY`, public half committed) is the only thing standing
-  between the `publish` job and a signed release.
+  `perlden.ssl-checker` could not load without `IO::Socket::SSL`, which the pack's
+  requirements did not mention. It was documented there, and the reference listed
+  it under "did not run here" instead of implying it worked everywhere. (The pack
+  protocol is gone; the lesson — a tool either runs or says why — is not.)
+- [x] **Gate 1 audit, on the tree 1.0 is cut from** (2026-10-29) — every
+  capability the README names, and every one the gates name, with the check that
+  fails when it breaks:
+
+  | Claim | Evidence |
+  |---|---|
+  | The report contract | `contract-schema.test.ts` compiles the published schemas and holds a golden report, every manifest, and the shapes the contract excludes to them; `runtime-verdict.test.ts` proves a tool cannot report success over a high finding |
+  | `Report`, registry, config, audit trail | 509 tests over 43 files at this date (`make check`); `check-data-schema.sh` holds 21 tools to exactly the fields they declare |
+  | The catalogue: 26 tools (crypto 15, privacy 3, sysadmin 8) | `check-tool-reference.sh` (26 covered, real output from a throwaway home) + `check-readme-claims.sh` (16 front-page commands executed) |
+  | CLI surface | `check-public-surface.sh`: 35 commands and flags documented, compared with what the parser declares |
+  | Desktop app | `e2e` drives the real Electron window (7 steps, no non-local request); `hardening.test.ts` asserts the CSP; `workbench.test.ts` the form, the masking, and the copyable command |
+  | Container v1, v2, v3 | engine fixtures plus the Python second implementation, required in CI |
+  | Keystore and X25519 recipients | `keystore-tools.test.ts` (pre-rename store, 0600 on create, the conflict rule), the v3 fixture |
+  | Metadata removal for JPEG, PNG, WebP | the committed corpus, the no-growth and idempotence property tests, the soak |
+  | OpenPGP interop | `gpg.test.ts` against a real `gpg` |
+  | Declared capabilities | `capabilities.test.ts`: a write or an `exec` not declared fails with `capability_denied` |
+  | Platform contract | `platform-contract.test.ts`: every tool that names one platform refuses the others with `unsupported` before it reads anything |
+
+  One row of ADR 0006 is **not** claimed and does not need to be: "secrets are
+  zeroized on drop". They are not, and SECURITY.md says so in the cryptographic
+  posture rather than the docs implying otherwise — the ADR's own rule is that a
+  smaller 1.0 beats an overstated one.
+- [x] **Gate 2 audit** (2026-10-29) — `scripts/check-fuzz-soak.sh` reports
+  **361.2 target-minutes over six targets** (container, exif, gps, jpeg, png,
+  webp), 2,394,505,047 inputs, no crashes. The 2026-10-26 amendment accepts 350
+  target-minutes *or* seven scheduled nights, and the ledger is a committed file,
+  so the evidence is in the repository rather than in a job's memory. The
+  API-token, pack-trust, and MSRV rows left with the surfaces they protected
+  (ADR 0008, 0010, 0011); what replaces them is the `dependency policy` job
+  (`npm audit --omit=dev` over the shipped set), the Node 20 floor enforced by
+  `debian/control` and the rehearsal, and the `e2e` job for the row that asked
+  for a live-UI pass.
+
+  > **Erratum.** This checklist and the 2026-10-26 amendment both named
+  > `check-fuzz-nights.sh` / `make fuzz-nights`. No such script exists, and none
+  > did: the script that reports the number is `scripts/check-fuzz-soak.sh`
+  > (`make soak` records an entry). Corrected here rather than in the amendment,
+  > which is a dated record of what was decided at the time.
+- [x] **Gate 3 audit** (2026-10-29) — the surfaces are named and versioned in
+  [COMPATIBILITY.md](COMPATIBILITY.md), which also lists the CLI's commands and
+  flags; `check-quiet-period.sh` reports no versioned surface moved since v0.8.0,
+  and carries that restart release itself so nothing has to be remembered; the
+  one-minor deprecation rule and the two-minor, twelve-month support window are
+  written in COMPATIBILITY.md and SECURITY.md; `check-public-surface.sh` keeps the
+  documentation and the binary in step. The HTTP API and plugin protocol rows are
+  struck out in ADR 0006 rather than silently dropped.
+- [x] **Gate 4 audit** (2026-10-29) — the key the 2026-10-26 entry was waiting for
+  exists: `release-key.pub` is committed, `MINISIGN_SECRET_KEY` is set, and v0.9.1
+  published a `SHA256SUMS` with a `SHA256SUMS.minisig` that the `publish` job
+  verifies with `minisign -V` and `scripts/verify-release.sh` re-checks. The
+  `reproducible` job rebuilds the tag in a second directory and refuses to
+  publish when the digests differ. The SBOM the ADR asks for is generated from the
+  lockfile by the `sbom` job and attached with the rest, so it is checksummed and
+  signed too. Packaging: Arch, Fedora, and Debian recipes all stage through
+  `scripts/stage-package.sh`, and `rehearsal` installs a `.deb`, upgrades it, and
+  rolls back with a keystore and an audit trail in place. `cargo install` retired
+  with the Rust tree; the documented install paths are the packages and the CLI
+  archives, in [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 - [x] **Every tool has an example with real output** —
-  `docs/TOOL_REFERENCE.md` covers all 39 tools, generated by
+  `docs/TOOL_REFERENCE.md` covers all 26 tools, generated by
   `scripts/tool-reference.py`, which runs each one in a throwaway home and pastes
   what it printed. `scripts/check-tool-reference.sh` fails when a tool exists that
-  the reference does not show, so the coverage cannot rot. Writing it found that
-  `perlden.ssl-checker` needs `IO::Socket::SSL`, now documented in the pack's
-  requirements instead of failing at load with no explanation.
-- [x] **Gate 5 audit** (2026-10-26) — user guide, admin guide, and pack gallery
-  are published; every README claim is executed by `check-readme-claims.sh`; all
-  39 tools have an example with real output in [TOOL_REFERENCE.md](TOOL_REFERENCE.md),
-  enforced by `check-tool-reference.sh`. (The counts in this checklist are the
-  pre-0008 catalogue; the TypeScript overhaul left 21 tools, and every one still
-  has an example.)
-- [ ] ADR 0006 moves from Proposed to Accepted with the audit results attached.
+  the reference does not show, so the coverage cannot rot.
+- [x] **Gate 5 audit** (2026-10-29) — the user guide and the admin guide are
+  published; every README claim is executed by `check-readme-claims.sh`; all 26
+  tools have an example with real output in [TOOL_REFERENCE.md](TOOL_REFERENCE.md),
+  enforced by `check-tool-reference.sh`; and the report and manifest contracts are
+  published as JSON Schema with the reasoning in ADR 0012. The pack gallery is
+  superseded by ADR 0008 — there is no pack protocol, and adding a tool is
+  documented in ARCHITECTURE.md §8.
+- [x] ADR 0006 is **Accepted** (2026-10-25) and this checklist is its 1.0 audit;
+  its two amendments are dated and the errata above are recorded next to the rows
+  they correct.
 - [ ] `CHANGELOG.md` gets a 1.0.0 entry stating the promise in one paragraph.
 
-*Acceptance:* every checkbox in ADR 0006 is green, and `git diff v0.5..HEAD`
-touches no versioned surface.
+*Acceptance:* every checkbox in ADR 0006 is green, and
+`scripts/check-quiet-period.sh` reports no versioned surface moved in the two
+stretches ADR 0006 counts (v0.8.0 → v0.9.0 and v0.9.0 → v0.10.0) or in this
+build.
 
 ## After 1.0
 

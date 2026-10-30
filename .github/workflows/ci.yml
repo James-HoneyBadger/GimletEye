@@ -40,9 +40,20 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      - name: Install the second implementation's KDF
+        # ADR 0006 Gate 1 wants the container readable by an implementation that
+        # shares no code with this one. The reader is Python, and without these
+        # modules the test that runs it skips — which is the same as not having
+        # the evidence. Installed here so the suite can require it.
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check --break-system-packages cryptography
+          python3 -c 'import cryptography.hazmat.primitives.kdf.argon2'
       - name: Type-check every package
         run: npm run typecheck
       - name: Test
+        # A missing interpreter fails the interop test instead of skipping it.
+        env:
+          GIMLET_REQUIRE_SECOND_IMPL: '1'
         run: npm test
       - name: Build
         run: npm run build

@@ -264,9 +264,41 @@ jobs:
           name: reproducible
           path: /tmp/reproducible.sha256
 
+  sbom:
+    name: sbom (cyclonedx)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # ADR 0006 Gate 4: releases carry an SBOM. It is generated from the same
+      # lockfile the build installs from, so it describes what shipped rather
+      # than what was nearby, and it is checksummed and signed with the rest.
+      - name: Generate the SBOM
+        run: |
+          npm ci
+          npm sbom --omit=dev --sbom-format cyclonedx --sbom-type application \
+            > sbom.cdx.json
+          test -s sbom.cdx.json || { echo "the SBOM came out empty" >&2; exit 1; }
+          node -e 'const b=JSON.parse(require("fs").readFileSync("sbom.cdx.json","utf8"));
+            if (b.bomFormat !== "CycloneDX") { console.error("not a CycloneDX document"); process.exit(1); }
+            console.log(`${b.bomFormat} ${b.specVersion}: ${(b.components ?? []).length} component(s)`);'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+
   publish:
     name: publish
-    needs: [cli, desktop, reproducible]
+    needs: [cli, desktop, reproducible, sbom]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

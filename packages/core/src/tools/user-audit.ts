@@ -8,7 +8,7 @@
  */
 
 import { optString } from '../args.js';
-import { notFound, toolFailed } from '../errors.js';
+import { notFound, unsupported } from '../errors.js';
 import { sealed, type Finding, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
@@ -88,7 +88,7 @@ export const userAudit: LocalTool = {
   async run(ctx, args: Args): Promise<Report> {
     const started = Date.now();
     if (ctx.host.platform !== 'linux') {
-      throw toolFailed('sysadmin.user-audit targets Linux: other systems keep accounts elsewhere');
+      throw unsupported('sysadmin.user-audit targets Linux: other systems keep accounts elsewhere');
     }
 
     const passwdPath = optString(args, 'passwd') ?? '/etc/passwd';

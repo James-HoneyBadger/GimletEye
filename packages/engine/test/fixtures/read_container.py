@@ -4,9 +4,10 @@
 ADR 0006 Gate 1 asks that a `.gimlet` file be "readable by a documented second
 implementation", because a format nobody else can implement is a format that is
 only documented by its own source. This reader is written against
-`docs/CONTAINER.md` alone — it shares no code with the Rust writer — and the test
-suite runs it against the committed fixtures, so a change to the spec that the
-Rust code quietly ignores shows up as a failure here.
+`docs/CONTAINER.md` alone — it shares no code with the writer in
+`packages/engine` — and the test suite runs it against the committed fixtures, so
+a change to the spec that the TypeScript code quietly ignores shows up as a
+failure here.
 
 Supported: version 1 (whole-file AEAD), version 2 (chunked), version 3
 (X25519 recipients). Passphrase containers take `--passphrase`/`--passphrase-env`;

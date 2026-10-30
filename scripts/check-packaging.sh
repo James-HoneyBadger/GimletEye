@@ -19,9 +19,10 @@ fi
 
 fail=0
 
-# The private workspace root declares no version of its own, so only the
-# published packages are compared.
-for manifest in packages/cli/package.json packages/core/package.json \
+# The workspace root is private and publishes nothing, but it now carries a
+# version: `npm sbom` refuses to describe a package it cannot give a purl to, and
+# the SBOM is a release artifact. So every manifest is compared, root included.
+for manifest in package.json packages/cli/package.json packages/core/package.json \
                 packages/engine/package.json apps/desktop/package.json; do
     declared="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "$manifest" | head -1)"
     if [ "$declared" != "$version" ]; then

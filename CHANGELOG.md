@@ -8,6 +8,20 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Every release carries an SBOM.** The `sbom` job generates a CycloneDX
+  document from the lockfile the build installs from, and it is attached with the
+  archives, so it is checksummed and signed like everything else. The workspace
+  root gained a `version` to make that possible — `npm sbom` cannot describe a
+  package it cannot give a purl to — and `check-packaging.sh` now holds the root
+  to the same version as the published packages.
+- **The platform contract has a test.** Every tool that names a single platform
+  refuses the others with `unsupported` before it reads anything, asserted in one
+  sweep (`platform-contract.test.ts`) rather than one case per tool, so a new
+  Linux-only tool cannot forget.
+- **The second implementation is required in CI.** The Python reader of
+  `.gimlet` skipped whenever its KDF was missing, which is the same as not having
+  the evidence. The `typescript` job installs it and sets
+  `GIMLET_REQUIRE_SECOND_IMPL=1`, so an absent interpreter fails instead.
 - **The report and the manifest are published as JSON Schema.**
   `docs/schema/report.schema.json` and `docs/schema/manifest.schema.json`
   (draft-07, `additionalProperties: false`) describe the 1.0 contract, so a CI
@@ -37,8 +51,20 @@ All notable changes to Gimlet Eye. Format follows
   unknown category, argument type, capability, platform, or `data` shape is
   refused before the registry and the generated form see it.
 
+### Changed
+
+- `sysadmin.failed-login-detector` and `sysadmin.user-audit` refuse a non-Linux
+  host with `unsupported`, like every other tool that targets one platform,
+  instead of `tool`. The messages are unchanged; the code is now something a
+  caller can branch on.
+
 ### Fixed
 
+- **The security policy's *Cryptographic posture* section is readable again.**
+  Three bullets shipped interleaved into one unreadable paragraph in 0.9.1: the
+  claims are unchanged, and the text now says what it meant — no zeroization
+  claim, `0600` on create rather than a chmod afterwards, OS CSPRNG with
+  rejection sampling.
 - **A keystore write can no longer drop another session's keys.**
   `crypto.keygen`, `crypto.key-import`, and `crypto.key-rotate` are
   read-modify-write over one file, and two surfaces — the window and a terminal,
