@@ -21,7 +21,7 @@ import {
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { io, notFound } from '../errors.js';
 import { keystorePath } from '../paths.js';
-import { tempName } from '../pathutil.js';
+import { publishStore } from './store-file.js';
 import { createEntry, insert, open as openKeystore, SCHEMA_VERSION, seal as sealKeystore } from '@gimlet-eye/engine';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
@@ -158,14 +158,16 @@ export const generateKey: LocalTool = {
 
     if (toKeystore) {
       // A store sealed before the rename is opened where it is; reporting it as
-      // missing is the one thing the migration promise rules out.
+      // missing is the one thing the migration promise rules out. The bytes read
+      // here are also what the write has to still find in place.
       const path = await keystorePath(ctx.paths, ctx.host);
       const passphrase = keystorePassphrase(args);
-      const existing = (await ctx.host.exists(path))
-        ? openKeystore(Buffer.from(await ctx.host.readFile(path)), passphrase)
-        : { schema_version: SCHEMA_VERSION, entries: [] };
+      const bytes = (await ctx.host.exists(path)) ? Buffer.from(await ctx.host.readFile(path)) : null;
+      const existing = bytes === null
+        ? { schema_version: SCHEMA_VERSION, entries: [] }
+        : openKeystore(bytes, passphrase);
       const store = insert(existing, createEntry(pair, label, ctx.host.now().toISOString()));
-      if (!ctx.dryRun) await writeSealed(ctx, path, sealKeystore(store, passphrase));
+      if (!ctx.dryRun) await publishStore(ctx.host, { path, bytes }, sealKeystore(store, passphrase));
 
       return sealed({
         tool: KEYGEN.id,
@@ -220,14 +222,6 @@ export const generateKey: LocalTool = {
     });
   },
 };
-
-/** Write through the Host: owner-only temporary, rename, owner-only in place. */
-async function writeSealed(ctx: ToolRunContext, path: string, bytes: Buffer): Promise<void> {
-  const temp = tempName(path);
-  await ctx.host.writeFileMode(temp, new Uint8Array(bytes), 0o600);
-  await ctx.host.rename(temp, path);
-  await ctx.host.chmodOwnerOnly(path);
-}
 
 /** The keystore passphrase, from the environment by preference. */
 export function keystorePassphrase(args: Args): string {

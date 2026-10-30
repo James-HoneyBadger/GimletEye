@@ -39,6 +39,15 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Fixed
 
+- **A keystore write can no longer drop another session's keys.**
+  `crypto.keygen`, `crypto.key-import`, and `crypto.key-rotate` are
+  read-modify-write over one file, and two surfaces — the window and a terminal,
+  or two terminals — could both hold it open. The last writer won, and the keys
+  the other session added were silently gone. A write now publishes only over the
+  bytes it opened; if the store changed in the meantime it fails with `conflict`
+  (exit 1) and writes nothing, naming the file. That is a check, not a lock:
+  there is still a window between the re-read and the rename, but a silent loss
+  is now a refusal.
 - `optInteger` refuses a digit string it cannot represent exactly, instead of
   returning an imprecise number.
 - `samePath` reads only `ENOENT` as "a different file": a permission error is no

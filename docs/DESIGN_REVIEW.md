@@ -10,9 +10,10 @@ are small relative to it. Three of them are defects a user can hit today.
 > **Patch status (2026-10-29).** Fixed in this tree: D1, D2, D4, D5, D6, D8,
 > D11, the masking half of D3, and the documentation drift in D12; also the
 > function-level items in `optInteger`, `samePath`, `passgen`, `strip`, and the
-> engine manifest boundary. Partly fixed: D7 (private CSPRNG temporary names;
-> the compare-and-swap is still open). Open: D3's `secret` argument kind, D9,
-> D10, D13, and the two frozen-file items (`sealed()` and `generateKeyPair`).
+> engine manifest boundary. D7 is closed as well: private CSPRNG temporary names,
+> and a store that changed since it was opened is refused with `conflict` rather
+> than overwritten. Open: D3's `secret` argument kind, D9, D10, D13, and the two
+> frozen-file items (`sealed()` and `generateKeyPair`).
 
 ---
 
@@ -213,6 +214,12 @@ to not lose keys; a lost update here is silent.
 **Fix (S):** temp name with pid+random (`<path>.<pid>.<rand>.tmp`), and a
 compare-and-swap on the store before rename (mtime or content digest), failing
 with "the keystore changed while it was open; retry" rather than overwriting.
+
+> **Fixed.** `publishStore` in `packages/core/src/tools/store-file.ts` keeps the
+> bytes that were opened and re-reads the store before the rename; anything else
+> is `conflict`. The temporary name is `tempName` (CSPRNG + clock). Verified by
+> `keystore-tools.test.ts`: a competing save during the read leaves the
+> competitor's key in place and the import refused.
 
 ### D8 — The engine's report is trusted more than a built-in tool's (Medium)
 

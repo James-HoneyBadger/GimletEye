@@ -13,6 +13,8 @@ export type ErrorCode =
   | 'not_found'
   | 'io'
   | 'capability_denied'
+  /** A file changed between reading it and writing it back: retry. */
+  | 'conflict'
   | 'tool'
   | 'unsupported'
   | 'internal';
@@ -41,6 +43,7 @@ export function asErrorCode(value: unknown): ErrorCode {
     case 'not_found':
     case 'io':
     case 'capability_denied':
+    case 'conflict':
     case 'tool':
     case 'unsupported':
     case 'internal':
@@ -55,6 +58,7 @@ export const invalidArgs = (message: string) => new GimletError('invalid_args', 
 export const unknownTool = (message: string) => new GimletError('unknown_tool', `unknown tool: ${message}`);
 export const notFound = (message: string) => new GimletError('not_found', `not found: ${message}`);
 export const io = (message: string) => new GimletError('io', `i/o error: ${message}`);
+export const conflict = (message: string) => new GimletError('conflict', `conflict: ${message}`);
 export const unsupported = (message: string) => new GimletError('unsupported', `unsupported operation: ${message}`);
 export const toolFailed = (message: string) => new GimletError('tool', `tool failed: ${message}`);
 export const internal = (message: string) => new GimletError('internal', `internal error: ${message}`);

@@ -104,6 +104,11 @@ what a container can say, only how much work a stranger can ask for.
     that refuses a filesystem write without `fs:write` and a subprocess without
     `process:exec` (`capability_denied`). Reads are not gated. The optional engine
     runs in its own process, so its report is validated at the boundary instead.
+11. **A keystore write cannot silently drop keys.** The three keystore tools are
+    read-modify-write over one sealed file, so a write publishes only over the
+    bytes it opened: if a second session sealed the store in between, the run
+    fails with `conflict` and writes nothing, instead of the last writer winning.
+    Temporary files are owner-only, randomly named, and renamed into place.
 
 ## Cryptographic posture
 

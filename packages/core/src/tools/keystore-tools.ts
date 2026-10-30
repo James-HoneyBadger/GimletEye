@@ -30,9 +30,10 @@ import {
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { invalidArgs, io, notFound } from '../errors.js';
-import { stem, tempName } from '../pathutil.js';
+import { stem } from '../pathutil.js';
 import { keystorePath } from '../paths.js';
 import { sealed, type Report } from '../report.js';
+import { publishStore } from './store-file.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
 import type { ToolManifest } from '../manifest.js';
@@ -147,7 +148,7 @@ export const keyList: LocalTool = {
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
     const path = await keystorePath(ctx.paths, ctx.host);
-    const store = await openStore(ctx, args);
+    const { store } = await openStore(ctx, args);
 
     const keys = store.entries.map(viewOf);
     const signing = keys.filter((key) => key.kind === 'ed25519').length;
@@ -187,14 +188,18 @@ export const keyImport: LocalTool = {
 
     const storePath = await keystorePath(ctx.paths, ctx.host);
     const pass = passphrase(args);
-    const existing = (await ctx.host.exists(storePath))
+    // `bytes` is what the write has to still find in place: a store sealed by
+    // another session in the meantime is not ours to overwrite.
+    const opened = (await ctx.host.exists(storePath))
       ? await readStore(ctx, storePath, pass)
-      : { schema_version: SCHEMA_VERSION, entries: [] };
-    const base = replace && existing.entries.some((candidate) => candidate.label === label)
-      ? remove(existing, label).store
-      : existing;
+      : { store: { schema_version: SCHEMA_VERSION, entries: [] }, bytes: null };
+    const base = replace && opened.store.entries.some((candidate) => candidate.label === label)
+      ? remove(opened.store, label).store
+      : opened.store;
     const store = insert(base, entry);
-    if (!ctx.dryRun) await writeStore(ctx, storePath, sealKeystore(store, pass));
+    if (!ctx.dryRun) {
+      await publishStore(ctx.host, { path: storePath, bytes: opened.bytes }, sealKeystore(store, pass));
+    }
 
     return sealed({
       tool: IMPORT.id,
@@ -225,7 +230,7 @@ export const keyExport: LocalTool = {
     const wantSecret = booleanOr(args, 'secret', false);
     const overwrite = booleanOr(args, 'overwrite', false);
 
-    const store = await openStore(ctx, args, selector);
+    const { store } = await openStore(ctx, args, selector);
     let entry;
     try {
       entry = find(store, selector);
@@ -273,10 +278,10 @@ export const keyRotate: LocalTool = {
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
     const storePath = await keystorePath(ctx.paths, ctx.host);
-    const store = await openStore(ctx, args);
+    const { store, bytes } = await openStore(ctx, args);
     const next = newPassphrase(args);
 
-    if (!ctx.dryRun) await writeStore(ctx, storePath, sealKeystore(store, next));
+    if (!ctx.dryRun) await publishStore(ctx.host, { path: storePath, bytes }, sealKeystore(store, next));
 
     return sealed({
       tool: ROTATE.id,
@@ -291,13 +296,24 @@ export const keyRotate: LocalTool = {
 };
 
 /**
+ * A store that was opened, together with the bytes it was opened from.
+ *
+ * The bytes are not a spare copy: they are what a write compares against, so a
+ * session cannot publish over a store someone else sealed in the meantime.
+ */
+interface Opened {
+  store: Keystore;
+  bytes: Buffer;
+}
+
+/**
  * Open the store, complaining about the store before the passphrase.
  *
  * Asking for a passphrase first told a user with no keystore at all that "the
  * keystore needs a passphrase", which is true and useless: there is nothing to
  * unlock.
  */
-async function openStore(ctx: ToolRunContext, args: Args, selector?: string): Promise<Keystore> {
+async function openStore(ctx: ToolRunContext, args: Args, selector?: string): Promise<Opened> {
   const path = await keystorePath(ctx.paths, ctx.host);
   if (!(await ctx.host.exists(path))) {
     throw notFound(`${path} (create one with crypto.keygen keystore=true)${await keyFileHint(ctx, selector)}`);
@@ -317,20 +333,12 @@ async function keyFileHint(ctx: ToolRunContext, selector: string | undefined): P
   return '';
 }
 
-async function readStore(ctx: ToolRunContext, path: string, pass: string): Promise<Keystore> {
+async function readStore(ctx: ToolRunContext, path: string, pass: string): Promise<Opened> {
   if (!(await ctx.host.exists(path))) {
     throw notFound(`${path} (create one with crypto.keygen keystore=true)`);
   }
-  return openKeystore(Buffer.from(await ctx.host.readFile(path)), pass);
-}
-
-async function writeStore(ctx: ToolRunContext, path: string, bytes: Buffer): Promise<void> {
-  // A private temporary per writer: two surfaces saving at once must not share
-  // a path, or the second rename publishes a store the first never saw.
-  const temp = tempName(path);
-  await ctx.host.writeFileMode(temp, new Uint8Array(bytes), 0o600);
-  await ctx.host.rename(temp, path);
-  await ctx.host.chmodOwnerOnly(path);
+  const bytes = Buffer.from(await ctx.host.readFile(path));
+  return { store: openKeystore(bytes, pass), bytes };
 }
 
 function passphrase(args: Args): string {

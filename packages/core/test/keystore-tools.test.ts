@@ -5,6 +5,7 @@ import {
   encodePublic,
   encodeSecret,
   generateKeyPair,
+  insert,
   open as openKeystore,
   SCHEMA_VERSION,
   seal as sealKeystore,
@@ -13,6 +14,7 @@ import { pathsUnder } from '../src/paths.js';
 import { defaultConfig } from '../src/config.js';
 import { generateKey } from '../src/tools/keys.js';
 import { keyExport, keyImport, keyList, keyRotate } from '../src/tools/keystore-tools.js';
+import { publishStore } from '../src/tools/store-file.js';
 import { fakeHost, type FakeHost } from './fake-host.js';
 
 type Store = Map<string, Buffer>;
@@ -175,5 +177,83 @@ describe('the keystore tools, in process', () => {
     const report = await keyImport.run(ctxFor(fake, true), { key: '/keys/a.key', passphrase: 'pw' });
     expect((report.data as { dry_run: boolean }).dry_run).toBe(true);
     expect(fake.store.has(`${ROOT}/keystore.gimlet`)).toBe(false);
+  });
+
+  it('refuses to import over a store another session sealed', async () => {
+    // The failure this rules out is the one a key store cannot have: the second
+    // session's key was never reported missing, it was silently dropped.
+    const fake = host({ '/keys/from-disk.key': encodeSecret(generateKeyPair('ed25519')) });
+    await generateKey.run(ctxFor(fake), { label: 'mine', keystore: true, passphrase: 'pw' });
+    const storePath = `${ROOT}/keystore.gimlet`;
+
+    const competitor = sealKeystore(
+      insert(
+        openKeystore(fake.store.get(storePath) as Buffer, 'pw'),
+        createEntry(generateKeyPair('x25519'), 'theirs', '2026-10-29T00:00:00Z'),
+      ),
+      'pw',
+    );
+    const read = fake.readFile;
+    fake.readFile = async (path: string) => {
+      const bytes = await read(path);
+      // Every read races a competing save: what was opened is never still there.
+      fake.store.set(path, competitor);
+      return bytes;
+    };
+
+    const failure = await keyImport
+      .run(ctxFor(fake), { key: '/keys/from-disk.key', passphrase: 'pw' })
+      .catch((error: unknown) => error as { code?: string; message: string });
+    expect(failure).toMatchObject({ code: 'conflict' });
+    expect(failure.message).toMatch(/changed while it was open; nothing was written/);
+
+    // Neither key was lost: the store is the competitor's, and 'from-disk' is not in it.
+    const labels = openKeystore(fake.store.get(storePath) as Buffer, 'pw').entries.map((entry) => entry.label);
+    expect(labels).toEqual(['mine', 'theirs']);
+  });
+
+  it('refuses, in keygen, when the store moved under it', async () => {
+    const fake = host();
+    await generateKey.run(ctxFor(fake), { label: 'mine', keystore: true, passphrase: 'pw' });
+    const storePath = `${ROOT}/keystore.gimlet`;
+
+    const empty = sealKeystore({ schema_version: SCHEMA_VERSION, entries: [] }, 'pw');
+    const read = fake.readFile;
+    fake.readFile = async (path: string) => {
+      const bytes = await read(path);
+      fake.store.set(path, empty);
+      return bytes;
+    };
+
+    await expect(
+      generateKey.run(ctxFor(fake), { label: 'second', keystore: true, passphrase: 'pw' }),
+    ).rejects.toMatchObject({ code: 'conflict' });
+    expect(openKeystore(fake.store.get(storePath) as Buffer, 'pw').entries).toHaveLength(0);
+  });
+});
+
+describe('publishing the keystore file', () => {
+  it('creates a store that did not exist, and refuses one that appeared', async () => {
+    const fake = host();
+    const path = `${ROOT}/keystore.gimlet`;
+
+    await publishStore(fake, { path, bytes: null }, Buffer.from('first'));
+    expect(fake.store.get(path)?.toString('utf8')).toBe('first');
+    expect([...fake.modes.values()]).toContain(0o600);
+
+    // Another session created the store between our read and our write.
+    await expect(publishStore(fake, { path, bytes: null }, Buffer.from('second'))).rejects.toMatchObject({
+      code: 'conflict',
+    });
+    expect(fake.store.get(path)?.toString('utf8')).toBe('first');
+  });
+
+  it('publishes when the store still holds what was opened', async () => {
+    const fake = host();
+    const path = `${ROOT}/keystore.gimlet`;
+
+    await publishStore(fake, { path, bytes: null }, Buffer.from('first'));
+    await publishStore(fake, { path, bytes: Buffer.from('first') }, Buffer.from('second'));
+    expect(fake.store.get(path)?.toString('utf8')).toBe('second');
   });
 });

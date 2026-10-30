@@ -111,6 +111,10 @@ anything runs.
 - A built-in tool that performs a write or starts a subprocess it did not declare
   in its manifest fails with `capability_denied` (exit 1). This is a bug in the
   tool, not in the caller's arguments.
+- Two sessions writing the sealed keystore at once used to be last-writer-wins.
+  A write now compares the store against the bytes it opened and fails with
+  `conflict` (exit 1), writing nothing, if anyone changed it in between: the
+  correct response is to run the command again.
 - A tool that takes a passphrase masks it in the desktop, hides the argument
   line in the terminal, and shows `passphrase=<redacted>` in a copied command.
 
