@@ -88,6 +88,11 @@ export function fakeHost(overrides: Partial<Host> = {}): FakeHost {
       fileBytes.set(path, Buffer.from(bytes));
       files.set(path, new TextDecoder().decode(bytes));
     },
+    async writeFileMode(path, bytes, mode) {
+      fileBytes.set(path, Buffer.from(bytes));
+      files.set(path, new TextDecoder().decode(bytes));
+      modes.set(path, mode);
+    },
     async createDir(path) {
       host.dirs.add(path);
     },

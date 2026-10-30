@@ -173,7 +173,13 @@ describe('privacy.metadata-strip', () => {
     // Not widened: a rewritten file must not become readable by someone who
     // could not read it before.
     expect(fake.modes.get('/photos/target.jpg')).toBe(0o640);
-    expect(fake.modes.get('/photos/target.jpg.tmp')).toBe(0o640);
+    // The temporary carries the same bits; its name is private to the writer, so
+    // it is found by prefix rather than assumed.
+    const temporary = [...fake.modes.keys()].find(
+      (path) => path.startsWith('/photos/target.jpg.') && path.endsWith('.tmp'),
+    );
+    expect(temporary).toBeDefined();
+    expect(fake.modes.get(temporary as string)).toBe(0o640);
   });
 
   it('keeps a restrictive mode when it rewrites the input in place', async () => {

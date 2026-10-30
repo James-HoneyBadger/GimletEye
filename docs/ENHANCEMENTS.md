@@ -7,120 +7,122 @@ guessed at.
 Effort: **S** ≤ 1 day · **M** ≤ 1 week · **L** > 1 week.
 Risk is about user-visible damage if the work goes wrong, not difficulty.
 
-> Items written before [ADR 0010](adr/0010-retire-rust.md) name crates and
-> `cargo` commands; the engine is TypeScript now. The proposals are kept because
-> the problems are real — read `packages/engine` where they say `crates/`.
+> The Rust era ended with [ADR 0010](adr/0010-retire-rust.md); everything below
+> is about the TypeScript tree. Effort and risk are for one maintainer, focused.
 
 ---
 
 ## The next five
 
-These are ordered by value per unit of risk. Everything else can wait.
+Ordered by value per unit of risk. Everything else can wait.
 
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
-| 1 | [Complete the crypto pillar](#1-complete-the-crypto-pillar) | Encryption and signatures shipped; streaming, keystore, and key exchange remain. | L | High |
-| 2 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each; there is no pack to borrow one from any more. | L | Medium |
-| 3 | [Golden corpus and fuzzing](#3-golden-corpus-and-fuzzing) | A tool that deletes bytes needs evidence, not confidence. | M | Low |
-| 4 | [Observe declared capabilities](#4-observe-declared-capabilities) | The declaration is the security story; nothing checks the code against it. | M | Low |
-| 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
+| 1 | [Observe declared capabilities](#4-observe-declared-capabilities) | The declaration is the security story; nothing checks the code against it. | M | Low |
+| 2 | [The audit trail as a ledger](#6-the-audit-trail-as-a-ledger) | `batch` can evict a trail's whole history, and a trail without a run id or `dry_run` cannot answer "what happened". | M | Low |
+| 3 | [One gate for arguments](#7-one-gate-for-arguments) | A typo in `in_place` or `overwrite` silently changes what a destructive tool does. | M | Low |
+| 4 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each, and the format people ask for first (GIF) is the cheapest. | L | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
 
-Shipped since this list was written: **batch execution** (`gimlet batch`,
-below), **manifest `mutates`**, a **UI test suite**, the **TUI**
-(`gimlet tui`), **shell completions and a man page** (`gimlet completions`,
-`gimlet man`), the **five audits** (`sysadmin.file-permissions`,
-`sysadmin.user-audit`, `sysadmin.failed-login-detector`,
-`sysadmin.config-drift`, `crypto.pass-audit`), and `--output`/`--quiet`. The HTTP
-API, its bearer token, and the pack protocol were **removed** at 0.8, so the
-items below that lean on packs describe a mechanism this tree no longer has.
+Shipped since this list was first written: **batch execution**, **manifest
+`mutates`**, the **UI test suite**, the **TUI**, **completions and a man page**,
+the **five audits**, `--output`/`--quiet`, the **golden corpus** with its
+no-growth and idempotence properties, the **TypeScript fuzz targets** with their
+soak ledger, and — in the 0.9.1 patch — **secret-argument masking**, **secret
+files created `0600`**, a **validated engine report**, and a desktop **content
+policy that cancels non-local requests**. The HTTP API, its bearer token, and the
+pack protocol were removed at 0.8; no item below assumes a pack.
 
 ---
 
-## Privacy and metadata
+## Crypto, privacy, and metadata
 
-### 1. Complete the crypto pillar
+### 1. Finish the key lifecycle
 
-**Problem.** `crates/crypto` defines `CryptoBackend`; only `OsBackend` implements
-it. AEAD, signatures, HBZF, and the keystore are unavailable.
+**Problem.** The primitives and the container are done; the lifecycle around
+them is not. A key has no expiry, no strength audit, and no way to be split or
+destroyed, and a v3 container does not say who sent it.
 
 **Done.** Authenticated encryption (AES-256-GCM, ChaCha20-Poly1305), Argon2id
-key derivation, Ed25519 signing, and the `.gimlet` container are implemented and
-covered by known-answer tests.
+key derivation, Ed25519 signing, and the chunked `.gimlet` container (v1, v2, v3
+— see [ADR 0005](adr/0005-chunked-container-v2.md)); the sealed keystore,
+X25519 recipients, and OpenPGP interop through the system `gpg`
+([ADR 0007](adr/0007-keystore-and-recipients.md)).
 
-**Done since:** streaming container v2 (chunked framing, bounded memory, v1
-files still open — see [ADR 0005](adr/0005-chunked-container-v2.md)); the sealed
-keystore, X25519 recipients in container v3, and OpenPGP interop through the
-system `gpg` (see [ADR 0007](adr/0007-keystore-and-recipients.md)).
-
-**Remaining.** Each of these touches `keystore.ts` or `keys.ts`, which the 1.0
-quiet period freezes until after 1.1 — landing one now would restart the
-countdown, so they are planned rather than pending:
-1. **Key expiry and audit** — the keystore lists and rotates, but nothing tracks
-   an expiry date or reports a weak or duplicated key. (`crypto.pass-audit`
-   covers the password half of this; the key half does not ship until 1.1.)
-2. **RSA recipients** — X25519 covers the modern case; RSA is for talking to
-   older tooling, and survives review only if it earns its weight.
+**Remaining.** Each of these touches `engine/keystore.ts` or `engine/keys.ts`,
+which the 1.0 quiet period freezes until after 1.1 — landing one now would
+restart the countdown, so they are planned rather than pending:
+1. **Container v4: optional sender authenticity.** v3 lets anyone holding Alice's
+   public key produce a file she will open, and it names nobody. A signature over
+   the authenticated header, carrying the signer, answers "who sent this".
+2. **Key expiry and `crypto.key-audit`** — expired, weak, or duplicated entries.
+   (`crypto.pass-audit` covers the password half; this is the key half.)
 3. **Shamir split/combine and secure shred**, with `--dry-run` by default.
    Shred is host-only and could land sooner; secret sharing needs `keys.ts`.
+4. **RSA recipients** — X25519 covers the modern case; RSA is for talking to
+   older tooling and survives review only if it earns its weight.
 
 **Effort** L · **Risk** High — a container or key-format regression here is
-unrecoverable data loss. Every change needs a golden-file test and an ADR.
+unrecoverable data loss. Every change needs a golden fixture and an ADR.
 
 ### 2. Native parsers for the remaining formats
 
 **Problem.** Native support covers JPEG, PNG, and WebP. HEIC, AVIF, TIFF, PDF,
 MP4, RAW, GIF, and SVG all return `unsupported`.
 
-**Why.** The earlier plan was a pack over an existing TypeScript library; the
-plugin protocol was removed at 0.8, so parity now means writing the parser here,
-next to the corpus and the fixtures, which is where the other three live. This
-is the largest open item and the one most likely to want an ADR.
+**Why.** There is no pack to borrow a parser from — the plugin protocol was
+removed at 0.8 — so parity means writing it here, next to the corpus and the
+fixtures, which is where the other three live. This is the largest open item and
+the one most likely to want an ADR.
 
 **Shape.** One module per format in `packages/engine/src/scrub`, each with a
-fixture and a `scan`/`strip`/`verify` triple, plus a manifest entry. A format
-whose parser would need a native dependency waits for a decision rather than
+fixture, a golden case, and the `scan`/`strip`/`verify` triple the other three
+share, plus a manifest entry. **Order matters:** GIF (comment and application
+blocks) and SVG (`<metadata>`, `<title>`, editor namespaces) are small parsers
+with wide coverage and should land first; HEIC/AVIF/TIFF need a TIFF writer, and
+PDF/MP4/RAW need a decision about scope before they need code. A format whose
+parser would need a native dependency waits for that decision rather than
 arriving as one.
 
 **Effort** L · **Risk** Medium — a wrong parser silently corrupts bytes, which is
 why the corpus requirement below comes with it.
 
-### 3. Golden corpus and fuzzing
+### 3. Schedule the soak
 
-**Problem.** Parser tests use hand-built fixtures. Hand-built fixtures encode the
-author's assumptions — including wrong ones (a test in this repo initially
-asserted the wrong sign for a West longitude).
+**Done.** The golden corpus exists (`packages/engine/test/fixtures`, compared
+whole in `scrub.test.ts`), including the properties that matter: a strip never
+grows the file and never needs a second pass, and GPS redaction is idempotent.
+The TypeScript targets (`scripts/fuzz.mjs`) and the soak harness
+(`scripts/fuzz-soak.sh`, recorded in `fuzz/soak-ledger.jsonl`) replace the Rust
+targets.
 
-**Why.** A metadata stripper that silently corrupts a file is worse than no tool.
-The corpus and fuzzers are the only real safety net.
+**Remaining.** No CI job runs the soak; it is a command a person remembers. The
+adder for the ledger is already written (`scripts/check-fuzz-soak.sh`), so the
+missing piece is a scheduled workflow that calls it — and a line in the README's
+evidence table that stops saying the soak was not replaced.
 
-**Shape.**
-- `crates/scrub/tests/golden/` with license-clean images (one per format, plus
-  malformed samples), each with an expected `scan` decision list and the SHA-256
-  of the expected stripped output.
-- `cargo-fuzz` targets for the JPEG/PNG/WebP/EXIF parsers.
-- Property tests: `scan(strip(x))` has zero removable bytes; `strip` never grows
-  the file; `strip` is idempotent; redaction is idempotent (already unit-tested).
-
-**Effort** M · **Risk** Low.
+**Effort** S · **Risk** Low.
 
 ### 4. Observe declared capabilities
 
 **Problem.** Every manifest declares capabilities (`fs:write`, `process:exec`,
 `network`, `secrets`), and a test can check that the set is drawn from a known
-list — but nothing checks that a tool *uses* only what it declared. The pack
-machinery that would have answered this was removed at 0.8; the question
-survives it.
+list — but nothing checks that a tool *uses* only what it declared. A declaration
+nothing checks is a comment, and this one is the security story for the desktop
+shell and for a future scheduler.
 
 **Why.** The declaration is the security story for the desktop shell and for a
 future scheduler: a tool that writes files without saying so is the one that
 matters.
 
-**Shape.** A test harness that runs each tool against the fake host and records
-which operations it touched, compared with its declaration. `network` already has
-no implementation in `Host`, so the interesting rows are write, exec, and secrets.
+**Shape.** Wrap the `Host` per tool run in an enforcing proxy: an `fs:write`
+call from a tool that did not declare it throws `capability_denied` (the code
+already exists in `errors.ts`, and nothing throws it today). The same wrapper, in
+recording mode, lets a test compare what each tool touched with its manifest.
+`network` has no implementation in `Host`, so the interesting rows are write,
+exec, and secrets.
 
-**Effort** M · **Risk** Low — a test, not a runtime check.
+**Effort** M · **Risk** Low.
 
 ### 5. Scheduled runs
 
@@ -138,6 +140,50 @@ format rather than running its own daemon; the toolkit never stays resident.
 **Effort** M · **Risk** Medium — a mis-scheduled mutating job is a data-loss bug,
 so dry-run must be the default and the first run must be reported.
 
+### 6. The audit trail as a ledger
+
+**Problem.** The trail records the tool, the verdict, the duration, and the
+argument *names*, which is the right kind of record. But one entry per file means
+a `batch` over 2 000 photos evicts every other record at the 1 000-entry cap; an
+entry carries no `dry_run`, no run id, no build version, and a second-precision
+timestamp; trimming is a read-modify-write two processes can race; and `tail()`
+reads the whole file to return the last twenty lines.
+
+**Why.** "What happened on this host" is a promise the toolkit makes. A trail a
+routine batch can erase is not evidence.
+
+**Shape.**
+- Entry: `id`, `ts` (milliseconds), `tool`, `status`, `duration_ms`, `dry_run`,
+  `gimlet_version`, `platform`, `arg_keys`, and optionally `batch_id` and
+  `report_sha256`.
+- One summary entry per batch plus per-file entries sharing a `batch_id`, with a
+  cap rule that never evicts a summary.
+- Rotation into `audit.1.jsonl` instead of a racy rewrite; `tail()` reads
+  backwards from the end.
+- `gimlet audit --tool/--status/--since` and `gimlet audit verify`, which reports
+  a truncated or non-monotonic trail. The desktop history panel gains the same
+  filters.
+
+**Effort** M · **Risk** Low — the entry shape is a contract, so it needs an ADR.
+
+### 7. One gate for arguments
+
+**Problem.** Argument rules are split between `packages/core/src/args.ts`
+(coercion, read piecemeal by each tool) and `apps/desktop/src/lib/args.ts`
+(required fields and integer shape). The runtime accepts any name:
+`gimlet passgen length=12 bogus=1` reports `ok`, and a misspelled `in_place` or
+`overwrite` silently changes what a destructive tool does. (Duplicate keys are
+deliberately last-wins and pinned by a test, so that is not part of this item.)
+
+**Shape.** `validateRun(manifest, args)` in `packages/core`, called from
+`Runtime.run` before dispatch: unknown names, required presence, enum membership,
+integer sign. It returns structured issues (`{arg, code, message}`) so the CLI,
+the TUI, the desktop IPC, and `batch` render the same failure. Delete the
+desktop's copy.
+
+**Why now.** It turns "surfaces hold no logic" from a stated rule into an
+enforced one, and it is a prerequisite for `secret` arguments.
+
 ### Shipped: batch execution
 
 `gimlet batch <tool> <path>...` expands files and directories, runs the tool
@@ -154,38 +200,46 @@ needs no special case.
 
 | Item | Why | Effort |
 |---|---|---|
+| `privacy.verify-tree` | The CI use case — "fail this build if any file still carries GPS" — deserves a name, a schema, and a report, not a `batch` invocation assembled by hand. | S |
 | `privacy.stego-scan` | Detects hidden payloads behind an image; cheap, distinctive, and fits the module. | S |
 | Metadata injection | Writing a clean copyright/software/artist field is the counterpart to stripping. Needs the TIFF writer; risky. | M |
 | Field-level decision report | Emit `decisions: [{segment, action, reason}]` so a compliance reviewer can see *why* each byte was kept or removed. | S |
 | Streaming strip | Multi-GB video and RAW currently load fully into memory. | M |
 | GPS redaction for RAW/HEIC/TIFF | Only JPEG/PNG/WebP today. | S–M each |
-| Profile file | `--policy policies/redact.toml` for a shared, reviewable policy instead of ad-hoc flags. | S |
+| Profile file | `--policy policies/redact.toml` for a shared, reviewable policy instead of ad-hoc flags; the policy's digest belongs in the report. | S |
+| Input receipts | The SHA-256 of the input (and of the policy) in the strip report: the difference between "I cleaned a photo" and "I cleaned *this* photo". | S |
 | Archives | A zip/tar of photos carries metadata inside; currently out of scope and easy to miss. | M |
 
-### Markdown table escaping (deferred past 1.0)
+### Markdown table escaping
 
-**Problem.** `Report::render_markdown` interpolates finding messages and targets
-into a table without escaping. A filename may legally contain `|`, and a pack may
-put a newline in its own text; either ends the row and shifts every column after
-it, so `--format markdown` renders as noise exactly when someone is pasting a
-report into an issue. CSV is already correct — it quotes commas, quotes, and
-newlines.
+**Problem.** `renderMarkdown` in `packages/core/src/report.ts` interpolates
+finding messages and targets into a table without escaping. A filename may
+legally contain `|`, and a tool may put a newline in its own text; either ends the
+row and shifts every column after it, so `--format markdown` renders as noise
+exactly when someone is pasting a report into an issue. CSV is already correct —
+it quotes commas, quotes, and newlines.
 
-**Why deferred.** The fix is two lines in `crates/core/src/report.rs`, which the
-quiet-period check lists as a frozen surface, and `ALLOW_SURFACE_CHANGE` restarts
-the two-release counter — a rendering fix is not worth restarting a freeze that
-is one soak away from 1.0. The patch exists in history as commit `caeacb9` on
-2026-10-26; re-apply it in the first 1.x minor.
+**Why it is still open.** `report.ts` is a file the quiet-period check freezes,
+and `ALLOW_SURFACE_CHANGE` restarts the two-release counter. The fix is two
+lines; the freeze is a whole release.
 
-**Effort** S · **Risk** Low.
+**Do this instead.** Move `render`, `renderText`, `renderMarkdown`, `renderCsv`,
+`renderHtml`, and the HTML stylesheet into `packages/core/src/render/`, leave
+`report.ts` holding the types and `sealed()`, and guard the renderers with
+golden-output snapshots. Then the quiet period freezes the *contract* and the
+*output*, not the source layout, and a presentation fix stops being a surface
+change. Do it before 1.0, while the countdown is still cheap to restart.
+
+**Effort** S–M · **Risk** Low.
 
 ---
 
 ### ADR for profile semantics
 
-**Problem.** `privacy`, `sharing`, and `archive` were defined here: privacy
-removes identity/text/time, sharing keeps time, archive keeps all. That is a
-reasonable design but it is currently only documented in code.
+**Problem.** `privacy`, `sharing`, and `archive` mean: privacy removes
+identity/text/time, sharing keeps time, archive keeps all. That is a reasonable
+design, but it is currently only documented in code
+(`packages/engine/src/scrub/format.ts`).
 
 **Why.** Users will build CI on these semantics. Write them down before v1.0.
 
@@ -197,13 +251,17 @@ reasonable design but it is currently only documented in code.
 
 | Item | Why | Effort |
 |---|---|---|
-| `crypto.pass-audit` | Password *generation* exists; auditing an existing one does not. Offline strength + pattern checks, no network calls. | S |
-| `crypto.key-audit` | Expired, weak, or duplicated keys in the keystore that 0.5 introduced. Pairs naturally with `sysadmin` audits. | M |
+| ~~`crypto.pass-audit`~~ | **Done in 0.9**: offline strength and pattern checks, never printing the password. | — |
+| `crypto.key-audit` | Expired, weak, or duplicated keys in the keystore. Pairs naturally with the `sysadmin` audits. | M |
+| `ArgSpec.secret` | A passphrase should not be representable as a plain string argument. The 0.9.1 patch masks by name; only the manifest can make it a rule for every surface. Needs an ADR. | M |
+| Passphrase on stdin / hidden prompt | Closes the last path where a passphrase becomes `argv` (and therefore shell history). Sits beside `passphrase_env`. | S–M |
+| Container v4, optional sender signature | v3 encrypts *to* someone and says nothing about who sent it. | L |
+| Diceware passphrases | A four-word phrase beats `Xk9#mQ2!` for memorability, and the entropy arithmetic already exists in `passgen`. | S |
 | Shamir split/combine | Secret sharing is a natural companion to key management, and a small wrapper. | S |
 | Secure shred | Deletion that survives forensic recovery. Must be `--dry-run` first and require explicit confirmation. | S |
 | QR export/import | Out-of-band key exchange without a network. Needs a terminal renderer plus UI support. | M |
 | ~~OpenPGP interop tools~~ | **Done in 0.5** as `crypto.gpg-verify`/`crypto.gpg-encrypt` driving the system `gpg`; a Sequoia-backed implementation would remove the external dependency. | M |
-| Post-quantum readiness | Track ML-KEM/ML-DSA support in the RustCrypto ecosystem; do not implement primitives. | S now, L later |
+| Post-quantum readiness | Track ML-KEM/ML-DSA support in `node:crypto` and `@noble`; do not implement primitives. | S now, L later |
 
 ---
 
@@ -214,8 +272,10 @@ reasonable design but it is currently only documented in code.
 | ~~Port `FailedLoginDetector`, `FilePermissions`, `UserAudit`~~ | **Done in 0.9** as `sysadmin.failed-login-detector`, `sysadmin.file-permissions`, and `sysadmin.user-audit`. | — |
 | `automation` module (scheduled runs) | Nothing schedules a job today. Prefer systemd timers on Linux, cron as fallback, `--dry-run` default. | L |
 | ~~`sysadmin.config-drift`~~ | **Done in 0.9**: snapshot, diff, report drift as findings. | — |
-| Fixture-driven ports of the remaining modules | Keeps behaviour honest as they move out of the pack. | M |
-| Explicit platform contract | Several tools read `/proc` and shell out to `df`. State "Linux" in the manifest and degrade cleanly elsewhere. | S |
+| Five more audits | `suid-audit`, `world-writable`, `ssh-config-audit`, `scheduled-jobs` (cron and systemd timers), `firewall-summary`. Same shape as the five that shipped, and they are the most-used surface. | M |
+| ~~Explicit platform contract~~ | **Done in 0.4**: `ToolManifest.platforms`, refused with `unsupported` on the wrong host. | — |
+| macOS host tools | A `.dmg` ships, but `system-info`, `kernel-hardening`, `network`, and the login audit are Linux-only. `sysctl` and `launchd` variants would make the desktop app more than a crypto tool on a Mac. | M |
+| Compose a pipeline | `scan → strip → verify` as one audited run with a JSON handoff between steps. Multi-step work is the real use case, and keeping it in the runtime keeps it in the trail. | M |
 
 ---
 
@@ -223,11 +283,14 @@ reasonable design but it is currently only documented in code.
 
 | Item | Why | Effort |
 |---|---|---|
-| WASM target | Metadata scan/strip, hashing, and password generation all work on `&[u8]` and would run in a browser with no upload. High privacy value. | M |
+| WASM target | Metadata scan/strip, hashing, and password generation all work on bytes and would run in a browser with no upload. High privacy value. WebCrypto has no ChaCha20-Poly1305, so the container needs a noble fallback or must be AES-GCM-only there. | L |
+| Windows CI job | A Windows zip and NSIS installer ship, but every CI job is `ubuntu-latest`. Path arithmetic in `batch` already normalises both separators; a typecheck + vitest job is what is missing. | M |
+| Desktop batch | `batch` is the one capability with no desktop path: drag files or folders onto a tool and get the same aggregate report. | M |
+| Verify after run | A button on a strip or encrypt result that runs `metadata-verify` / `crypto.inspect` on the output. Trust is built by showing the check. | S |
 | ~~TUI~~ | **Shipped**: `gimlet tui`. | — |
 | ~~Shell completions + man pages~~ | **Shipped in 0.9**: `gimlet completions <shell>` and `gimlet man`, generated from `packages/cli/src/surface.ts`. | — |
 | ~~`--output <file>` and `--quiet`~~ | **Shipped in 0.9** as global flags, so `batch` and `doctor` honour them too. | — |
-| Structured logging / OpenTelemetry spans | Turns "why was that slow" into a query. Packs are already timed per request. | M |
+| Structured logging / OpenTelemetry spans | Turns "why was that slow" into a query. Every run already carries `duration_ms`; a span would say where it went. | M |
 
 ---
 
@@ -239,6 +302,7 @@ reasonable design but it is currently only documented in code.
 | ~~End-to-end UI tests against a live engine~~ | **Shipped**: the `e2e` job drives the real window with Playwright. | — |
 | ~~Benchmarks for large files~~ | **Shipped in 0.9**: `make bench` (`scripts/bench.mjs`) with floors for hashing, the container, and the scrub. | — |
 | ~~Reproducible release artifacts~~ | **Shipped**: the `reproducible` job rebuilds and compares, and `SHA256SUMS` is signed. | — |
+| Report JSON Schema export | `gimlet tools show --schema` emitting a schema from `DataSpec`, so a consumer stops hand-writing a parser and a field drift fails their build, not their production. | S |
 | An SBOM over the npm tree | Signed artifacts and checksums exist; a bill of materials does not. | M |
 | Docs site | Markdown is fine now; linked HTML with search pays off past ~10 documents. | M |
 

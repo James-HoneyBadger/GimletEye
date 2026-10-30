@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { coerce, fromPairs } from '../src/args.js';
+import { coerce, fromPairs, isSecretArg } from '../src/args.js';
 import { render, sealed, type Report } from '../src/report.js';
 import { Registry, similarity } from '../src/registry.js';
 import { platformAllows, type ToolManifest } from '../src/manifest.js';
@@ -31,6 +31,20 @@ describe('argument parsing', () => {
 
   it('keeps later duplicates, as a shell would', () => {
     expect(fromPairs(['a=1', 'a=2'])).toEqual({ a: 2 });
+  });
+
+  it('recognises the names a surface must mask', () => {
+    for (const name of ['passphrase', 'new_passphrase', 'password', 'secret', 'secret_key', 'token', 'pin']) {
+      expect(isSecretArg(name), name).toBe(true);
+    }
+    for (const name of ['key', 'input', 'public_key', 'pinned_version']) {
+      expect(isSecretArg(name), name).toBe(false);
+    }
+    // An argument that names an environment variable holds a name, not a value:
+    // redacting it would break the command it appears in.
+    for (const name of ['passphrase_env', 'new_passphrase_env', 'password_env']) {
+      expect(isSecretArg(name), name).toBe(false);
+    }
   });
 });
 

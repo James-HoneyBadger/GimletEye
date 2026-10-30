@@ -11,6 +11,7 @@ export default defineConfig({
     // The more specific entry point comes first.
     alias: [
       { find: '@gimlet-eye/core/host-node', replacement: at('./packages/core/src/host-node.ts') },
+      { find: '@gimlet-eye/core/node', replacement: at('./packages/core/src/node.ts') },
       { find: '@gimlet-eye/core', replacement: at('./packages/core/src/index.ts') },
     ],
   },

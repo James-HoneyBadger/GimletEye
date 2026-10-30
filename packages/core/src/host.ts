@@ -51,6 +51,14 @@ export interface Host {
   /** Append bytes, creating the file if needed. */
   appendFile(path: string, bytes: Uint8Array): Promise<void>;
   writeFile(path: string, bytes: Uint8Array): Promise<void>;
+  /**
+   * Write a file and give it `mode`, whether it was created or already existed.
+   *
+   * Creating at the default mode and chmod'ing afterwards leaves a window in
+   * which a secret key is world-readable, so tools that hold key material use
+   * this instead.
+   */
+  writeFileMode(path: string, bytes: Uint8Array, mode: number): Promise<void>;
   /** Create `path` and its parents; succeeds when it already exists. */
   createDir(path: string): Promise<void>;
   /** Remove a file or a directory tree; succeeds when it does not exist. */

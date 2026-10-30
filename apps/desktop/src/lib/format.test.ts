@@ -69,6 +69,17 @@ describe('cliCommand', () => {
   it('skips empty values', () => {
     expect(cliCommand('demo', { a: '', b: 'x' }, false)).toBe('gimlet run demo b=x');
   });
+
+  it('never puts a passphrase in a command that will be copied', () => {
+    expect(cliCommand('crypto.encrypt', { input: 'a.txt', passphrase: 'hunter2' }, false)).toBe(
+      "gimlet run crypto.encrypt input=a.txt 'passphrase=<redacted>'",
+    );
+    expect(cliCommand('crypto.key-rotate', { new_passphrase_env: 'X', passphrase: 'pw' }, false)).toBe(
+      "gimlet run crypto.key-rotate new_passphrase_env=X 'passphrase=<redacted>'",
+    );
+    // `secret=true` is a flag, not a secret: the unredacted command is correct.
+    expect(cliCommand('crypto.key-export', { secret: true }, false)).toBe('gimlet run crypto.key-export secret=true');
+  });
 });
 
 describe('humanDuration', () => {

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { encodePublic, encodeSecret, generateKeyPair, open as openKeystore } from '@gimlet-eye/engine';
+import {
+  createEntry,
+  encodePublic,
+  encodeSecret,
+  generateKeyPair,
+  open as openKeystore,
+  SCHEMA_VERSION,
+  seal as sealKeystore,
+} from '@gimlet-eye/engine';
 import { pathsUnder } from '../src/paths.js';
 import { defaultConfig } from '../src/config.js';
 import { generateKey } from '../src/tools/keys.js';
@@ -26,6 +34,10 @@ function host(initial: Record<string, string> = {}): FakeHost & { store: Store }
     return value.toString('utf8');
   };
   fake.writeFile = async (path: string, bytes: Uint8Array) => store.set(path, Buffer.from(bytes));
+  fake.writeFileMode = async (path: string, bytes: Uint8Array, mode: number) => {
+    store.set(path, Buffer.from(bytes));
+    fake.modes.set(path, mode);
+  };
   fake.writeTextFile = async (path: string, text: string) => store.set(path, Buffer.from(text, 'utf8'));
   fake.rename = async (from: string, to: string) => {
     const value = store.get(from);
@@ -49,6 +61,22 @@ describe('the keystore tools, in process', () => {
     await expect(keyExport.run(ctxFor(fake), { selector: 'alice', output: '/home/out.pub' })).rejects.toThrow(
       /exists as a key file; this command reads the keystore/,
     );
+  });
+
+  it('opens a store left under the pre-rename name', async () => {
+    // `keystorePath` is the promise that renaming the project cannot strand a
+    // keystore; the tools have to actually ask it.
+    const fake = host();
+    const store = {
+      schema_version: SCHEMA_VERSION,
+      entries: [createEntry(generateKeyPair('ed25519'), 'legacy', '2026-01-01T00:00:00Z')],
+    };
+    fake.store.set('/home/tester/.gimlet/keystore.melv', sealKeystore(store, 'pw'));
+
+    const report = await keyList.run(ctxFor(fake), { passphrase: 'pw' });
+
+    expect((report.data as { count: number }).count).toBe(1);
+    expect((report.data as { path: string }).path).toBe('/home/tester/.gimlet/keystore.melv');
   });
 
   it('lists what is in the store, or says there is none', async () => {

@@ -33,6 +33,7 @@ import { decodePublic, decodeSecret } from '@gimlet-eye/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { refuseSamePath } from './guard.js';
+import { tempName } from '../pathutil.js';
 import { GimletError, invalidArgs, io, notFound } from '../errors.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
@@ -355,7 +356,7 @@ async function sealToFile(
   if (!overwrite && (await ctx.host.exists(output))) {
     throw io(`${output} already exists (pass overwrite=true to replace it)`);
   }
-  const temp = `${output}.tmp`;
+  const temp = tempName(output);
   try {
     const keep = await ctx.host.mode(output);
     await ctx.host.appendFile(temp, new Uint8Array(setup.header));
@@ -394,9 +395,12 @@ async function openToFile(
   if (!overwrite && (await ctx.host.exists(output))) {
     throw io(`${output} already exists (pass overwrite=true to replace it)`);
   }
-  const temp = `${output}.tmp`;
+  const temp = tempName(output);
   try {
+    // Decrypted plaintext is created owner-only, and keeps the destination's
+    // mode when the destination already existed.
     const keep = await ctx.host.mode(output);
+    await ctx.host.writeFileMode(temp, new Uint8Array(0), keep ?? 0o600);
     const opener = new ChunkOpener(cipherId, key, headerBytes, nonce);
     let written = 0;
     for (let offset = headerBytes.length; offset < total; offset += READ_WINDOW) {
@@ -409,7 +413,6 @@ async function openToFile(
       }
     }
     opener.end();
-    if (keep !== undefined) await ctx.host.chmod(temp, keep);
     await ctx.host.rename(temp, output);
     return written;
   } catch (error) {
@@ -423,7 +426,18 @@ async function writeOutput(ctx: ToolRunContext, path: string, bytes: Buffer, ove
   if (!overwrite && (await ctx.host.exists(path))) {
     throw io(`${path} already exists (pass overwrite=true to replace it)`);
   }
-  await ctx.host.writeFile(path, new Uint8Array(bytes));
+  // A version 1 container is read whole, but the plaintext still lands through a
+  // temp and a rename: an interrupted write must not leave half a file where the
+  // user expects a whole one.
+  const temp = tempName(path);
+  try {
+    const keep = await ctx.host.mode(path);
+    await ctx.host.writeFileMode(temp, new Uint8Array(bytes), keep ?? 0o600);
+    await ctx.host.rename(temp, path);
+  } catch (error) {
+    await ctx.host.removeTree(temp).catch(() => undefined);
+    throw error instanceof GimletError ? error : io(`${path}: ${(error as Error).message}`);
+  }
 }
 
 export const CONTAINER_TOOLS: readonly LocalTool[] = [encryptFile, decryptFile];

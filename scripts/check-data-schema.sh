@@ -47,11 +47,16 @@ for tool in catalogue:
     if spec['shape'] == 'array':
         continue  # a row schema is enforced at runtime against every row
     declared = dict(spec.get('required', {}), **spec.get('optional', {}))
-    for field, kind in sorted(seen.items()):
+    for field, kinds in sorted(seen.items()):
         if field not in declared:
             problems.append(f'{tool_id}: reports {field!r} but does not declare it')
-        elif kind not in declared[field].split('|'):
-            problems.append(f"{tool_id}: {field!r} declared {declared[field]!r} but returned {kind}")
+            continue
+        # A tool can return more than one shape across its paths (a dry run, a
+        # keystore write, a file write), so both sides are unions of kinds.
+        observed_kinds = set(kinds.split('|'))
+        allowed_kinds = set(declared[field].split('|'))
+        if not observed_kinds <= allowed_kinds:
+            problems.append(f"{tool_id}: {field!r} declared {declared[field]!r} but returned {kinds}")
     for field in sorted(spec.get('required', {})):
         if field not in seen:
             problems.append(f'{tool_id}: declares required {field!r} but the report did not carry it')

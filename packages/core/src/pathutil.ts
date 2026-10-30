@@ -68,3 +68,23 @@ export function stem(path: string): string {
   const at = name.lastIndexOf('.');
   return at <= 0 ? name : name.slice(0, at);
 }
+
+/**
+ * A sibling temporary name that another process cannot collide with.
+ *
+ * `${path}.tmp` looks convenient and is a lost-update bug: the CLI and the open
+ * desktop writing the keystore would share the name, and the second rename would
+ * publish a file built from a store the first never saw. The stamp makes each
+ * writer's temporary private; the rename is still what publishes it.
+ *
+ * The random half comes from the platform CSPRNG (`globalThis.crypto`, which
+ * Node 20 and every browser bundle here provide) rather than `Math.random()`: a
+ * predictable temporary name in a shared directory is a symlink an attacker can
+ * aim at a file of their choosing.
+ */
+export function tempName(path: string): string {
+  const random = new Uint8Array(8);
+  globalThis.crypto.getRandomValues(random);
+  const stamp = [...random].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${path}.${Date.now().toString(36)}-${stamp}.tmp`;
+}

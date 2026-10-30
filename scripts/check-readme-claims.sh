@@ -142,9 +142,11 @@ Claims this script cannot settle, and their evidence:
   upgrade survives rollback  ci.yml "rehearsal"
   no telemetry, no uploads   `npm audit --omit=dev` over the runtime dependency
                              set, in ci.yml "dependency policy"
-  parsers are fuzzed         packages/engine/test/corpus.test.ts replays the seed
-                             corpus the Rust targets saved; the nightly soak is
-                             not replaced (ADR 0010)
+  parsers are fuzzed         packages/engine/test/corpus.test.ts replays the
+                             committed corpus; scripts/fuzz-soak.sh runs the
+                             targets on demand and records them in
+                             fuzz/soak-ledger.jsonl, but no CI job schedules the
+                             soak (ADR 0010)
   the desktop app works      apps/desktop/src/**/*.test.ts (vitest, jsdom)
   the UI matches the CLI     packages/core is the implementation both import
 EOF

@@ -20,6 +20,8 @@ import {
 
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { io, notFound } from '../errors.js';
+import { keystorePath } from '../paths.js';
+import { tempName } from '../pathutil.js';
 import { createEntry, insert, open as openKeystore, SCHEMA_VERSION, seal as sealKeystore } from '@gimlet-eye/engine';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
@@ -87,15 +89,16 @@ const KEYGEN: ToolManifest = {
   data: {
     shape: 'object',
     required: {
-    algorithm: 'string',
-    dry_run: 'boolean',
-    id: 'string',
-    kind: 'string',
-    label: 'string',
-    public_key: 'string',
-    public_path: 'null',
-    secret_path: 'null',
-    stored: 'string',
+      // `null` on a dry run, and on the keystore path; the file path names both.
+      algorithm: 'string',
+      dry_run: 'boolean',
+      id: 'string|null',
+      kind: 'string',
+      label: 'string',
+      public_key: 'string',
+      public_path: 'string|null',
+      secret_path: 'string|null',
+      stored: 'string',
     },
   },
   tags: ['keys', 'ed25519', 'x25519', 'keystore'],
@@ -154,7 +157,9 @@ export const generateKey: LocalTool = {
     const pair = generateKeyPair(kind);
 
     if (toKeystore) {
-      const path = ctx.paths.keystoreFile;
+      // A store sealed before the rename is opened where it is; reporting it as
+      // missing is the one thing the migration promise rules out.
+      const path = await keystorePath(ctx.paths, ctx.host);
       const passphrase = keystorePassphrase(args);
       const existing = (await ctx.host.exists(path))
         ? openKeystore(Buffer.from(await ctx.host.readFile(path)), passphrase)
@@ -190,9 +195,10 @@ export const generateKey: LocalTool = {
         }
       }
       await ctx.host.createDir(dir);
-      await ctx.host.writeTextFile(secretPath, encodeSecret(pair));
+      // Created owner-only, not chmod'ed afterwards: a secret that exists for a
+      // moment at 0644 has already leaked to anything watching the directory.
+      await ctx.host.writeFileMode(secretPath, new TextEncoder().encode(encodeSecret(pair)), 0o600);
       await ctx.host.writeTextFile(publicPath, encodePublic(pair));
-      await ctx.host.chmodOwnerOnly(secretPath);
     }
 
     return sealed({
@@ -215,10 +221,10 @@ export const generateKey: LocalTool = {
   },
 };
 
-/** Write through the Host: temporary file, rename, then owner-only. */
+/** Write through the Host: owner-only temporary, rename, owner-only in place. */
 async function writeSealed(ctx: ToolRunContext, path: string, bytes: Buffer): Promise<void> {
-  const temp = `${path}.tmp`;
-  await ctx.host.writeFile(temp, new Uint8Array(bytes));
+  const temp = tempName(path);
+  await ctx.host.writeFileMode(temp, new Uint8Array(bytes), 0o600);
   await ctx.host.rename(temp, path);
   await ctx.host.chmodOwnerOnly(path);
 }

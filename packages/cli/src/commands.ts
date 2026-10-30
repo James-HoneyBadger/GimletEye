@@ -10,10 +10,12 @@ import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
 import {
   GimletError,
   configToToml,
+  invalidArgs,
   parseCategory,
   platformAllows,
   render,
   fromPairs,
+  type Category,
   type OutputFormat,
   type Report,
 } from '@gimlet-eye/core';
@@ -71,7 +73,9 @@ export async function main(argv: readonly string[], host = nodeHost()): Promise<
   } catch (error) {
     const failure = error instanceof GimletError ? error : new GimletError('internal', String(error));
     writeFailure(failure.code, failure.message, parsed.globals.format ?? runtime?.config.defaults.output);
-    return failure.code === 'invalid_args' ? 2 : 1;
+    // A mistyped tool id and a mistyped flag are both usage, and the documented
+    // contract says usage exits 2.
+    return failure.code === 'invalid_args' || failure.code === 'unknown_tool' ? 2 : 1;
   } finally {
     runtime?.close();
     finish();
@@ -156,8 +160,17 @@ function exitCode(status: Report['status'], strict: boolean): number {
   return 0;
 }
 
+/** `parseCategory` throws a plain `Error`; a typo is a usage error, not internal. */
+export function categoryOrUsage(value: string): Category {
+  try {
+    return parseCategory(value);
+  } catch (error) {
+    throw invalidArgs((error as Error).message);
+  }
+}
+
 function listTools(runtime: Runtime, globals: Globals, category: string | undefined): number {
-  const filter = category === undefined ? undefined : parseCategory(category);
+  const filter = category === undefined ? undefined : categoryOrUsage(category);
   const manifests = runtime.registry
     .list()
     .filter((manifest) => filter === undefined || manifest.category === filter)

@@ -34,7 +34,7 @@ import {
 
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { invalidArgs, io, notFound, toolFailed } from '../errors.js';
-import { basename, dirname, extension, join, stem } from '../pathutil.js';
+import { dirname, extension, join, stem, tempName } from '../pathutil.js';
 import { samePath } from './guard.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
@@ -422,7 +422,9 @@ function verifyClean(cleaned: Buffer, policy: RemovalPolicy): void {
  * what writing any other new file does — a cleaned photo is meant to be shared.
  */
 async function writeAtomic(ctx: ToolRunContext, target: string, bytes: Buffer): Promise<void> {
-  const temp = join(dirname(target), `${basename(target)}.tmp`);
+  // A private temporary name: two strips into one destination must not share a
+  // file, or the second rename publishes bytes the first never wrote.
+  const temp = tempName(target);
   try {
     const keep = await ctx.host.mode(target);
     await ctx.host.writeFile(temp, new Uint8Array(bytes));

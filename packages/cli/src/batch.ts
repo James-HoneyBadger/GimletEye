@@ -8,7 +8,9 @@
 
 import {
   GimletError,
+  basename,
   invalidArgs,
+  join,
   notFound,
   render,
   sealed,
@@ -148,7 +150,7 @@ async function walk(
   }
 
   for (const entry of entries) {
-    const path = joinPath(dir, entry);
+    const path = join(dir, entry);
     const info = await host.stat(path);
     if (info.isFile) {
       if (accepts(path, wanted)) out.push(path);
@@ -160,7 +162,9 @@ async function walk(
 
 function accepts(path: string, wanted: readonly string[]): boolean {
   if (wanted.length === 0) return true;
-  const name = path.slice(path.lastIndexOf('/') + 1);
+  // `basename` normalises both separators, so a Windows path selects the same
+  // files a POSIX one does.
+  const name = basename(path);
   const at = name.lastIndexOf('.');
   if (at <= 0) return false;
   return wanted.includes(name.slice(at + 1).toLowerCase());
@@ -285,10 +289,6 @@ function withoutFiles(data: unknown): unknown {
   if (typeof data !== 'object' || data === null) return data;
   const { files: _files, ...rest } = data as Record<string, unknown>;
   return rest;
-}
-
-function joinPath(dir: string, entry: string): string {
-  return dir.endsWith('/') ? `${dir}${entry}` : `${dir}/${entry}`;
 }
 
 function describePaths(paths: readonly string[]): string {

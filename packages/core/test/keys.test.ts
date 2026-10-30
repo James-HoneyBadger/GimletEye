@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { hexDecodeExact, open as openKeystore, SCHEMA_VERSION } from '@gimlet-eye/engine';
 import { pathsUnder } from '../src/paths.js';
 import { defaultConfig } from '../src/config.js';
+import { NODE_TOOLS } from '../src/node.js';
+import { Runtime } from '../src/runtime.js';
 import { generateKey, inspectContainer } from '../src/tools/keys.js';
 import { fakeHost, type FakeHost } from './fake-host.js';
 
@@ -26,6 +28,10 @@ function binaryHost(initial: Record<string, Buffer | string>): FakeHost {
     return value.toString('utf8');
   };
   host.writeFile = async (path: string, bytes: Uint8Array) => files.set(path, Buffer.from(bytes));
+  host.writeFileMode = async (path: string, bytes: Uint8Array, mode: number) => {
+    files.set(path, Buffer.from(bytes));
+    host.modes.set(path, mode);
+  };
   host.writeTextFile = async (path: string, text: string) => files.set(path, Buffer.from(text, 'utf8'));
   host.createDir = async () => undefined;
   host.rename = async (from: string, to: string) => {
@@ -140,5 +146,41 @@ describe('crypto.keygen, in process', () => {
   it('refuses a keystore write with no passphrase', async () => {
     const host = binaryHost({});
     await expect(generateKey.run(ctxFor(host), { label: 'x', keystore: true })).rejects.toThrow(/passphrase/);
+  });
+});
+
+/**
+ * The tests above call the tool directly. These go through `Runtime.run`, which
+ * is the gate that compares the report with the declared schema — the gate the
+ * file-writing path used to fail, unnoticed, for two releases.
+ */
+describe('crypto.keygen through the runtime', () => {
+  async function runtimeFor(host: FakeHost): Promise<Runtime> {
+    return Runtime.load(host, { home: '/home/tester/.gimlet', localTools: NODE_TOOLS });
+  }
+
+  it('accepts the report it returns when it writes key files', async () => {
+    const host = binaryHost({});
+    const runtime = await runtimeFor(host);
+
+    const { report } = await runtime.run('crypto.keygen', { label: 'demo', dir: '/keys' });
+
+    expect(report.status).toBe('ok');
+    expect((report.data as { secret_path: string }).secret_path).toBe('/keys/demo.key');
+    // Created owner-only rather than chmod'ed afterwards.
+    expect(host.modes.get('/keys/demo.key')).toBe(0o600);
+    runtime.close();
+  });
+
+  it('accepts the report it returns when it writes the keystore', async () => {
+    const host = binaryHost({});
+    const runtime = await runtimeFor(host);
+
+    const { report } = await runtime.run('crypto.keygen', { label: 'demo', keystore: true, passphrase: 'pw' });
+
+    expect(report.status).toBe('ok');
+    expect((report.data as { stored: string }).stored).toBe('keystore');
+    expect(typeof (report.data as { id: unknown }).id).toBe('string');
+    runtime.close();
   });
 });

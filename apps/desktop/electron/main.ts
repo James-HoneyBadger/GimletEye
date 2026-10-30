@@ -23,8 +23,22 @@ import type { Args } from '@gimlet-eye/core';
 import { createApi } from './api.js';
 import { validateRunArgs } from './validate.js';
 
+// Every renderer runs sandboxed, including any the shell creates later. Set
+// before the app is ready, which is when Electron reads it.
+app.enableSandbox();
+
 let window: BrowserWindow | null = null;
 let runtimePromise: Promise<Runtime> | undefined;
+
+/**
+ * Schemes this window is allowed to load.
+ *
+ * The app is a local document: `file:` for the bundle, `data:` for the inline
+ * icon, `blob:` for a downloaded report. Everything else is cancelled, so "no
+ * telemetry, no network" is enforced by the session rather than inferred from
+ * there being no `fetch` in the source.
+ */
+const LOCAL_SCHEME = /^(file|data|blob|devtools|chrome-extension):/i;
 
 /** One runtime for the process, created on first use. */
 function runtime(): Promise<Runtime> {
@@ -49,6 +63,9 @@ function createWindow(): void {
       sandbox: true,
       webviewTag: false,
       allowRunningInsecureContent: false,
+      // Chromium's spellchecker is a dictionary download and a network stack the
+      // toolkit does not need.
+      spellcheck: false,
     },
   });
 
@@ -112,6 +129,11 @@ if (!app.requestSingleInstanceLock()) {
     // read; denying them all is cheaper than auditing each use.
     session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
     session.defaultSession.setPermissionCheckHandler(() => false);
+
+    // The session, not the source, is what guarantees no request leaves.
+    session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+      callback({ cancel: !LOCAL_SCHEME.test(details.url) });
+    });
 
     register();
     createWindow();

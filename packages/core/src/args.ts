@@ -44,6 +44,24 @@ export function coerce(raw: string): ArgValue {
   return raw;
 }
 
+/**
+ * Does this argument name carry a secret value?
+ *
+ * A surface uses this to mask the input, keep the value out of anything it
+ * prints or copies, and leave it out of a saved draft. It is a name heuristic on
+ * purpose: until `ArgSpec` can declare `secret: true`, the name is the only
+ * signal a manifest gives — and every tool that takes a passphrase already calls
+ * it one.
+ */
+const SECRET_ARG_NAME = /(^|_)(passphrase|password|secret|token|pin)($|_)/i;
+
+export function isSecretArg(name: string): boolean {
+  // `passphrase_env` names an environment variable; the variable's *name* is not
+  // the secret, and hiding it would make the copied command useless.
+  if (/(^|_)env$/i.test(name)) return false;
+  return SECRET_ARG_NAME.test(name);
+}
+
 export function optString(args: Args, key: string): string | undefined {
   const value = args[key];
   if (value === undefined || value === null) return undefined;

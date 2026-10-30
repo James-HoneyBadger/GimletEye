@@ -8,6 +8,8 @@
 export type ErrorCode =
   | 'config'
   | 'invalid_args'
+  /** A tool id nobody registered: the user typed the command wrong. */
+  | 'unknown_tool'
   | 'not_found'
   | 'io'
   | 'capability_denied'
@@ -35,6 +37,7 @@ export function asErrorCode(value: unknown): ErrorCode {
   switch (value) {
     case 'config':
     case 'invalid_args':
+    case 'unknown_tool':
     case 'not_found':
     case 'io':
     case 'capability_denied':
@@ -49,6 +52,7 @@ export function asErrorCode(value: unknown): ErrorCode {
 
 export const config = (message: string) => new GimletError('config', `configuration error: ${message}`);
 export const invalidArgs = (message: string) => new GimletError('invalid_args', `invalid arguments: ${message}`);
+export const unknownTool = (message: string) => new GimletError('unknown_tool', `unknown tool: ${message}`);
 export const notFound = (message: string) => new GimletError('not_found', `not found: ${message}`);
 export const io = (message: string) => new GimletError('io', `i/o error: ${message}`);
 export const unsupported = (message: string) => new GimletError('unsupported', `unsupported operation: ${message}`);

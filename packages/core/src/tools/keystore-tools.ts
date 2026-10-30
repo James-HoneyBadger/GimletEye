@@ -30,6 +30,8 @@ import {
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { invalidArgs, io, notFound } from '../errors.js';
+import { stem, tempName } from '../pathutil.js';
+import { keystorePath } from '../paths.js';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';
@@ -144,7 +146,7 @@ export const keyList: LocalTool = {
   manifest: LIST,
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
-    const path = ctx.paths.keystoreFile;
+    const path = await keystorePath(ctx.paths, ctx.host);
     const store = await openStore(ctx, args);
 
     const keys = store.entries.map(viewOf);
@@ -183,7 +185,7 @@ export const keyImport: LocalTool = {
     );
     if (publicOnly) entry.secret_key = '';
 
-    const storePath = ctx.paths.keystoreFile;
+    const storePath = await keystorePath(ctx.paths, ctx.host);
     const pass = passphrase(args);
     const existing = (await ctx.host.exists(storePath))
       ? await readStore(ctx, storePath, pass)
@@ -240,8 +242,13 @@ export const keyExport: LocalTool = {
       if (!overwrite && (await ctx.host.exists(output))) {
         throw io(`${output} already exists (pass overwrite=true to replace it)`);
       }
-      await ctx.host.writeTextFile(output, text);
-      if (wantSecret) await ctx.host.chmodOwnerOnly(output);
+      if (wantSecret) {
+        // Created owner-only: a secret that exists for a moment at 0644 has
+        // already been read by whatever was watching the directory.
+        await ctx.host.writeFileMode(output, new TextEncoder().encode(text), 0o600);
+      } else {
+        await ctx.host.writeTextFile(output, text);
+      }
     }
 
     return sealed({
@@ -265,7 +272,7 @@ export const keyRotate: LocalTool = {
   manifest: ROTATE,
   async run(ctx: ToolRunContext, args: Args): Promise<Report> {
     const started = Date.now();
-    const storePath = ctx.paths.keystoreFile;
+    const storePath = await keystorePath(ctx.paths, ctx.host);
     const store = await openStore(ctx, args);
     const next = newPassphrase(args);
 
@@ -291,7 +298,7 @@ export const keyRotate: LocalTool = {
  * unlock.
  */
 async function openStore(ctx: ToolRunContext, args: Args, selector?: string): Promise<Keystore> {
-  const path = ctx.paths.keystoreFile;
+  const path = await keystorePath(ctx.paths, ctx.host);
   if (!(await ctx.host.exists(path))) {
     throw notFound(`${path} (create one with crypto.keygen keystore=true)${await keyFileHint(ctx, selector)}`);
   }
@@ -318,8 +325,10 @@ async function readStore(ctx: ToolRunContext, path: string, pass: string): Promi
 }
 
 async function writeStore(ctx: ToolRunContext, path: string, bytes: Buffer): Promise<void> {
-  const temp = `${path}.tmp`;
-  await ctx.host.writeFile(temp, new Uint8Array(bytes));
+  // A private temporary per writer: two surfaces saving at once must not share
+  // a path, or the second rename publishes a store the first never saw.
+  const temp = tempName(path);
+  await ctx.host.writeFileMode(temp, new Uint8Array(bytes), 0o600);
   await ctx.host.rename(temp, path);
   await ctx.host.chmodOwnerOnly(path);
 }
@@ -342,11 +351,6 @@ function fromEnvOrArg(args: Args, envArg: string, inlineArg: string, complaint: 
   const inline = optString(args, inlineArg);
   if (inline !== undefined) return inline;
   throw invalidArgs(complaint);
-}
-
-function stem(path: string): string {
-  const base = path.split('/').pop() ?? path;
-  return base.replace(/\.[^.]*$/, '');
 }
 
 export const KEYSTORE_TOOLS: readonly LocalTool[] = [keyList, keyImport, keyExport, keyRotate];

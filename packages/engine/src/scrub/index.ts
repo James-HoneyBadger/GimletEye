@@ -23,8 +23,8 @@ export function scan(bytes: Buffer): ScanResult {
       return scanWebp(bytes);
     default:
       throw new Error(
-        'unrecognised container; native support covers JPEG, PNG, and WebP ' +
-          '(install a metadata pack for HEIC, AVIF, TIFF, PDF, MP4, RAW, and others)',
+        'unrecognised container; this build reads JPEG, PNG, and WebP ' +
+          '(HEIC, AVIF, TIFF, PDF, MP4, and RAW are not implemented)',
       );
   }
 }

@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      The window is a local document. Nothing is loaded from anywhere, no frame
+      is allowed, no form posts, and the only connection permitted is the same
+      origin (which is how the dev server's HMR socket works). A report that
+      quotes a hostile string stays inert because of this policy, not only
+      because every interpolation is escaped.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#12100e" />
     <title>Gimlet Eye</title>

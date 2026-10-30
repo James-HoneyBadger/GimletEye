@@ -8,7 +8,7 @@
 
 import { AuditLog, auditEntry } from './audit.js';
 import { loadConfig, type Config } from './config.js';
-import { GimletError, asGimletError, notFound } from './errors.js';
+import { GimletError, asGimletError, unknownTool } from './errors.js';
 import { diskUsage } from './tools/disk-usage.js';
 import { failedLoginDetector } from './tools/failed-login.js';
 import { filePermissions } from './tools/file-permissions.js';
@@ -24,7 +24,7 @@ import type { Args } from './args.js';
 import type { Host } from './host.js';
 import type { LocalTool } from './local.js';
 import { platformAllows } from './manifest.js';
-import type { Report } from './report.js';
+import { sealed, type Report } from './report.js';
 
 export interface RunOptions {
   dryRun?: boolean;
@@ -126,7 +126,7 @@ export class Runtime {
         : suggestions.length === 1
           ? ` Did you mean '${suggestions[0]}'?`
           : ` Did you mean one of: ${suggestions.join(', ')}?`;
-    throw notFound(`tool '${query}'.${hint} Run \`gimlet tools list\` to see everything available.`);
+    throw unknownTool(`'${query}'.${hint} Run \`gimlet tools list\` to see everything available.`);
   }
 
   /**
@@ -170,7 +170,7 @@ export class Runtime {
     // One choke point for every surface: a report whose `data` drifts from the
     // shape its manifest declares fails here, before a consumer sees it.
     assertDataShape(manifest ?? this.require(id), report.data);
-    return report;
+    return deriveVerdict(report);
   }
 
   private async record(tool: string, status: Report['status'], durationMs: number, argKeys: string[]): Promise<void> {
@@ -191,6 +191,21 @@ export class Runtime {
   close(): void {
     this.sidecar.close();
   }
+}
+
+const STATUS_RANK: Record<Report['status'], number> = { ok: 0, warning: 1, error: 2 };
+
+/**
+ * Take the more severe of the declared verdict and the one the findings imply.
+ *
+ * A built-in tool is already sealed, so this is its verdict unchanged. An engine
+ * report is not trusted to be: a report that says `ok` while carrying a high
+ * finding is exactly what `sealed()` exists to prevent, and a report that says
+ * `error` with no findings must not be quietly upgraded to `ok`.
+ */
+function deriveVerdict(report: Report): Report {
+  const derived = sealed(report);
+  return STATUS_RANK[report.status] > STATUS_RANK[derived.status] ? report : derived;
 }
 
 export { GimletError };

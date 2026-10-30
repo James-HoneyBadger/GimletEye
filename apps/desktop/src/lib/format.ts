@@ -1,3 +1,5 @@
+import { isSecretArg } from '@gimlet-eye/core';
+
 /** `⌘` on macOS, `Ctrl` elsewhere. */
 export const modLabel: string =
   typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl';
@@ -92,6 +94,13 @@ export function cliCommand(toolId: string, args: Record<string, unknown>, dryRun
   const parts = ['gimlet', 'run', toolId];
   for (const [key, value] of Object.entries(args)) {
     if (value === undefined || value === '') continue;
+    // A passphrase is written to the clipboard by this button and shown in its
+    // tooltip, so the value is replaced rather than quoted. A boolean such as
+    // key-export's `secret=true` is a flag, not a secret, and stays.
+    if (typeof value === 'string' && isSecretArg(key)) {
+      parts.push(shellArg(`${key}=<redacted>`));
+      continue;
+    }
     parts.push(shellArg(`${key}=${String(value)}`));
   }
   if (dryRun) parts.push('--dry-run');

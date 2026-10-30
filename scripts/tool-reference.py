@@ -71,6 +71,14 @@ EXAMPLES: dict[str, list[str]] = {
     "sysadmin.user-audit": [],
 }
 
+# Extra invocations whose report shape the documented example does not cover.
+# The schema gate runs these too: `crypto.keygen` writes a keystore entry *or*
+# two key files, and for two releases only the keystore shape was ever compared
+# with its manifest — which is how the file path stayed broken.
+EXTRA_EXAMPLES: dict[str, list[list[str]]] = {
+    "crypto.keygen": [["label=example-files", "kind=ed25519", "dir={work}/keys"]],
+}
+
 def run(command: list[str], env: dict[str, str], timeout: int) -> tuple[int, str]:
     try:
         finished = subprocess.run(
@@ -353,26 +361,48 @@ KIND_OF = {
 }
 
 
+KIND_ORDER = ["string", "number", "boolean", "object", "array", "null", "unknown"]
+
+
 def emit_data_schema(catalogue, binary, env, placeholders, timeout) -> int:
     """Run every example as JSON and print the shape of `Report.data`.
 
     This is where the declared `data` schema in each manifest comes from: a
     hand-written one documents what somebody believed, and this documents what
-    the tool actually returned.
+    the tool actually returned. A tool with more than one shape (a dry run, a
+    keystore path, a file path) contributes the union, because the manifest has
+    to accept every path a user can take.
     """
-    schema: dict[str, dict[str, str]] = {}
+    schema: dict[str, dict[str, set[str]]] = {}
+    no_report: list[str] = []
     for tool in catalogue:
-        arguments = [argument.format(**placeholders) for argument in EXAMPLES[tool["id"]]]
-        code, output = run([binary, tool["id"], *arguments, "--format", "json"], env, timeout)
-        try:
-            report = json.loads(strip_ansi(output))
-        except ValueError:
-            sys.stderr.write(f"{tool['id']}: no JSON report (exit {code})\n")
-            continue
-        data = report.get("data")
-        if not isinstance(data, dict):
-            continue
-        schema[tool["id"]] = {key: KIND_OF.get(type(value).__name__, "unknown") for key, value in data.items()}
+        invocations = [EXAMPLES[tool["id"]], *EXTRA_EXAMPLES.get(tool["id"], [])]
+        fields: dict[str, set[str]] = {}
+        for placement in invocations:
+            arguments = [argument.format(**placeholders) for argument in placement]
+            code, output = run([binary, tool["id"], *arguments, "--format", "json"], env, timeout)
+            try:
+                report = json.loads(strip_ansi(output))
+            except ValueError:
+                # An example that does not print a report is a broken example,
+                # not a tool with no schema: skipping it is how a failing path
+                # stays hidden.
+                no_report.append(f"{tool['id']} (exit {code})")
+                break
+            data = report.get("data")
+            if not isinstance(data, dict):
+                break
+            for key, value in data.items():
+                fields.setdefault(key, set()).add(KIND_OF.get(type(value).__name__, "unknown"))
+        if fields:
+            schema[tool["id"]] = {
+                key: "|".join(kind for kind in KIND_ORDER if kind in kinds) for key, kinds in fields.items()
+            }
+
+    if no_report:
+        sys.stderr.write("no JSON report from: " + ", ".join(no_report) + "\n")
+        return 1
+
     json.dump(schema, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0

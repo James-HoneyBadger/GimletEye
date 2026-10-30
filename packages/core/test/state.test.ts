@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { nodeHost } from '@gimlet-eye/core/host-node';
-import { dirname } from '../src/pathutil.js';
+import { dirname, tempName } from '../src/pathutil.js';
 
 import { AuditLog, auditEntry } from '../src/audit.js';
 import { configToToml, defaultConfig, loadConfig, moduleSetting, parseConfig } from '../src/config.js';
@@ -125,6 +125,17 @@ describe('parent directories', () => {
     expect(dirname('/audit.jsonl')).toBe('/');
     expect(dirname('/var/lib/gimlet/audit.jsonl')).toBe('/var/lib/gimlet');
     expect(dirname('audit.jsonl')).toBe('.');
+  });
+});
+
+describe('temporary names', () => {
+  it('are private to the writer and carry the destination', () => {
+    const first = tempName('/home/tester/.gimlet/keystore.gimlet');
+    const second = tempName('/home/tester/.gimlet/keystore.gimlet');
+
+    expect(first).not.toBe(second);
+    expect(first.startsWith('/home/tester/.gimlet/keystore.gimlet.')).toBe(true);
+    expect(first.endsWith('.tmp')).toBe(true);
   });
 });
 

@@ -32,6 +32,20 @@ import type { Platform } from './manifest.js';
 /** How long a single engine call may take before the surface gives up. */
 const ENGINE_TIMEOUT_MS = 10 * 60 * 1000;
 
+/**
+ * How long an external command may run, and how much of its output is kept.
+ *
+ * The budget matches an engine call because `crypto.gpg-encrypt` on a very large
+ * file is the one case that approaches it; the point is to bound a wedged
+ * `gpg-agent`, not to hurry a real encryption. The cap is generous for `df` and
+ * for gpg's status lines, and stops a chatty failure from growing a report.
+ */
+const EXEC_TIMEOUT_MS = 10 * 60 * 1000;
+const EXEC_OUTPUT_LIMIT = 1024 * 1024;
+
+/** The exit status `execOnce` reports for a command it had to kill. */
+export const EXEC_TIMED_OUT = 124;
+
 export function nodeHost(): Host {
   return {
     platform: nodePlatform(),
@@ -57,6 +71,12 @@ export function nodeHost(): Host {
     appendTextFile: (path, text) => appendToFile(path, text, 'utf8'),
     appendFile: (path, bytes) => appendToFile(path, bytes),
     writeFile: (path, bytes) => writeFile(path, bytes),
+    writeFileMode: async (path, bytes, mode) => {
+      // `mode` applies only where the file is created, so an existing file has
+      // to be tightened explicitly as well.
+      await writeFile(path, bytes, { mode });
+      if (nodePlatform() !== 'windows') await chmod(path, mode);
+    },
     createDir: async (path) => {
       await mkdir(path, { recursive: true });
     },
@@ -140,25 +160,79 @@ function defaultConfigDir(): string {
   return process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config');
 }
 
-function execOnce(program: string, args: readonly string[]): Promise<ExecResult> {
+/**
+ * Run one program with no shell, a time budget, and a cap on what is kept.
+ *
+ * `df` and `gpg` are the only programs the toolkit runs, and both are expected
+ * to finish quickly — but `gpg` can block on agent trouble even with `--batch`,
+ * and a child that never exits must not hold a run forever. What is kept is
+ * capped so a chatty failure cannot grow a report without bound, and the cap is
+ * announced in `stderr` rather than silently truncating.
+ *
+ * The budget is a parameter so a test can prove the timeout without waiting a
+ * minute; the `Host` always calls it with the default.
+ */
+export function execOnce(
+  program: string,
+  args: readonly string[],
+  timeoutMs = EXEC_TIMEOUT_MS,
+): Promise<ExecResult> {
   return new Promise((resolve) => {
     const child = spawn(program, [...args], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    let truncated = false;
+    let settled = false;
+
+    const keep = (text: string, chunk: string): string => {
+      const room = EXEC_OUTPUT_LIMIT - text.length;
+      if (room <= 0) {
+        truncated = true;
+        return text;
+      }
+      if (chunk.length > room) truncated = true;
+      return text + chunk.slice(0, room);
+    };
+
+    const finish = (code: number, note?: string): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const notes = [
+        timedOut ? `${program} timed out after ${Math.round(timeoutMs / 1000)}s` : undefined,
+        truncated ? `${program}: output truncated at ${EXEC_OUTPUT_LIMIT} bytes` : undefined,
+        note,
+      ].filter((line): line is string => line !== undefined);
+      resolve({
+        code: timedOut ? EXEC_TIMED_OUT : code,
+        stdout,
+        stderr: [stderr, ...notes].filter((line) => line !== '').join('\n'),
+      });
+    };
+
+    // `unref` so a pending budget never keeps a short-lived process alive; the
+    // timer is cleared on every settle anyway.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, timeoutMs);
+    timer.unref();
+
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-      stdout += chunk;
+      stdout = keep(stdout, chunk);
     });
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-      stderr += chunk;
+      stderr = keep(stderr, chunk);
     });
     child.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') {
-        resolve({ code: 127, stdout, stderr: `${program}: not found` });
+        finish(127, `${program}: not found`);
         return;
       }
-      resolve({ code: 126, stdout, stderr: error.message });
+      finish(126, error.message);
     });
-    child.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+    child.on('close', (code) => finish(code ?? 0));
   });
 }
 

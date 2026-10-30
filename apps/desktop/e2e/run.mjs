@@ -44,6 +44,15 @@ try {
   });
 
   const window = await electronApp.firstWindow();
+
+  // The window is a local document: anything that is not a local scheme is a
+  // regression the session is supposed to cancel. Recording it here means the
+  // claim is tested rather than asserted in a comment.
+  const external = [];
+  window.on('request', (request) => {
+    if (!/^(file|data|blob|devtools|chrome-extension):/i.test(request.url())) external.push(request.url());
+  });
+
   // `show: false` until the renderer is ready, so this waits for a real page.
   await window.waitForSelector('.sidebar', { timeout: 30_000 });
   assert.equal(await window.title(), 'Gimlet Eye');
@@ -75,6 +84,9 @@ try {
   // back from the main process and rendered, not that a spinner stopped.
   await window.waitForSelector('text=2cf24dba5fb0a30e', { timeout: 30_000 });
   step('a run reaches the report view');
+
+  assert.deepEqual(external, [], `the window made a non-local request: ${external.join(', ')}`);
+  step('the window made no network request');
 
   // The audit trail is written by the main process, so this is the check that
   // the window went through `Runtime.run` rather than around it.

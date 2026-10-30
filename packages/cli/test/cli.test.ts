@@ -4,7 +4,9 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { GimletError } from '@gimlet-eye/core';
 import { nodeHost } from '@gimlet-eye/core/host-node';
+import { categoryOrUsage } from '../src/commands.js';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
 import { completionScript, manPage } from '../src/completions.js';
@@ -35,6 +37,20 @@ describe('failures in the shape the caller asked for', () => {
     expect(formatFromArgv(['crypto.decrypt', 'input=x', '--format', 'json'])).toBe('json');
     expect(formatFromArgv(['--format=json', 'nonsense'])).toBe('json');
     expect(formatFromArgv(['sha256', 'text=x'])).toBeUndefined();
+  });
+});
+
+describe('usage errors', () => {
+  it('classifies an unknown category as usage, not an internal error', () => {
+    expect(categoryOrUsage('system')).toBe('sysadmin');
+    try {
+      categoryOrUsage('nope');
+      expect.unreachable('an unknown category must not resolve');
+    } catch (error) {
+      expect(error).toBeInstanceOf(GimletError);
+      expect((error as GimletError).code).toBe('invalid_args');
+      expect((error as GimletError).message).toContain("unknown category 'nope'");
+    }
   });
 });
 

@@ -1,3 +1,14 @@
+gimlet-eye-toolkit (0.9.1) unstable; urgency=medium
+
+  * crypto.keygen to key files reports a schema-correct result again; the
+    schema gate now covers more than one invocation per tool.
+  * Secret arguments are masked in the desktop, hidden in the terminal, and
+    redacted from the copyable command; secret files are created 0600.
+  * Engine reports are validated and re-rated; external commands are bounded.
+  * A pre-rename keystore is opened where it is; usage errors exit 2.
+
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Thu, 29 Oct 2026 00:00:00 +0000
+
 gimlet-eye-toolkit (0.9.0) unstable; urgency=medium
 
   * The first quiet minor since 0.8.0: no versioned surface moved.

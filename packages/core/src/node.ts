@@ -2,8 +2,8 @@
  * The Node entry point: the runtime with every tool this build can run.
  *
  * Kept out of the main barrel because these tools are built on `node:crypto`,
- * and the barrel is bundled into the desktop webview. The desktop gets the same
- * tools from the engine over the sidecar instead.
+ * and the barrel is bundled into the desktop webview. The desktop's main process
+ * registers this same list; the renderer only ever sees the four IPC calls.
  */
 
 import { configDrift } from './tools/config-drift.js';

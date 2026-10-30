@@ -24,7 +24,10 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Network | Nothing opens a socket; no tool declares `network` |
 | The engine | Compiled from this tree (`packages/engine`) and called in the same process; an optional `GIMLET_SIDECAR` engine exists only to compare against |
 
-There is no telemetry, no auto-update check, and no remote logging.
+There is no telemetry, no auto-update check, and no remote logging. The desktop
+window's session cancels every request whose scheme is not local (`file:`,
+`data:`, `blob:`), and the end-to-end test fails if the window asks for anything
+else.
 
 ## Threat model
 
@@ -83,30 +86,35 @@ what a container can say, only how much work a stranger can ask for.
 6. **Byte-preserving removal.** Metadata is removed at the container level; pixel
    data is never re-encoded (which would both degrade quality and risk new
    metadata).
-7. **No secrets in reports.** Passphrases are read from an environment variable
-   or prompted for; argument *values* never reach a report, a log line, or the
-   audit trail, only their names.
+7. **No secrets in reports or copies.** Passphrases are read from an environment
+   variable (`passphrase_env`) or entered in a masked field. A surface masks the
+   input, the terminal hides the argument line of a tool that takes one, and the
+   desktop's copyable command shows `passphrase=<redacted>`. Argument *values*
+   never reach a report, a log line, or the audit trail, only their names.
 8. **Bounded work from untrusted input.** KDF parameters in a hostile header are
    validated before key derivation, so a 75-byte file cannot demand minutes of
    CPU.
-9. **Fuzzed parsers.** JPEG, PNG, WebP, and EXIF/TIFF have libFuzzer targets
-   seeded from a committed corpus (`crates/scrub/fuzz`), soaked nightly in CI, and
-   a deterministic mutation sweep runs on every commit. A strip that succeeds must
-   leave nothing for the policy to remove — an invariant the fuzzers assert, not
-   just the unit tests.
+9. **Fuzzed parsers.** JPEG, PNG, WebP, and EXIF/TIFF have a committed corpus
+   (`packages/engine/test/fixtures/corpus`), TypeScript fuzz targets
+   (`scripts/fuzz.mjs`), and a soak harness (`scripts/fuzz-soak.sh`) that records
+   every run in `fuzz/soak-ledger.jsonl`. A strip that succeeds must leave nothing
+   for the policy to remove — an invariant the corpus asserts, not just the unit
+   tests.
 
 ## Cryptographic posture
 
 - **No primitives are written here.** AES-256-GCM, ChaCha20-Poly1305, Ed25519,
   X25519, HKDF, and SHA-256 come from OpenSSL through `node:crypto`; Argon2id is
-  the one gap in Node's own API, and comes from `@noble/hashes`.
-- **Key material is zeroed as far as JavaScript allows.** Node's `Buffer`s are
-  overwritten after use; this is weaker than Rust's `zeroize`, and the ADR says
+  the one gap in Nodnot wiped.** JavaScript has no reliable way to zero a
+  `Buffer` or a string: the runtime may copy it, and garbage collection decides
+  when the memory is reused. The earlier Rust engine could zeroize; this one
+  cannot, and saying so is better than a claim the code does not implementaker than Rust's `zeroize`, and the ADR says
   so rather than claiming otherwise.
 - Password generation uses the OS CSPRNG with rejection sampling (no modulo
-  bias) and guarantees at least one character from each enabled class.
-- Keys, derived keys, passphrases, and decrypted plaintext are held in
-  zeroizing buffers; the secret half of a generated keypair is written with mode
+  The secret half of a generated keypair, an exported secret key, the sealed
+  keystore, and decrypted plaintext are **created** with mode `0600` — not
+  chmod'ed afterwards, which would leave a window in which they are readable by
+  everyoneing buffers; the secret half of a generated keypair is written with mode
   `0600`.
 - The `.gimlet` container authenticates its own header, so altering the cipher,
   the KDF parameters, or the salt fails decryption instead of weakening it.

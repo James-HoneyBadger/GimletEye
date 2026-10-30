@@ -61,7 +61,9 @@ The dependency rules are one-directional:
   UI imports it; anything that needs Node is a separate entry point;
 - the engine depends on nothing in core and never on a surface, so it can be
   tested without either;
-- `@noble/hashes` is the only runtime dependency, and only for Argon2id.
+- The engine's only runtime dependency is `@noble/hashes`, and only for
+  Argon2id; core adds `smol-toml` for the configuration file. Nothing else is
+  third-party.
 
 A few tools need no cryptographic care (`system-info`, `disk-usage`): they read
 `/proc` and run `df`. Everything else — the

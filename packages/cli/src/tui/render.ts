@@ -5,7 +5,7 @@
  * and a narrow terminal can be exercised without resizing anything.
  */
 
-import { render, type Report, type ToolManifest } from '@gimlet-eye/core';
+import { isSecretArg, render, type Report, type ToolManifest } from '@gimlet-eye/core';
 
 import { visible, type TuiState } from './state.js';
 
@@ -84,7 +84,10 @@ function argumentLines(
     lines.push(`  ${arg.name.padEnd(18)} ${arg.type} ${required}${values}${fallback}`);
     if (arg.help !== undefined) lines.push(`  ${' '.repeat(18)} ${arg.help}`);
   }
-  lines.push('', `  > ${state.input}`);
+  // A passphrase typed here would otherwise live in the scrollback and in any
+  // session recording; the argument names above already say what to type.
+  const takesSecret = (manifest?.args ?? []).some((arg) => arg.type === 'string' && isSecretArg(arg.name));
+  lines.push('', takesSecret ? '  > (arguments hidden: this tool takes a secret)' : `  > ${state.input}`);
   return lines.slice(0, Math.max(1, height));
 }
 

@@ -91,12 +91,54 @@ export class Sidecar {
   }
 }
 
-/** Reject an engine reply that is not shaped like a tool run, before it reaches a renderer. */
+const STATUSES = new Set<unknown>(['ok', 'warning', 'error']);
+const SEVERITIES = new Set<unknown>(['info', 'low', 'medium', 'high', 'critical']);
+
+/**
+ * Reject an engine reply that is not shaped like a tool run, before it reaches
+ * a renderer.
+ *
+ * A `status` or `severity` this build does not know is refused rather than
+ * passed through: `sealed()` rates an unknown severity as *not a finding*, so a
+ * typo in an engine could turn a critical result into `ok`.
+ */
 export function assertReport(value: unknown, tool: string): Report {
-  if (typeof value !== 'object' || value === null) throw invalidArgs(`malformed report for '${tool}'`);
+  const malformed = (why: string) => invalidArgs(`malformed report for '${tool}': ${why}`);
+  if (typeof value !== 'object' || value === null) throw malformed('not an object');
   const report = value as Partial<Report>;
-  if (typeof report.status !== 'string' || typeof report.summary !== 'string') {
-    throw invalidArgs(`malformed report for '${tool}'`);
+  if (report.tool !== tool) {
+    throw malformed(`tool ${JSON.stringify(report.tool)} does not match '${tool}'`);
+  }
+  if (!STATUSES.has(report.status)) {
+    throw malformed(`status ${JSON.stringify(report.status)} is not ok, warning, or error`);
+  }
+  if (typeof report.summary !== 'string') throw malformed('summary is not a string');
+  if (typeof report.duration_ms !== 'number' || !Number.isFinite(report.duration_ms)) {
+    throw malformed('duration_ms is not a number');
+  }
+  if (report.findings !== undefined) {
+    if (!Array.isArray(report.findings)) throw malformed('findings is not an array');
+    for (const [index, raw] of report.findings.entries()) {
+      const finding = raw as unknown as Record<string, unknown>;
+      if (typeof finding !== 'object' || finding === null) throw malformed(`findings[${index}] is not an object`);
+      if (!SEVERITIES.has(finding['severity'])) {
+        throw malformed(`findings[${index}].severity ${JSON.stringify(finding['severity'])} is not a known severity`);
+      }
+      if (typeof finding['code'] !== 'string' || typeof finding['message'] !== 'string') {
+        throw malformed(`findings[${index}] needs a string code and message`);
+      }
+      if (finding['target'] !== undefined && typeof finding['target'] !== 'string') {
+        throw malformed(`findings[${index}].target is not a string`);
+      }
+    }
+  }
+  if (report.warnings !== undefined) {
+    if (!Array.isArray(report.warnings) || report.warnings.some((warning) => typeof warning !== 'string')) {
+      throw malformed('warnings must be an array of strings');
+    }
+  }
+  if (report.body !== undefined && typeof report.body !== 'string') {
+    throw malformed('body is not a string');
   }
   return report as Report;
 }

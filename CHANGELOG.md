@@ -6,6 +6,71 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-10-29
+
+A correction pass over 0.9.0. No versioned surface moved, so the 1.0 quiet period
+is still counting.
+
+### Fixed
+
+- **`crypto.keygen` to key files reported an internal error after writing the
+  keys.** Its declared shape said `public_path` and `secret_path` were always
+  `null` and `id` always a string — true only of a dry run and of the keystore
+  path. The fields are unions now, the schema gate runs a second invocation for a
+  tool with more than one shape, and a test drives the file path through
+  `Runtime.run`, which is the gate the hand-calling tests bypassed.
+- **A keystore left under the pre-rename name is found again.** `keystorePath()`
+  existed, was tested, and was called by no tool; the four keystore tools and
+  `keygen` now ask it, so `keystore.melv` is opened where it is instead of being
+  reported missing.
+- **A mistyped category is a usage error** rather than `internal error` with exit
+  1, and an unknown tool id exits 2 — which is what `docs/COMPATIBILITY.md`
+  already promised for "a command typed wrong".
+- **An engine report is checked before it is believed.** The sidecar validates
+  `status`, `severity`, `code`, `message`, and `duration_ms`, and the runtime
+  takes the more severe of the declared verdict and the one the findings imply,
+  so an engine that says `ok` while carrying a high finding cannot report
+  success.
+
+### Security
+
+- **A passphrase is masked, never copied.** The desktop renders a secret-named
+  string argument as a password field, the terminal hides the argument line of a
+  tool that takes one, and the desktop's copyable command shows
+  `passphrase=<redacted>` (`passphrase_env` keeps its variable name, which is not
+  a secret). `isSecretArg()` is the single rule all three use.
+- **Secret files are created `0600`, not chmod'ed afterwards.** A generated key,
+  an exported secret key, the sealed keystore, and decrypted plaintext are
+  created owner-only through the new `Host.writeFileMode`, closing the window in
+  which they were briefly readable at the default mode.
+- **Temporary files are private to their writer.** The keystore, the container,
+  a metadata rewrite, and the audit trail no longer share a `${path}.tmp` name
+  between processes. The random half comes from the platform CSPRNG, because a
+  predictable temporary name in a shared directory is a symlink an attacker can
+  aim at a file of their choosing.
+- **External commands are bounded.** `df` and `gpg` now run with a ten-minute
+  budget and a 1 MiB output cap, both announced in `stderr` when they bite. A
+  wedged `gpg-agent` can no longer hold a run open forever, and a chatty failure
+  cannot grow a report without bound.
+- **The engine report boundary checks the rest of the shape.** A report whose
+  `tool` does not match the request, whose `warnings` are not strings, whose
+  `body` is not a string, or whose finding `target` is not a string is refused
+  instead of reaching a renderer.
+- **The desktop window has a content policy** (`default-src 'none'`, no eval, no
+  frame, no form post), `spellcheck: false`, and a session that cancels every
+  request whose scheme is not local. The end-to-end test fails if the window asks
+  for anything else.
+- **SECURITY.md now says what the code does**: key material is not wiped (and
+  JavaScript cannot promise that it is), and the fuzz corpus and soak harness are
+  named where they actually live.
+
+### Changed
+
+- Documentation corrections that had drifted from the tree: the unrecognised
+  format message no longer offers to install a pack that was removed at 0.8, the
+  architecture names both runtime dependencies, `node.ts` describes where the
+  desktop gets its tools, and the duplicated backlog row is gone.
+
 ## [0.9.0] — 2026-10-27
 
 The first quiet minor after the restructure: no versioned surface moved

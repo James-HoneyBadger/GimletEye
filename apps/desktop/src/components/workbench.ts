@@ -1,3 +1,5 @@
+import { isSecretArg } from '@gimlet-eye/core';
+
 import type { ArgSpec, ToolManifest } from '../lib/engine';
 import { escapeHtml, modLabel, titleCase } from '../lib/format';
 import {
@@ -82,12 +84,15 @@ function field(spec: ArgSpec, draft: RawValues, error: string | undefined): stri
         .join('')}
     </select>`;
   } else {
-    const inputType = type === 'integer' ? 'number' : 'text';
+    // A passphrase is masked rather than shown: the field is generated from the
+    // manifest, and the manifest calls the argument one.
+    const secret = type === 'string' && isSecretArg(spec.name);
+    const inputType = type === 'integer' ? 'number' : secret ? 'password' : 'text';
     const placeholder = type === 'path' ? '/path/to/file' : '';
     const mono = type === 'path' ? ' input--mono' : '';
     control = `<input class="input${mono}${invalid}" type="${inputType}" id="${id}" name="${escapeHtml(spec.name)}"
       data-type="${type}" placeholder="${placeholder}" value="${escapeHtml(raw)}" spellcheck="false"
-      autocomplete="off"${describedBy} />`;
+      autocomplete="${secret ? 'new-password' : 'off'}"${describedBy} />`;
   }
 
   return `<div class="field field--${type}">${label}${control}${help}${message}</div>`;
