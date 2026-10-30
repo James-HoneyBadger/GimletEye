@@ -215,9 +215,9 @@ a ritual.
 | anything older | not supported |
 
 The window is **twelve months from a release**, so a minor released a year ago
-leaves support even if it is still the newest-but-two. Pre-1.0 the same rule
-applies; 1.0 is where it becomes a promise with a published deprecation policy
-([ADR 0006](docs/adr/0006-what-1.0-promises.md)).
+leaves support even if it is still the newest-but-two. This rule applied from
+0.4 and is the promise 1.0 makes binding, with the published deprecation policy
+in [ADR 0006](docs/adr/0006-what-1.0-promises.md).
 
 A security fix is backported when the fix is small and the release it lands in is
 still inside the window; otherwise the guidance is to upgrade. Fixes are announced

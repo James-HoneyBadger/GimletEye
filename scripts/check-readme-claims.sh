@@ -149,6 +149,10 @@ Claims this script cannot settle, and their evidence:
                              soak (ADR 0010)
   the desktop app works      apps/desktop/src/**/*.test.ts (vitest, jsdom)
   the UI matches the CLI     packages/core is the implementation both import
+  the surfaces are frozen    docs/COMPATIBILITY.md states the policy and
+                             scripts/check-quiet-period.sh enforces it; the
+                             gates behind it are in ADR 0006, reported by
+                             scripts/check-release-gates.sh
 EOF
 
 [ "$fail" -eq 0 ]

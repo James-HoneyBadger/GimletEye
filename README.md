@@ -176,6 +176,17 @@ the batch still runs unless `--fail-fast` is given.
 See [docs/ROADMAP.md](docs/ROADMAP.md) for acceptance criteria and
 [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the prioritized backlog.
 
+### What 1.0 freezes
+
+Version 1.0 is a contract release: tool ids, the `Report` shape, the engine
+protocol, the config schema, the `.gimlet` container, and the CLI's commands and
+flags stop moving. Future changes to them follow a published deprecation policy
+(one minor of an alias, then removal) and a support window of the two most recent
+minors for at least twelve months — both in
+[COMPATIBILITY.md](docs/COMPATIBILITY.md). The reasoning, the five gates behind
+the freeze, and what each one needed are in
+[ADR 0006](docs/adr/0006-what-1.0-promises.md).
+
 ## Layout
 
 ```

@@ -1,8 +1,9 @@
 # Compatibility and evolution
 
-Gimlet Eye is pre-1.0, but the parts other people build against — tool ids, the
-report shape, the plugin-free engine protocol, and the config file — already have
-a policy. This document states it.
+The parts other people build against — tool ids, the report shape, the
+plugin-free engine protocol, and the config file — are **frozen from 1.0**: they
+change only with a deprecation, a migration path, and the one-minor rule below.
+This document states the policy.
 
 ## Surfaces
 

@@ -44,10 +44,14 @@ jobs:
         # ADR 0006 Gate 1 wants the container readable by an implementation that
         # shares no code with this one. The reader is Python, and without these
         # modules the test that runs it skips — which is the same as not having
-        # the evidence. Installed here so the suite can require it.
+        # the evidence. A venv rather than `pip install --break-system-packages`:
+        # the runner already ships an older `cryptography`, and pip is happy to
+        # call that requirement satisfied.
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check --break-system-packages cryptography
-          python3 -c 'import cryptography.hazmat.primitives.kdf.argon2'
+          python3 -m venv "$RUNNER_TEMP/second-impl"
+          "$RUNNER_TEMP/second-impl/bin/python" -m pip install --quiet --upgrade "cryptography>=44"
+          "$RUNNER_TEMP/second-impl/bin/python" -c 'import cryptography.hazmat.primitives.kdf.argon2'
+          echo "$RUNNER_TEMP/second-impl/bin" >> "$GITHUB_PATH"
       - name: Type-check every package
         run: npm run typecheck
       - name: Test
