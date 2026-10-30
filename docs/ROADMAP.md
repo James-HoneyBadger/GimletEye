@@ -324,6 +324,17 @@ again from the 0.8 release:
 | 0.9.1 (the correction pass; a patch, not a quiet minor) | released |
 | 0.10.0 | not yet cut — it must be quiet too |
 
+**Gate status (2026-10-29).** `scripts/check-release-gates.sh` reports every
+ADR 0006 gate satisfied: **0 broken, 0 open**, including the release workflow
+publishing signed artifacts for `v0.9.1`. What remains is the calendar of
+releases, not a check — 0.10.0 is the second quiet minor, and 1.0.0 is cut
+after it.
+
+> The quiet-period script counts *tags*, so it reports 0.8.0→0.9.0 and
+> 0.9.0→0.9.1 as two quiet stretches. ADR 0006 counts *minor releases*. The
+> stricter reading is the one this plan keeps: a patch is not a minor, so
+> 0.10.0 is still required.
+
 1.0 is therefore at least two quiet minors after 0.8.0, and
 `scripts/check-quiet-period.sh` is what proves each one. It carries the restart
 release, so it reported "not enforcing yet" until v0.8.0 was tagged and enforces
