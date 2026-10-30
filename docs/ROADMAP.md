@@ -321,6 +321,7 @@ again from the 0.8 release:
 | 0.7.0 (surface work done, nothing versioned moved) | released |
 | 0.8.0 (the restructure; surfaces deliberately moved) | released — the reset |
 | 0.9.0 (audits and ergonomics; nothing versioned moved) | released — the first quiet minor |
+| 0.9.1 (the correction pass; a patch, not a quiet minor) | released |
 | 0.10.0 | not yet cut — it must be quiet too |
 
 1.0 is therefore at least two quiet minors after 0.8.0, and

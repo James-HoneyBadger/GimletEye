@@ -83,7 +83,14 @@ function generateOne(
   random: (bytes: number) => Buffer,
 ): string {
   const index = (bound: number): number => unbiasedIndex(bound, random);
-  const pick = (chars: string): string => chars[index([...chars].length)] ?? '?';
+  // An out-of-range index in a secret generator is a bug in this file, not a
+  // reason to put a literal `?` in somebody's password.
+  const pick = (chars: string): string => {
+    const options = [...chars];
+    const chosen = options[index(options.length)];
+    if (chosen === undefined) throw new Error('the password alphabet is empty');
+    return chosen;
+  };
 
   const required: string[] = [];
   for (const classChars of [LOWER, UPPER, DIGITS]) {

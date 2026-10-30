@@ -20,7 +20,7 @@ Ordered by value per unit of risk. Everything else can wait.
 |---|---|---|---|---|
 | 1 | [Observe declared capabilities](#4-observe-declared-capabilities) | The declaration is the security story; nothing checks the code against it. | M | Low |
 | 2 | [The audit trail as a ledger](#6-the-audit-trail-as-a-ledger) | `batch` can evict a trail's whole history, and a trail without a run id or `dry_run` cannot answer "what happened". | M | Low |
-| 3 | [One gate for arguments](#7-one-gate-for-arguments) | A typo in `in_place` or `overwrite` silently changes what a destructive tool does. | M | Low |
+| 3 | [Render snapshots before the freeze](#8-render-snapshots-before-the-freeze) | 1.0 promises `Report` output; a snapshot per format makes a renderer change visible instead of argued about. | S | Low |
 | 4 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each, and the format people ask for first (GIF) is the cheapest. | L | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
 
@@ -166,7 +166,12 @@ routine batch can erase is not evidence.
 
 **Effort** M · **Risk** Low — the entry shape is a contract, so it needs an ADR.
 
-### 7. One gate for arguments
+### 7. One gate for arguments — shipped
+
+**Done.** `packages/core/src/validate.ts`, called from `Runtime.run`. Unknown
+names, missing required values, enum membership, integer sign, and boolean shape
+are one `invalid_args` failure; duplicate names stay last-wins by design. The
+desktop keeps its field-level validator for per-field messages.
 
 **Problem.** Argument rules are split between `packages/core/src/args.ts`
 (coercion, read piecemeal by each tool) and `apps/desktop/src/lib/args.ts`
@@ -183,6 +188,24 @@ desktop's copy.
 
 **Why now.** It turns "surfaces hold no logic" from a stated rule into an
 enforced one, and it is a prerequisite for `secret` arguments.
+
+### 8. Render snapshots before the freeze
+
+**Problem.** `report.ts` holds the types, `sealed()`, and every renderer, and the
+quiet-period check freezes the file whole. The markdown-escaping fix — a filename
+with `|` ends the table row — therefore waits, and any renderer change is argued
+about rather than shown.
+
+**Shape.** Add golden snapshots for each format (`text`, `markdown`, `csv`,
+`html`) over a fixed report with a hostile target, a long message, and an empty
+data set. They pin what the freeze promises without moving a versioned file.
+
+**Later.** Moving the renderers into `packages/core/src/render/` would let a
+presentation fix stop being a surface change, but it moves `report.ts` and
+restarts the quiet countdown — so it belongs in 1.1, with the markdown fix, not
+before 1.0.
+
+**Effort** S · **Risk** Low.
 
 ### Shipped: batch execution
 
@@ -225,10 +248,10 @@ lines; the freeze is a whole release.
 
 **Do this instead.** Move `render`, `renderText`, `renderMarkdown`, `renderCsv`,
 `renderHtml`, and the HTML stylesheet into `packages/core/src/render/`, leave
-`report.ts` holding the types and `sealed()`, and guard the renderers with
-golden-output snapshots. Then the quiet period freezes the *contract* and the
-*output*, not the source layout, and a presentation fix stops being a surface
-change. Do it before 1.0, while the countdown is still cheap to restart.
+`report.ts` holding the types and `sealed()`, and guard the renderers with the
+snapshots in §8. Then the quiet period freezes the *contract* and the *output*,
+not the source layout, and a presentation fix stops being a surface change. Do it
+in 1.1, not before 1.0: the move touches `report.ts` and restarts the countdown.
 
 **Effort** S–M · **Risk** Low.
 

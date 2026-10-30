@@ -23,8 +23,13 @@ export async function samePath(ctx: ToolRunContext, left: string, right: string)
   if (normalize(left) === normalize(right)) return true;
   try {
     return (await ctx.host.resolve(left)) === (await ctx.host.resolve(right));
-  } catch {
-    return false;
+  } catch (error) {
+    // A destination that does not exist yet is the ordinary case and means the
+    // paths differ. Anything else — a permission error, an unusable path — must
+    // not be read as "different", or the guard fails open and the input is
+    // overwritten.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
   }
 }
 

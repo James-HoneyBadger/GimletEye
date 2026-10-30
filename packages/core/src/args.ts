@@ -107,7 +107,12 @@ export function optInteger(args: Args, key: string): number | undefined {
   const value = args[key];
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
-  if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value);
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    // A digit string beyond 2^53 is not a number any tool can act on; `coerce`
+    // already refuses to invent one, so this must not either.
+    const number = Number(value);
+    if (Number.isSafeInteger(number)) return number;
+  }
   throw invalidArgs(`argument '${key}' must be a non-negative integer`);
 }
 

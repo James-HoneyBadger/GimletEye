@@ -20,6 +20,7 @@ import { discoverPaths, ensurePaths, type AppPaths } from './paths.js';
 import { Registry } from './registry.js';
 import { Sidecar } from './sidecar.js';
 import { assertDataShape } from './data-schema.js';
+import { validateRun } from './validate.js';
 import type { Args } from './args.js';
 import type { Host } from './host.js';
 import type { LocalTool } from './local.js';
@@ -137,6 +138,10 @@ export class Runtime {
    */
   async run(query: string, args: Args, options: RunOptions = {}): Promise<RunResult> {
     const manifest = this.require(query);
+    // One gate for every surface: a name the manifest does not declare, a
+    // missing required value, or an enum value outside its list is a usage
+    // error before a tool touches anything.
+    validateRun(manifest, args);
     const dryRun = options.dryRun ?? this.dryRun;
     const started = Date.now();
     const argKeys = Object.keys(args).sort();

@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { assertReport } from '../src/sidecar.js';
+import { assertManifest, assertReport } from '../src/sidecar.js';
 import { Runtime } from '../src/runtime.js';
 import { fakeHost } from './fake-host.js';
 import type { LocalTool } from '../src/local.js';
@@ -56,6 +56,51 @@ describe('the runtime verdict', () => {
     const { report: produced } = await runtime.run('demo.verdict', {});
     expect(produced.status).toBe('error');
     runtime.close();
+  });
+
+  it('refuses an unknown argument before the tool runs', async () => {
+    let ran = false;
+    const runtime = await runtimeFor({
+      manifest: {
+        id: 'demo.verdict',
+        title: 'Demo',
+        summary: 'demo',
+        category: 'sysadmin',
+        args: [{ name: 'input', type: 'path' }],
+      },
+      run: async () => {
+        ran = true;
+        return report();
+      },
+    });
+
+    await expect(runtime.run('demo.verdict', { surprise: 1 })).rejects.toMatchObject({ code: 'invalid_args' });
+    expect(ran).toBe(false);
+    runtime.close();
+  });
+});
+
+describe('a manifest from the engine', () => {
+  const good = { id: 'demo.one', title: 'Demo', summary: 'demo', category: 'privacy' };
+
+  it('accepts a minimal manifest', () => {
+    expect(assertManifest(good, 0).id).toBe('demo.one');
+  });
+
+  it('refuses a category this build does not know', () => {
+    expect(() => assertManifest({ ...good, category: 'magic' }, 0)).toThrow(/category/);
+  });
+
+  it('refuses an argument type the form cannot render', () => {
+    expect(() => assertManifest({ ...good, args: [{ name: 'x', type: 'file' }] }, 0)).toThrow(/args\[0\] has type/);
+  });
+
+  it('refuses a capability this build does not know', () => {
+    expect(() => assertManifest({ ...good, capabilities: ['network:raw'] }, 0)).toThrow(/capabilities/);
+  });
+
+  it('refuses a data shape without its required map', () => {
+    expect(() => assertManifest({ ...good, data: { shape: 'object' } }, 0)).toThrow(/data\.required/);
   });
 });
 

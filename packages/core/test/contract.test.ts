@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { coerce, fromPairs, isSecretArg } from '../src/args.js';
+import { coerce, fromPairs, isSecretArg, optInteger } from '../src/args.js';
 import { render, sealed, type Report } from '../src/report.js';
 import { Registry, similarity } from '../src/registry.js';
 import { platformAllows, type ToolManifest } from '../src/manifest.js';
@@ -27,6 +27,12 @@ describe('argument parsing', () => {
 
   it('rejects a bare word instead of guessing', () => {
     expect(() => fromPairs(['nope'])).toThrow(/must be key=value/);
+  });
+
+  it('refuses an integer string it cannot represent exactly', () => {
+    expect(optInteger({ length: '32' }, 'length')).toBe(32);
+    expect(() => optInteger({ length: '9007199254740993' }, 'length')).toThrow(/non-negative integer/);
+    expect(() => optInteger({ length: '-1' }, 'length')).toThrow(/non-negative integer/);
   });
 
   it('keeps later duplicates, as a shell would', () => {

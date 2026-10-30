@@ -7,10 +7,12 @@ documented examples and against inputs designed to break the contract.
 This is a review, not a redesign. The spine is sound and the corrections below
 are small relative to it. Three of them are defects a user can hit today.
 
-> **Patch status (2026-10-29).** Fixed in this tree: D1, D2, D5, D6, D8, D11,
-> the masking half of D3, and the documentation drift in D12. Partly fixed:
-> D7 (unique temporary names; the compare-and-swap is still open). Open: D3's
-> `secret` argument kind, D4, D9, D10, D13.
+> **Patch status (2026-10-29).** Fixed in this tree: D1, D2, D4, D5, D6, D8,
+> D11, the masking half of D3, and the documentation drift in D12; also the
+> function-level items in `optInteger`, `samePath`, `passgen`, `strip`, and the
+> engine manifest boundary. Partly fixed: D7 (private CSPRNG temporary names;
+> the compare-and-swap is still open). Open: D3's `secret` argument kind, D9,
+> D10, D13, and the two frozen-file items (`sealed()` and `generateKeyPair`).
 
 ---
 
@@ -163,6 +165,11 @@ membership, integer sign — the rules the desktop already encodes — and rejec
 duplicate pair at parse time in `fromPairs`. Delete the desktop copy. This is
 the single highest-value refactor in the review: it turns "surfaces hold no
 logic" from a stated rule into an enforced one.
+
+**Landed.** `packages/core/src/validate.ts`, called from `Runtime.run`; unknown
+names, missing required values, enum membership, integer sign, and boolean shape
+now fail with one `invalid_args` message. Duplicate names remain last-wins by
+design. The desktop keeps its field-level validator for per-field messages.
 
 ### D5 — A usage error escapes as `internal` and exits 1 (Low)
 

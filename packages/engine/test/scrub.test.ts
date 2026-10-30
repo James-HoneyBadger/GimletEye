@@ -161,3 +161,14 @@ describe('hostile input', () => {
     ]);
   });
 });
+
+describe('an unrecognised container', () => {
+  const bytes = Buffer.from('not an image at all');
+
+  it('is refused by scan and by strip, with the same explanation', () => {
+    // `strip` used to fall through to `stripRanges(bytes, scan(bytes))`, which
+    // could never run: scan refuses the same input first.
+    expect(() => scan(bytes)).toThrow(/unrecognised container/);
+    expect(() => strip(bytes, policyProfile('privacy'))).toThrow(/unrecognised container/);
+  });
+});

@@ -6,6 +6,30 @@ All notable changes to Gimlet Eye. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **One argument gate.** `Runtime.run` validates the bag against the tool's
+  manifest before anything runs: an unknown name, a missing required value, an
+  enum value outside its list, a negative or unrepresentable integer, and a
+  non-boolean boolean are `invalid_args` (exit 2), naming every problem at once.
+  The rules mirror the readers in `args.ts`, so the CLI, the TUI, `batch`, the
+  desktop bridge, and the optional engine agree by construction. Duplicate names
+  keep the last value, as a shell would.
+- **The engine's catalogue is checked at the boundary.** A manifest with an
+  unknown category, argument type, capability, platform, or `data` shape is
+  refused before the registry and the generated form see it.
+
+### Fixed
+
+- `optInteger` refuses a digit string it cannot represent exactly, instead of
+  returning an imprecise number.
+- `samePath` reads only `ENOENT` as "a different file": a permission error is no
+  longer taken as evidence that a destination is safe to overwrite.
+- `passgen` throws on an empty alphabet instead of putting a literal `?` in a
+  generated password.
+- `scrub.strip` refuses an unrecognised container with the same explanation as
+  `scan`, instead of a branch that could never run.
+
 ## [0.9.1] — 2026-10-29
 
 A correction pass over 0.9.0. No versioned surface moved, so the 1.0 quiet period

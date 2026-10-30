@@ -13,6 +13,14 @@ import { scanWebp, stripWebp } from './webp.js';
 export * from './format.js';
 export * from './gps.js';
 
+/** The one refusal for a format this build cannot read. */
+function unrecognised(): never {
+  throw new Error(
+    'unrecognised container; this build reads JPEG, PNG, and WebP ' +
+      '(HEIC, AVIF, TIFF, PDF, MP4, and RAW are not implemented)',
+  );
+}
+
 export function scan(bytes: Buffer): ScanResult {
   switch (detect(bytes)) {
     case 'jpeg':
@@ -22,10 +30,7 @@ export function scan(bytes: Buffer): ScanResult {
     case 'webp':
       return scanWebp(bytes);
     default:
-      throw new Error(
-        'unrecognised container; this build reads JPEG, PNG, and WebP ' +
-          '(HEIC, AVIF, TIFF, PDF, MP4, and RAW are not implemented)',
-      );
+      return unrecognised();
   }
 }
 
@@ -38,7 +43,9 @@ export function strip(bytes: Buffer, policy: RemovalPolicy): Buffer {
     case 'webp':
       return stripWebp(bytes, policy);
     default:
-      return stripRanges(bytes, scan(bytes), policy);
+      // `scan` throws for the same input, so the old fallback here was a branch
+      // that could never run and implied a format it did not have.
+      return unrecognised();
   }
 }
 

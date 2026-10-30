@@ -90,7 +90,26 @@ Global flags, accepted before or after the command:
 | `-V`, `--version` | The version |
 
 Exit codes: `0` for an ok or warning run, `1` for an error verdict or a failed
-run, `2` for a command typed wrong.
+run, `2` for a command typed wrong — an unknown tool id, an unknown flag, or an
+invalid argument.
+
+### Tool arguments
+
+A tool's arguments are the `KEY=VALUE` pairs a surface supplies: `k=v` on the
+command line, a field in the desktop form, `--arg` in `batch`, or a JSON object
+over the engine protocol. They are validated against the tool's manifest before
+anything runs.
+
+- Only text that survives a round trip is coerced: `true`/`false` and canonical
+  integers become typed values. `0123`, `+5`, and `-0` stay strings, because
+  rewriting them would change a passphrase, a PIN, or a file name.
+- A name the manifest does not declare is `invalid_args`. A missing required
+  value, an enum value outside its list, a negative or unrepresentable integer,
+  and a boolean that is not `true`/`false`/`yes`/`no`/`1`/`0` are the same
+  error. Exit status is `2`, and the message names every problem at once.
+- Duplicate names on the command line keep the last value, as a shell would.
+- A tool that takes a passphrase masks it in the desktop, hides the argument
+  line in the terminal, and shows `passphrase=<redacted>` in a copied command.
 
 ### Environment variables
 

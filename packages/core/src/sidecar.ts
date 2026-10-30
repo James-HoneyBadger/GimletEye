@@ -9,6 +9,7 @@
  */
 
 import { invalidArgs, toolFailed, unsupported } from './errors.js';
+import { CAPABILITIES, isCategory } from './manifest.js';
 import type { EngineTransport, Host } from './host.js';
 import type { ToolManifest } from './manifest.js';
 import type { Args } from './args.js';
@@ -62,11 +63,13 @@ export class Sidecar {
   async list(): Promise<ToolManifest[]> {
     if (!this.available) return [];
     if (this.tools) return this.tools;
-    const reply = (await this.transport!.request({ op: 'list' })) as { tools?: ToolManifest[] };
+    const reply = (await this.transport!.request({ op: 'list' })) as { tools?: unknown };
     if (!Array.isArray(reply.tools)) {
       throw toolFailed('the engine answered a list request without a tool list');
     }
-    this.tools = reply.tools;
+    // A malformed manifest would reach the registry and the generated form, so
+    // it is refused here — the same boundary rule as `assertReport`.
+    this.tools = reply.tools.map((raw, index) => assertManifest(raw, index));
     return this.tools;
   }
 
@@ -141,4 +144,95 @@ export function assertReport(value: unknown, tool: string): Report {
     throw malformed('body is not a string');
   }
   return report as Report;
+}
+
+const ARG_TYPES = new Set<unknown>(['string', 'integer', 'boolean', 'path', 'enum']);
+const PLATFORMS = new Set<unknown>(['linux', 'macos', 'windows']);
+
+/**
+ * Reject a manifest that would produce a broken catalogue entry or form.
+ *
+ * The registry trusts what it registers and the desktop renders whatever the
+ * manifest declares, so a shape this build cannot render is refused at the
+ * boundary rather than surfacing as an empty field or a crash three layers up.
+ */
+export function assertManifest(value: unknown, index: number): ToolManifest {
+  const malformed = (why: string) =>
+    toolFailed(`the engine sent a malformed manifest at index ${index}: ${why}`);
+  if (typeof value !== 'object' || value === null) throw malformed('not an object');
+  const manifest = value as Partial<ToolManifest>;
+
+  if (typeof manifest.id !== 'string' || manifest.id.trim() === '') {
+    throw malformed('id is not a non-empty string');
+  }
+  for (const field of ['title', 'summary'] as const) {
+    if (typeof manifest[field] !== 'string') throw malformed(`${field} is not a string`);
+  }
+  if (typeof manifest.category !== 'string' || !isCategory(manifest.category)) {
+    throw malformed(`category ${JSON.stringify(manifest.category)} is not one this build knows`);
+  }
+
+  if (manifest.args !== undefined) {
+    if (!Array.isArray(manifest.args)) throw malformed('args is not an array');
+    for (const [at, raw] of (manifest.args as unknown[]).entries()) {
+      const arg = raw as Record<string, unknown> | null;
+      if (typeof arg !== 'object' || arg === null) throw malformed(`args[${at}] is not an object`);
+      if (typeof arg['name'] !== 'string' || arg['name'] === '') throw malformed(`args[${at}] has no name`);
+      if (!ARG_TYPES.has(arg['type'])) {
+        throw malformed(`args[${at}] has type ${JSON.stringify(arg['type'])}`);
+      }
+      if (
+        arg['type'] === 'enum' &&
+        (!Array.isArray(arg['values']) || arg['values'].some((entry) => typeof entry !== 'string'))
+      ) {
+        throw malformed(`args[${at}] is an enum without a string list`);
+      }
+    }
+  }
+
+  if (
+    manifest.capabilities !== undefined &&
+    (!Array.isArray(manifest.capabilities) ||
+      manifest.capabilities.some((entry) => !(CAPABILITIES as readonly string[]).includes(entry)))
+  ) {
+    throw malformed('capabilities names something this build does not know');
+  }
+  if (
+    manifest.platforms !== undefined &&
+    (!Array.isArray(manifest.platforms) || manifest.platforms.some((entry) => !PLATFORMS.has(entry)))
+  ) {
+    throw malformed('platforms names something this build does not know');
+  }
+  if (manifest.mutates !== undefined && typeof manifest.mutates !== 'boolean') {
+    throw malformed('mutates is not a boolean');
+  }
+  if (
+    manifest.tags !== undefined &&
+    (!Array.isArray(manifest.tags) || manifest.tags.some((entry) => typeof entry !== 'string'))
+  ) {
+    throw malformed('tags is not a list of strings');
+  }
+
+  if (manifest.data !== undefined) {
+    const data = manifest.data as unknown as Record<string, unknown>;
+    if (typeof data !== 'object' || data === null) throw malformed('data is not an object');
+    if (data['shape'] !== 'object' && data['shape'] !== 'array') {
+      throw malformed('data.shape is neither object nor array');
+    }
+    if (
+      data['shape'] === 'object' &&
+      (typeof data['required'] !== 'object' || data['required'] === null || Array.isArray(data['required']))
+    ) {
+      throw malformed('data.required is not an object');
+    }
+    if (
+      data['shape'] === 'array' &&
+      data['row'] !== undefined &&
+      (typeof data['row'] !== 'object' || data['row'] === null || Array.isArray(data['row']))
+    ) {
+      throw malformed('data.row is not an object');
+    }
+  }
+
+  return manifest as ToolManifest;
 }

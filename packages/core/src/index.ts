@@ -16,6 +16,7 @@ export * from './pathutil.js';
 export * from './report.js';
 export * from './manifest.js';
 export * from './args.js';
+export * from './validate.js';
 export * from './host.js';
 export * from './paths.js';
 export * from './config.js';
