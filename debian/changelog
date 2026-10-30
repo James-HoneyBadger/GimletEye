@@ -1,3 +1,21 @@
+gimlet-eye-toolkit (0.10.0) unstable; urgency=medium
+
+  * The report and the manifest are published as JSON Schema, with a contract
+    test that holds a golden report and every manifest to them (ADR 0012).
+  * Declared capabilities are enforced: a write or a subprocess a tool did not
+    declare fails with capability_denied before it happens.
+  * One argument gate: unknown names and unusable values are invalid_args
+    (exit 2) before anything runs.
+  * A keystore write refuses a store another session changed (conflict), instead
+    of dropping that session's keys.
+  * Releases attach a CycloneDX SBOM; the second-implementation container reader
+    is required in CI instead of skipping; every single-platform tool refuses the
+    others with unsupported.
+  * The security policy's cryptographic posture section is readable again: three
+    bullets shipped interleaved in 0.9.1.
+
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Thu, 29 Oct 2026 00:00:00 +0000
+
 gimlet-eye-toolkit (0.9.1) unstable; urgency=medium
 
   * crypto.keygen to key files reports a schema-correct result again; the

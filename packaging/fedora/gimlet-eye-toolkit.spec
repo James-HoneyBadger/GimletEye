@@ -3,7 +3,7 @@
 # The version is checked against packages/core/src/version.ts by
 # scripts/check-packaging.sh.
 Name:           gimlet-eye-toolkit
-Version:        0.9.1
+Version:        0.10.0
 Release:        1%{?dist}
 Summary:        Local workbench for system, crypto, and metadata tasks
 License:        MIT

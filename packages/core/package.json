@@ -1,6 +1,6 @@
 {
   "name": "@gimlet-eye/core",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "description": "Tool registry, report contract, configuration, audit trail, and sidecar client",

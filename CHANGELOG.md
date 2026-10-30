@@ -4,7 +4,13 @@ All notable changes to Gimlet Eye. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.10.0] — 2026-10-29
+
+The second quiet minor. No versioned surface moved: `Report`, `ToolManifest`,
+the config schema, the container, the keystore, and the CLI are what 0.9.0
+shipped. What is new is enforcement around them — an argument gate, capabilities,
+published schemas, and a store that refuses to be overwritten — plus the
+evidence the 1.0 gates ask for.
 
 ### Added
 

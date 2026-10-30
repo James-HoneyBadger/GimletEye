@@ -1,7 +1,7 @@
 {
   "name": "gimlet-eye",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.10.0",
   "type": "module",
   "description": "Gimlet Eye — desktop workbench and command line for system, crypto, and metadata tasks",
   "workspaces": [
