@@ -8,6 +8,7 @@
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand the layers, contracts, and dependency rules |
 | [CONTAINER.md](CONTAINER.md) | read or implement the `.gimlet` encrypted file format |
 | [COMPATIBILITY.md](COMPATIBILITY.md) | check what is public API, how deprecation works, what was removed |
+| [schema/](schema/) | validate a report or a manifest from your own script |
 | [PROVENANCE.md](PROVENANCE.md) | find out where a module began (maintainer note) |
 | [ROADMAP.md](ROADMAP.md) | see phases and their acceptance criteria |
 | [ENHANCEMENTS.md](ENHANCEMENTS.md) | pick the next feature; effort and risk per item |

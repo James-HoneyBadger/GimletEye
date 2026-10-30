@@ -205,6 +205,20 @@ if [ -f docs/TOOL_REFERENCE.md ]; then
 else
     row 5 fail "tool reference covers every tool" "docs/TOOL_REFERENCE.md is missing"
 fi
+# The schemas are what a consumer's CI validates against, so a release must not
+# ship one that does not parse. The contract test goes further; this catches the
+# case where the file moved and nobody noticed.
+schemas_ok=1
+for schema in docs/schema/report.schema.json docs/schema/manifest.schema.json; do
+    if [ ! -s "$schema" ] ||
+        ! node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$schema" 2>/dev/null; then
+        row 5 fail "$(printf '%-42s' "$schema")" "missing or not JSON"
+        schemas_ok=0
+    fi
+done
+if [ "$schemas_ok" -eq 1 ]; then
+    row 5 ok "published schemas parse" "docs/schema/report, manifest"
+fi
 echo
 
 echo "summary: $broken broken, $open_rows open"

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gimleteye.dev/schema/report-1.json",
+  "title": "Gimlet Eye report",
+  "description": "The result of one tool run. 1.0 shape: the envelope fields added in 1.1 (report_version, tool_version, generated_at, host) are optional and readers ignore fields they do not know.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tool", "status", "summary", "duration_ms"],
+  "properties": {
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The tool id that produced the report, e.g. crypto.sha256."
+    },
+    "status": {
+      "enum": ["ok", "warning", "error"],
+      "description": "Derived from the findings by the runtime, never declared by a tool."
+    },
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message"],
+        "properties": {
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+          "code": { "type": "string", "minLength": 1 },
+          "message": { "type": "string" },
+          "target": { "type": "string" }
+        }
+      }
+    },
+    "data": {
+      "description": "Structured result; its shape is declared per tool in the manifest."
+    },
+    "body": {
+      "type": "string",
+      "description": "A rendering the tool produced itself; text and markdown prefer it over data."
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "duration_ms": { "type": "number", "minimum": 0 }
+  }
+}

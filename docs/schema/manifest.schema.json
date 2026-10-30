@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gimleteye.dev/schema/manifest-1.json",
+  "title": "Gimlet Eye tool manifest",
+  "description": "What a tool declares about itself. The desktop builds its forms from this, and the CLI resolves tool ids against it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "summary", "category"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$",
+      "description": "Category-qualified, stable, and part of the public API."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "category": {
+      "enum": ["sysadmin", "crypto", "privacy", "forensics", "automation", "developer"]
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["fs:read", "fs:write", "process:exec", "network", "secrets", "system"] }
+    },
+    "args": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "type": { "enum": ["string", "integer", "boolean", "path", "enum"] },
+          "required": { "type": "boolean" },
+          "default": {},
+          "help": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Required when type is enum."
+          }
+        }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "data": {
+      "description": "The declared shape of Report.data, checked when a report is returned.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape", "required"],
+          "properties": {
+            "shape": { "const": "object" },
+            "required": { "type": "object", "additionalProperties": { "type": "string" } },
+            "optional": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape"],
+          "properties": {
+            "shape": { "const": "array" },
+            "row": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "mutates": { "type": "boolean" },
+    "platforms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos", "windows"] }
+    }
+  }
+}

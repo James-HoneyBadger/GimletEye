@@ -8,6 +8,18 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **The report and the manifest are published as JSON Schema.**
+  `docs/schema/report.schema.json` and `docs/schema/manifest.schema.json`
+  (draft-07, `additionalProperties: false`) describe the 1.0 contract, so a CI
+  script can validate what it parses without installing anything. Tests compile
+  both and hold them to the code: a golden report carrying every field, every
+  built-in manifest, and the shapes the contract rules out — an unknown
+  `status`, an unknown `severity`, a finding without a `code`, an undeclared
+  envelope field, an unknown capability or argument type.
+  [ADR 0012](docs/adr/0012-report-and-manifest-contracts.md) records the rules —
+  adding an optional field is a minor, changing what a field means is a
+  major — and the envelope deferred to 1.1 (`report_version`, `tool_version`,
+  `generated_at`, `host`, and the manifest's `since`/`deprecated`/`examples`).
 - **Declared capabilities are enforced.** A built-in tool now runs against a
   `Host` that refuses a filesystem write without `fs:write` and a subprocess
   without `process:exec`, failing with `capability_denied` before the operation

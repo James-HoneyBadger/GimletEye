@@ -1,0 +1,16 @@
+{
+  "tool": "demo.example",
+  "status": "warning",
+  "summary": "a report that carries every field the contract declares",
+  "findings": [
+    { "severity": "info", "code": "demo.info", "message": "informational", "target": "/tmp/a" },
+    { "severity": "low", "code": "demo.low", "message": "low" },
+    { "severity": "medium", "code": "demo.medium", "message": "medium" },
+    { "severity": "high", "code": "demo.high", "message": "high" },
+    { "severity": "critical", "code": "demo.critical", "message": "critical" }
+  ],
+  "data": { "nested": { "array": [1, true, null, "text"] } },
+  "body": "the tool's own rendering",
+  "warnings": ["a warning"],
+  "duration_ms": 12
+}

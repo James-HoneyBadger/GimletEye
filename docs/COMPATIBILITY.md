@@ -132,15 +132,42 @@ Every tool returns the same shape, whatever language implemented it:
   "summary": "encrypted notes.txt → notes.txt.gimlet",
   "findings": [],
   "data": {},
-  "body": null,
   "warnings": [],
   "duration_ms": 313
 }
 ```
 
+The optional fields — `findings`, `data`, `body`, `warnings` — are omitted when
+a tool has nothing to put in them; `body` is a string when it is present, never
+`null`.
+
 `status` is never set by a tool directly: it is derived from the findings
 (`high` or worse ⇒ `error`, `medium` ⇒ `warning`, otherwise `ok`), so a tool that
 reports a serious problem cannot also report success.
+
+### Machine-readable contract
+
+Two JSON Schema files are published with every release and are public API in the
+sense above:
+
+| File | Describes |
+|---|---|
+| [`docs/schema/report.schema.json`](schema/report.schema.json) | the `Report` a run returns, in `json` format and over the engine protocol |
+| [`docs/schema/manifest.schema.json`](schema/manifest.schema.json) | the `ToolManifest` the CLI resolves ids against and the desktop builds forms from |
+
+Both are draft-07 and both set `additionalProperties: false`, so a consumer can
+reject a report it does not understand rather than half-read it. They describe
+the 1.0 shape exactly; the reasoning, and the fields deferred to 1.1, are in
+[ADR 0012](adr/0012-report-and-manifest-contracts.md).
+
+The rules for changing them:
+
+- **Adding an optional field is a minor.** Readers must ignore fields they do
+  not recognise — that is what makes additions possible.
+- **Changing what an existing field means, narrowing an enum, tightening a
+  constraint, or removing a field is a major.** `status` keeps its three values.
+- **A report says which shape it is** once `report_version` lands in 1.1; until
+  then 1.0's shape is the only one and the schema says so.
 
 ### Renaming a key, without breaking a reader
 
