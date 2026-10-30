@@ -4,7 +4,7 @@ Every tool in the catalogue, with an example invocation and the output it produc
 
 `scripts/check-tool-reference.sh` fails when a tool exists that this file does not mention, so a new tool cannot ship undocumented.
 
-Generated 2026-10-29 on Linux aarch64 with `gimlet 0.10.0`.
+Generated 2026-10-30 on Linux aarch64 with `gimlet 1.0.0`.
 
 ## Crypto
 
@@ -14,14 +14,14 @@ Decrypt a file — Open an authenticated container with its passphrase
 *writes, engine*
 
 ```console
-$ gimlet crypto.decrypt input=/tmp/gimlet-reference-shsnkatk/photo.gimlet passphrase_env=DEMO_PASSPHRASE output=/tmp/gimlet-reference-shsnkatk/decrypted.jpg
-✔ crypto.decrypt  (183 ms)
-  decrypted /tmp/gimlet-reference-shsnkatk/photo.gimlet → /tmp/gimlet-reference-shsnkatk/decrypted.jpg (chacha20-poly1305, 1 chunk(s))
+$ gimlet crypto.decrypt input=/tmp/gimlet-reference-sk66yzv7/photo.gimlet passphrase_env=DEMO_PASSPHRASE output=/tmp/gimlet-reference-sk66yzv7/decrypted.jpg
+✔ crypto.decrypt  (182 ms)
+  decrypted /tmp/gimlet-reference-sk66yzv7/photo.gimlet → /tmp/gimlet-reference-sk66yzv7/decrypted.jpg (chacha20-poly1305, 1 chunk(s))
 
 Data
   {
-    "input": "/tmp/gimlet-reference-shsnkatk/photo.gimlet",
-    "output": "/tmp/gimlet-reference-shsnkatk/decrypted.jpg",
+    "input": "/tmp/gimlet-reference-sk66yzv7/photo.gimlet",
+    "output": "/tmp/gimlet-reference-sk66yzv7/decrypted.jpg",
     "algorithm": "chacha20-poly1305",
     "container_version": 2,
     "chunks": 1,
@@ -36,14 +36,14 @@ Encrypt a file — Seal a file into an authenticated container using a passphras
 *writes, engine*
 
 ```console
-$ gimlet crypto.encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-shsnkatk/example.gimlet passphrase_env=DEMO_PASSPHRASE
-✔ crypto.encrypt  (187 ms)
-  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg → /tmp/gimlet-reference-shsnkatk/example.gimlet (chacha20-poly1305, argon2id, 1 chunk(s))
+$ gimlet crypto.encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-sk66yzv7/example.gimlet passphrase_env=DEMO_PASSPHRASE
+✔ crypto.encrypt  (176 ms)
+  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg → /tmp/gimlet-reference-sk66yzv7/example.gimlet (chacha20-poly1305, argon2id, 1 chunk(s))
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "output": "/tmp/gimlet-reference-shsnkatk/example.gimlet",
+    "output": "/tmp/gimlet-reference-sk66yzv7/example.gimlet",
     "algorithm": "chacha20-poly1305",
     "kdf": "argon2id",
     "recipients": null,
@@ -59,15 +59,15 @@ Encrypt for a GnuPG recipient — Produce an OpenPGP message with the system gpg
 *writes, engine*
 
 ```console
-$ gimlet crypto.gpg-encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg recipient=39679A3B75BF9F56683255B9C02EA9845DB0D2ED output=/tmp/gimlet-reference-shsnkatk/photo.gpg
+$ gimlet crypto.gpg-encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg recipient=82F64A423AA0243CD81427043DBD80CD3B5D772E output=/tmp/gimlet-reference-sk66yzv7/photo.gpg
 ✔ crypto.gpg-encrypt  (6 ms)
-  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg for 39679A3B75BF9F56683255B9C02EA9845DB0D2ED → /tmp/gimlet-reference-shsnkatk/photo.gpg (315 bytes)
+  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg for 82F64A423AA0243CD81427043DBD80CD3B5D772E → /tmp/gimlet-reference-sk66yzv7/photo.gpg (315 bytes)
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "output": "/tmp/gimlet-reference-shsnkatk/photo.gpg",
-    "recipient": "39679A3B75BF9F56683255B9C02EA9845DB0D2ED",
+    "output": "/tmp/gimlet-reference-sk66yzv7/photo.gpg",
+    "recipient": "82F64A423AA0243CD81427043DBD80CD3B5D772E",
     "output_bytes": 315,
     "backend": "gpg",
     "dry_run": false
@@ -80,16 +80,16 @@ Verify a GnuPG signature — Check a detached signature with the system gpg and 
 *engine*
 
 ```console
-$ gimlet crypto.gpg-verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-shsnkatk/photo.gpg.sig
-✔ crypto.gpg-verify  (6 ms)
-  signature is valid for /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg (key 39679A3B75BF9F56)
+$ gimlet crypto.gpg-verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-sk66yzv7/photo.gpg.sig
+✔ crypto.gpg-verify  (5 ms)
+  signature is valid for /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg (key 82F64A423AA0243C)
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "signature": "/tmp/gimlet-reference-shsnkatk/photo.gpg.sig",
+    "signature": "/tmp/gimlet-reference-sk66yzv7/photo.gpg.sig",
     "valid": true,
-    "fingerprint": "39679A3B75BF9F56683255B9C02EA9845DB0D2ED",
+    "fingerprint": "82F64A423AA0243CD81427043DBD80CD3B5D772E",
     "signer": "Reference Example <reference@example.invalid>",
     "backend": "gpg"
   }
@@ -101,13 +101,13 @@ Inspect a container — Report the cipher, KDF parameters, and lengths of an enc
 *engine*
 
 ```console
-$ gimlet crypto.inspect input=/tmp/gimlet-reference-shsnkatk/photo.gimlet
+$ gimlet crypto.inspect input=/tmp/gimlet-reference-sk66yzv7/photo.gimlet
 ✔ crypto.inspect  (1 ms)
-  /tmp/gimlet-reference-shsnkatk/photo.gimlet · chacha20-poly1305 · argon2id · 19 MiB · 2 iteration(s) · 1 lane(s) · chunked
+  /tmp/gimlet-reference-sk66yzv7/photo.gimlet · chacha20-poly1305 · argon2id · 19 MiB · 2 iteration(s) · 1 lane(s) · chunked
 
 Data
   {
-    "path": "/tmp/gimlet-reference-shsnkatk/photo.gimlet",
+    "path": "/tmp/gimlet-reference-sk66yzv7/photo.gimlet",
     "container_version": 2,
     "streaming": true,
     "max_chunk_bytes": 65552,
@@ -125,16 +125,16 @@ Export a key — Write a key from the keystore to a key file; the secret needs a
 *writes, engine*
 
 ```console
-$ gimlet crypto.key-export selector=demo output=/tmp/gimlet-reference-shsnkatk/example.pub passphrase_env=DEMO_PASSPHRASE
-✔ crypto.key-export  (185 ms)
-  exported 'demo' to /tmp/gimlet-reference-shsnkatk/example.pub
+$ gimlet crypto.key-export selector=demo output=/tmp/gimlet-reference-sk66yzv7/example.pub passphrase_env=DEMO_PASSPHRASE
+✔ crypto.key-export  (176 ms)
+  exported 'demo' to /tmp/gimlet-reference-sk66yzv7/example.pub
 
 Data
   {
     "label": "demo",
     "kind": "ed25519",
-    "public_key": "6f49a78d164ef1574b99292990b368baca82b3f00b0bd116f20abe1315347959",
-    "output": "/tmp/gimlet-reference-shsnkatk/example.pub",
+    "public_key": "693c3815887de4f823c7b21867b9aa8d0a1102e1d7a6bf8fa5a1845b572d6e8e",
+    "output": "/tmp/gimlet-reference-sk66yzv7/example.pub",
     "secret": false,
     "dry_run": false
   }
@@ -146,16 +146,16 @@ Import a key — Add a key from a key file into the sealed keystore
 *writes, engine*
 
 ```console
-$ gimlet crypto.key-import key=/tmp/gimlet-reference-shsnkatk/example.pub label=imported public_only=true passphrase_env=DEMO_PASSPHRASE
-✔ crypto.key-import  (339 ms)
-  imported 'imported' (ed25519) into /tmp/gimlet-reference-shsnkatk/home/keystore.gimlet
+$ gimlet crypto.key-import key=/tmp/gimlet-reference-sk66yzv7/example.pub label=imported public_only=true passphrase_env=DEMO_PASSPHRASE
+✔ crypto.key-import  (333 ms)
+  imported 'imported' (ed25519) into /tmp/gimlet-reference-sk66yzv7/home/keystore.gimlet
 
 Data
   {
-    "id": "4c559cc340733491",
+    "id": "b54a28cf03fff702",
     "label": "imported",
     "kind": "ed25519",
-    "public_key": "6f49a78d164ef1574b99292990b368baca82b3f00b0bd116f20abe1315347959",
+    "public_key": "693c3815887de4f823c7b21867b9aa8d0a1102e1d7a6bf8fa5a1845b572d6e8e",
     "has_secret": false,
     "keys": 2,
     "dry_run": false
@@ -169,20 +169,20 @@ List keys — List the keys in the sealed keystore: id, label, kind, and public 
 
 ```console
 $ gimlet crypto.key-list passphrase_env=DEMO_PASSPHRASE
-✔ crypto.key-list  (184 ms)
+✔ crypto.key-list  (179 ms)
   2 key(s): 2 signing, 0 recipient(s)
 
 Data
   {
-    "path": "/tmp/gimlet-reference-shsnkatk/home/keystore.gimlet",
+    "path": "/tmp/gimlet-reference-sk66yzv7/home/keystore.gimlet",
     "count": 2,
     "keys": [
       {
-        "id": "600f480c3d7551d4",
+        "id": "ca2bf6b7a332a151",
         "label": "demo",
         "kind": "ed25519",
-        "public_key": "6f49a78d164ef1574b99292990b368baca82b3f00b0bd116f20abe1315347959",
-        "created_at": "2026-10-30T03:51:29.825Z"
+        "public_key": "693c3815887de4f823c7b21867b9aa8d0a1102e1d7a6bf8fa5a1845b572d6e8e",
+        "created_at": "2026-10-30T12:00:14.590Z"
 … 10 more line(s)
 ```
 
@@ -193,12 +193,12 @@ Rotate the keystore passphrase — Re-seal every key under a new passphrase; key
 
 ```console
 $ gimlet crypto.key-rotate passphrase_env=DEMO_PASSPHRASE new_passphrase_env=DEMO_NEW_PASSPHRASE --dry-run
-✔ crypto.key-rotate  (182 ms)
+✔ crypto.key-rotate  (177 ms)
   would re-seal 2 key(s) under a new passphrase
 
 Data
   {
-    "path": "/tmp/gimlet-reference-shsnkatk/home/keystore.gimlet",
+    "path": "/tmp/gimlet-reference-sk66yzv7/home/keystore.gimlet",
     "keys": 2,
     "scope": "seal",
     "dry_run": true
@@ -212,16 +212,16 @@ Generate a key — Create an Ed25519 signing key or an X25519 recipient key, in 
 
 ```console
 $ gimlet crypto.keygen label=example kind=ed25519 keystore=true passphrase_env=DEMO_PASSPHRASE
-✔ crypto.keygen  (336 ms)
-  added 'example' to /tmp/gimlet-reference-shsnkatk/home/keystore.gimlet
+✔ crypto.keygen  (327 ms)
+  added 'example' to /tmp/gimlet-reference-sk66yzv7/home/keystore.gimlet
 
 Data
   {
     "algorithm": "ed25519",
     "kind": "ed25519",
     "label": "example",
-    "id": "a264e34c839f07dc",
-    "public_key": "{\n  \"algorithm\": \"ed25519\",\n  \"public_key\": \"902172c4c2dee735dee825b73ac44e0c7a110f03932380716b69761dae1cbb51\"\n}",
+    "id": "da13b6cd4a0fdb7d",
+    "public_key": "{\n  \"algorithm\": \"ed25519\",\n  \"public_key\": \"c3b6de3454be3fc99b7a60dbc5a79f2b08fa053e11dc42eab780b775bc2a8adf\"\n}",
     "stored": "keystore",
     "secret_path": null,
     "public_path": null,
@@ -236,7 +236,7 @@ Password audit — Offline strength and pattern audit of an existing password
 
 ```console
 $ gimlet crypto.pass-audit password_env=DEMO_PASSPHRASE
-✔ crypto.pass-audit  (0 ms)
+✔ crypto.pass-audit  (1 ms)
   score 4 of 4, 117.7 bits, 0 issue(s)
 
 Data
@@ -260,13 +260,13 @@ Generate passwords — Cryptographically secure passwords with an estimated entr
 
 ```console
 $ gimlet crypto.passgen length=24
-✔ crypto.passgen  (0 ms)
+✔ crypto.passgen  (1 ms)
   1 password(s) · 24 chars · ~154.2 bits each
 
 Data
   {
     "passwords": [
-      "AXhV%4vzZD;cJGF:=TqXb/jA"
+      ";DI^Y@_uy5!(,=m8HDm4n,@)"
     ],
     "length": 24,
     "alphabet_size": 86,
@@ -300,16 +300,16 @@ Sign a file — Produce a detached Ed25519 signature for a file
 *writes, engine*
 
 ```console
-$ gimlet crypto.sign input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg key=/tmp/gimlet-reference-shsnkatk/signing.key output=/tmp/gimlet-reference-shsnkatk/example.sig
-✔ crypto.sign  (5 ms)
+$ gimlet crypto.sign input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg key=/tmp/gimlet-reference-sk66yzv7/signing.key output=/tmp/gimlet-reference-sk66yzv7/example.sig
+✔ crypto.sign  (6 ms)
   signed /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "signature": "/tmp/gimlet-reference-shsnkatk/example.sig",
+    "signature": "/tmp/gimlet-reference-sk66yzv7/example.sig",
     "algorithm": "ed25519",
-    "signature_hex": "3d60f6c7125e9d62f2a0d4c64adf232f630c7efc32a820868bf367660e0e8402f30c4243f14bf1276231745b51a470602c408f17d5e7a8823c17607670beda0a",
+    "signature_hex": "9642d81e522fb6e806ea1ba19c3462622a84347c0e12ca6c4837dbbabbe9ce1a3ac643759620a8a80b58ef672c0a5cc0b1627b99cd1ced346da8ae2831e5920a",
     "dry_run": false
   }
 ```
@@ -320,16 +320,16 @@ Verify a signature — Check a detached Ed25519 signature against a public key
 *engine*
 
 ```console
-$ gimlet crypto.verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-shsnkatk/setup.sig key=/tmp/gimlet-reference-shsnkatk/demo.pub
+$ gimlet crypto.verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-sk66yzv7/setup.sig key=/tmp/gimlet-reference-sk66yzv7/demo.pub
 ✔ crypto.verify  (3 ms)
   /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg: signature is valid
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "signature": "/tmp/gimlet-reference-shsnkatk/setup.sig",
-    "key": "/tmp/gimlet-reference-shsnkatk/demo.pub",
-    "public_key": "6f49a78d164ef1574b99292990b368baca82b3f00b0bd116f20abe1315347959",
+    "signature": "/tmp/gimlet-reference-sk66yzv7/setup.sig",
+    "key": "/tmp/gimlet-reference-sk66yzv7/demo.pub",
+    "public_key": "693c3815887de4f823c7b21867b9aa8d0a1102e1d7a6bf8fa5a1845b572d6e8e",
     "algorithm": "ed25519",
     "valid": true
   }
@@ -344,7 +344,7 @@ Inspect metadata — Report embedded EXIF, GPS, text, and comment regions in a c
 
 ```console
 $ gimlet privacy.metadata-scan input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
-! privacy.metadata-scan  (1 ms)
+! privacy.metadata-scan  (2 ms)
   /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg · jpeg · 3 segments · 177 bytes removable (identity, text, time)
 
 Findings
@@ -367,14 +367,14 @@ Remove metadata — Rewrite a file without selected metadata, optionally reducin
 *writes, engine*
 
 ```console
-$ gimlet privacy.metadata-strip input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-shsnkatk/stripped.jpg profile=privacy
-✔ privacy.metadata-strip  (5 ms)
+$ gimlet privacy.metadata-strip input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-sk66yzv7/stripped.jpg profile=privacy
+✔ privacy.metadata-strip  (4 ms)
   cleaned /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg — removed 177 bytes (identity, text, time)
 
 Data
   {
     "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
-    "output": "/tmp/gimlet-reference-shsnkatk/stripped.jpg",
+    "output": "/tmp/gimlet-reference-sk66yzv7/stripped.jpg",
     "format": "jpeg",
     "original_bytes": 195,
     "cleaned_bytes": 18,
@@ -417,7 +417,7 @@ Configuration drift — Snapshot file hashes under a path and report what change
 *writes, native*
 
 ```console
-$ gimlet sysadmin.config-drift input=/tmp/gimlet-reference-shsnkatk max_depth=1 snapshot=true
+$ gimlet sysadmin.config-drift input=/tmp/gimlet-reference-sk66yzv7 max_depth=1 snapshot=true
 ✔ sysadmin.config-drift  (7 ms)
   recorded 11 file(s) as snapshot 'default'
 
@@ -432,7 +432,7 @@ Disk usage — Filesystem utilisation with warning and critical thresholds
 
 ```console
 $ gimlet sysadmin.disk-usage path=/
-✔ sysadmin.disk-usage  (4 ms)
+✔ sysadmin.disk-usage  (9 ms)
   1 filesystem(s) checked, highest utilisation 37%
 
 Data
@@ -440,8 +440,8 @@ Data
     {
       "filesystem": "/dev/sda2",
       "total_kb": 64237188,
-      "used_kb": 22435152,
-      "available_kb": 38506500,
+      "used_kb": 22451344,
+      "available_kb": 38490308,
       "use_percent": 37,
       "mount": "/"
     }
@@ -471,8 +471,8 @@ File permissions — Entries anyone may write, and setuid or setgid files, under
 *native*
 
 ```console
-$ gimlet sysadmin.file-permissions path=/tmp/gimlet-reference-shsnkatk max_depth=1
-✔ sysadmin.file-permissions  (5 ms)
+$ gimlet sysadmin.file-permissions path=/tmp/gimlet-reference-sk66yzv7 max_depth=1
+✔ sysadmin.file-permissions  (4 ms)
   14 entries scanned, 0 issue(s)
 
 Data
@@ -534,8 +534,8 @@ System information — Host identity, kernel, uptime, load, CPU, and memory snap
 
 ```console
 $ gimlet sysadmin.system-info
-✔ sysadmin.system-info  (5 ms)
-  debian-gnu-linux-12-11 · Debian GNU/Linux 13 (trixie) · 4 cores · up 0d 14h 57m
+✔ sysadmin.system-info  (4 ms)
+  debian-gnu-linux-12-11 · Debian GNU/Linux 13 (trixie) · 4 cores · up 0d 23h 5m
 
 Data
   {
@@ -558,7 +558,7 @@ User audit — uid 0 accounts, missing passwords, shadow permissions, duplicate 
 
 ```console
 $ gimlet sysadmin.user-audit
-✔ sysadmin.user-audit  (7 ms)
+✔ sysadmin.user-audit  (3 ms)
   40 account(s) checked, 0 issue(s)
 
 Findings

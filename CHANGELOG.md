@@ -4,6 +4,31 @@ All notable changes to Gimlet Eye. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-10-29
+
+The promise, in one paragraph: **the surfaces other people build against will
+not break without a migration path.** Tool ids, `Report` and the shape of its
+`data`, the engine protocol, the config schema, the `.gimlet` container (v1, v2,
+and v3), the sealed keystore, and the CLI's commands and flags are frozen from
+this release. A later change to any of them arrives as a deprecation in one minor
+and a removal in the next, and the two most recent minors receive security fixes
+for at least twelve months. Adding an optional field is not a break; changing
+what an existing field means is. The report and the manifest are published as
+JSON Schema so a consumer can check that rather than trust it, and
+`scripts/check-quiet-period.sh` is what proved the two quiet minors — 0.9.0 and
+0.10.0 — that make the promise worth making.
+
+No versioned surface moved in this release. What moved is the documentation that
+describes them.
+
+### Changed
+
+- `docs/COMPATIBILITY.md` stops describing the project as pre-1.0: the surfaces
+  are frozen, and the deprecation and support rules now apply.
+- The README states what 1.0 freezes and what a change to it will cost.
+- ADR 0006 carries the audit: every gate row mapped to the check that fails when
+  it rots, including the one row that is deliberately not claimed.
+
 ## [0.10.0] — 2026-10-29
 
 The second quiet minor. No versioned surface moved: `Report`, `ToolManifest`,

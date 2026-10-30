@@ -322,13 +322,13 @@ again from the 0.8 release:
 | 0.8.0 (the restructure; surfaces deliberately moved) | released — the reset |
 | 0.9.0 (audits and ergonomics; nothing versioned moved) | released — the first quiet minor |
 | 0.9.1 (the correction pass; a patch, not a quiet minor) | released |
-| 0.10.0 | not yet cut — it must be quiet too |
+| 0.10.0 (the enforcement pass: arguments, capabilities, schemas, the keystore) | released — the second quiet minor |
+| 1.0.0 (the freeze; nothing versioned moved) | released — the promise |
 
 **Gate status (2026-10-29).** `scripts/check-release-gates.sh` reports every
-ADR 0006 gate satisfied: **0 broken, 0 open**, including the release workflow
-publishing signed artifacts for `v0.9.1`. What remains is the calendar of
-releases, not a check — 0.10.0 is the second quiet minor, and 1.0.0 is cut
-after it.
+ADR 0006 gate satisfied: **0 broken, 0 open**. The countdown the ADR counts is
+complete — 0.9.0 and 0.10.0 both moved no versioned surface — so 1.0.0 is cut
+from the commit after 0.10.0.
 
 > The quiet-period script counts *tags*, so it reports 0.8.0→0.9.0 and
 > 0.9.0→0.9.1 as two quiet stretches. ADR 0006 counts *minor releases*. The
@@ -469,7 +469,7 @@ from there — no standing waiver, and nothing to remember to switch on.
 - [x] ADR 0006 is **Accepted** (2026-10-25) and this checklist is its 1.0 audit;
   its two amendments are dated and the errata above are recorded next to the rows
   they correct.
-- [ ] `CHANGELOG.md` gets a 1.0.0 entry stating the promise in one paragraph.
+- [x] `CHANGELOG.md` gets a 1.0.0 entry stating the promise in one paragraph.
 
 *Acceptance:* every checkbox in ADR 0006 is green, and
 `scripts/check-quiet-period.sh` reports no versioned surface moved in the two

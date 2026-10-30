@@ -1,3 +1,14 @@
+gimlet-eye-toolkit (1.0.0) unstable; urgency=medium
+
+  * The freeze. Tool ids, the report shape, the engine protocol, the config
+    schema, the container, the keystore, and the CLI stop moving: a change now
+    takes a deprecation in one minor and a removal in the next, with the two most
+    recent minors supported for at least twelve months.
+  * Nothing versioned moved in this release; it is the promise, and the audit
+    behind it in ADR 0006.
+
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Thu, 29 Oct 2026 00:00:00 +0000
+
 gimlet-eye-toolkit (0.10.0) unstable; urgency=medium
 
   * The report and the manifest are published as JSON Schema, with a contract
