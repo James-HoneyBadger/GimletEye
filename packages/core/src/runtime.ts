@@ -7,6 +7,7 @@
  */
 
 import { AuditLog, auditEntry } from './audit.js';
+import { guardedHost } from './capabilities.js';
 import { loadConfig, type Config } from './config.js';
 import { GimletError, asGimletError, unknownTool } from './errors.js';
 import { diskUsage } from './tools/disk-usage.js';
@@ -167,14 +168,22 @@ export class Runtime {
         `unsupported operation: ${id} supports ${(manifest.platforms ?? []).join(', ')}; this host is ${this.host.platform}`,
       );
     }
+    const tool = manifest ?? this.require(id);
     const local = this.local.get(id);
     const report = local
-      ? await local.run({ host: this.host, config: this.config, dryRun, paths: this.paths }, args)
+      ? await local.run(
+          // A built-in tool gets the Host it declared: a write without
+          // `fs:write` fails with `capability_denied` rather than succeeding
+          // quietly. The engine runs in its own process and is checked at the
+          // report boundary instead.
+          { host: guardedHost(this.host, tool), config: this.config, dryRun, paths: this.paths },
+          args,
+        )
       : await this.sidecar.run(id, args, { dryRun, home: this.paths.root });
 
     // One choke point for every surface: a report whose `data` drifts from the
     // shape its manifest declares fails here, before a consumer sees it.
-    assertDataShape(manifest ?? this.require(id), report.data);
+    assertDataShape(tool, report.data);
     return deriveVerdict(report);
   }
 

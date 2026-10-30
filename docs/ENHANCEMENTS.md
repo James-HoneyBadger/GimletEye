@@ -18,7 +18,7 @@ Ordered by value per unit of risk. Everything else can wait.
 
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
-| 1 | [Observe declared capabilities](#4-observe-declared-capabilities) | The declaration is the security story; nothing checks the code against it. | M | Low |
+| 1 | ~~[Observe declared capabilities](#4-observe-declared-capabilities)~~ | **Shipped**: the runtime hands each built-in tool a guarded `Host`. | — | — |
 | 2 | [The audit trail as a ledger](#6-the-audit-trail-as-a-ledger) | `batch` can evict a trail's whole history, and a trail without a run id or `dry_run` cannot answer "what happened". | M | Low |
 | 3 | [Render snapshots before the freeze](#8-render-snapshots-before-the-freeze) | 1.0 promises `Report` output; a snapshot per format makes a renderer change visible instead of argued about. | S | Low |
 | 4 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each, and the format people ask for first (GIF) is the cheapest. | L | Medium |
@@ -30,8 +30,10 @@ the **five audits**, `--output`/`--quiet`, the **golden corpus** with its
 no-growth and idempotence properties, the **TypeScript fuzz targets** with their
 soak ledger, and — in the 0.9.1 patch — **secret-argument masking**, **secret
 files created `0600`**, a **validated engine report**, and a desktop **content
-policy that cancels non-local requests**. The HTTP API, its bearer token, and the
-pack protocol were removed at 0.8; no item below assumes a pack.
+policy that cancels non-local requests**. Since then: the **argument gate**,
+**capability enforcement**, and the engine **manifest boundary check**. The HTTP
+API, its bearer token, and the pack protocol were removed at 0.8; no item below
+assumes a pack.
 
 ---
 
@@ -103,7 +105,13 @@ evidence table that stops saying the soak was not replaced.
 
 **Effort** S · **Risk** Low.
 
-### 4. Observe declared capabilities
+### 4. Observe declared capabilities — shipped
+
+**Done.** `packages/core/src/capabilities.ts` wraps the `Host` per built-in
+run: a write without `fs:write` or a subprocess without `process:exec` is
+`capability_denied`. Reads are not gated, and the engine's report is validated at
+the boundary instead. A tool that declared both is passed the real Host, so the
+wrapper costs nothing.
 
 **Problem.** Every manifest declares capabilities (`fs:write`, `process:exec`,
 `network`, `secrets`), and a test can check that the set is drawn from a known

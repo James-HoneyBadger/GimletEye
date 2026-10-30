@@ -8,6 +8,12 @@ All notable changes to Gimlet Eye. Format follows
 
 ### Added
 
+- **Declared capabilities are enforced.** A built-in tool now runs against a
+  `Host` that refuses a filesystem write without `fs:write` and a subprocess
+  without `process:exec`, failing with `capability_denied` before the operation
+  happens. Reads are not gated — they cannot destroy anything — and the optional
+  engine, which runs in its own process, is checked at the report boundary
+  instead. A tool that declared both costs nothing: the Host is passed through.
 - **One argument gate.** `Runtime.run` validates the bag against the tool's
   manifest before anything runs: an unknown name, a missing required value, an
   enum value outside its list, a negative or unrepresentable integer, and a

@@ -108,6 +108,9 @@ anything runs.
   and a boolean that is not `true`/`false`/`yes`/`no`/`1`/`0` are the same
   error. Exit status is `2`, and the message names every problem at once.
 - Duplicate names on the command line keep the last value, as a shell would.
+- A built-in tool that performs a write or starts a subprocess it did not declare
+  in its manifest fails with `capability_denied` (exit 1). This is a bug in the
+  tool, not in the caller's arguments.
 - A tool that takes a passphrase masks it in the desktop, hides the argument
   line in the terminal, and shows `passphrase=<redacted>` in a copied command.
 

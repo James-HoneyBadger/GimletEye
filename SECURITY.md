@@ -100,6 +100,10 @@ what a container can say, only how much work a stranger can ask for.
    every run in `fuzz/soak-ledger.jsonl`. A strip that succeeds must leave nothing
    for the policy to remove — an invariant the corpus asserts, not just the unit
    tests.
+10. **Declared capabilities are enforced.** A built-in tool runs against a `Host`
+    that refuses a filesystem write without `fs:write` and a subprocess without
+    `process:exec` (`capability_denied`). Reads are not gated. The optional engine
+    runs in its own process, so its report is validated at the boundary instead.
 
 ## Cryptographic posture
 

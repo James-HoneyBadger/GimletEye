@@ -217,6 +217,11 @@ interleave a partial line.
   no token to protect. The desktop app is reachable only through its own window.
 - **Secrets stay out of reports and the trail.** Passphrases are read from an
   environment variable or a prompt; the audit records argument names only.
+- **Capabilities are enforced, not advisory.** The runtime hands each built-in
+  tool a `Host` that refuses a filesystem write it did not declare as `fs:write`
+  and a subprocess it did not declare as `process:exec`; the failure is
+  `capability_denied` before anything is touched. Reads are not gated, and the
+  optional engine is checked at the report boundary instead.
 - **Authenticated before believed.** Containers are AEAD-sealed and the whole
   header is associated data, so a tampered cipher, KDF parameter, or salt fails
   instead of weakening the file. Metadata removal is verified before the file is
