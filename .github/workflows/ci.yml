@@ -168,6 +168,11 @@ jobs:
       # that used to stall this job is gone.
       - name: Shell builds
         run: npm run electron:build -w @gimlet-eye/desktop
+      # Electron downloads its binary on first use rather than during `npm ci`,
+      # so it has to exist before the sandbox helper can be adjusted. Running
+      # `install.js` explicitly is a no-op when the binary is already there.
+      - name: Download the Electron binary
+        run: node node_modules/electron/install.js
       # Where the runner forbids unprivileged user namespaces, Chromium needs its
       # setuid helper. Where Electron was installed decides the path, and a
       # runner that does not need the helper (the e2e job launches the window

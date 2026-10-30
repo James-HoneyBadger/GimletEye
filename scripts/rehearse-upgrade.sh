@@ -115,11 +115,12 @@ ls -l "$work"/*.deb
 
 # ── the rehearsal itself ──────────────────────────────────────────────────────
 step "install, use, upgrade, roll back"
-docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
-    -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc '
+# The script is written to a file and mounted rather than passed as one
+# single-quoted argument: the rehearsal needs quotes inside quotes (a python
+# one-liner inside a `su -c` string), and every layer of escaping is a place to
+# get it wrong. A quoted heredoc leaves the text exactly as written.
+cat > "$work/inside.sh" <<'INSIDE'
     export DEBIAN_FRONTEND=noninteractive
-    # Nothing below may contain a single quote: this whole block is one quoted
-    # argument, and an apostrophe ends it early. Use \" for inner quoting.
     # python3 is for this harness (parsing a report), not for the package. Node is
     # a real dependency: the distro nodejs is 18 and the package needs 20.
     apt-get update -qq && apt-get install -y -qq python3 curl ca-certificates >/dev/null
@@ -147,7 +148,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     "
     key_id_before=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     mode_before=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
     entries_before=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
@@ -159,7 +160,7 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
 
     key_id_after=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_after" = "$key_id_before" ] || { echo "the keystore changed across the upgrade"; exit 1; }
     su tester -s /bin/bash -c "
@@ -183,11 +184,15 @@ docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     dpkg -i "$NEW" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
         export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c "import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])"
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"
-' || fail "the install/upgrade/rollback rehearsal failed"
+INSIDE
+
+docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
+    -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc /w/inside.sh \
+    || fail "the install/upgrade/rollback rehearsal failed"
 
 step "done"
 echo "installed, upgraded $version → $next, rolled back, and upgraded again;"
