@@ -24,6 +24,10 @@ import { fileURLToPath } from 'node:url'
 // A 512 px icon means 512 px of pixels, not 512 px scaled by whatever DPI the
 // machine running this happens to have.
 app.commandLine.appendSwitch('force-device-scale-factor', '1')
+// Offscreen compositing on a headless runner otherwise aborts with
+// `UnknownVizError` when the GPU process cannot start; the mark is two colours
+// and a letter, so software rendering loses nothing.
+app.disableHardwareAcceleration()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const out = path.join(root, 'apps/desktop/build/icon.png')

@@ -189,6 +189,7 @@ cat > "$work/inside.sh" <<'INSIDE'
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"
 INSIDE
+chmod +x "$work/inside.sh"
 
 docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
     -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc /w/inside.sh \
