@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeArgs } from '../src/manifest.js';
+import { describeArgs } from '../src/describe.js';
 import type { ToolManifest } from '../src/manifest.js';
 
 const tool = (args: ToolManifest['args']): ToolManifest => ({

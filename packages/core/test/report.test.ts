@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOutputFormat, render, renderMarkdown, sealed, type Report } from '../src/report.js';
+import { parseOutputFormat, render, sealed, type Report } from '../src/report.js';
 
 const report = (over: Partial<Report> = {}): Report => ({
   tool: 'crypto.sha256',
@@ -76,11 +76,12 @@ describe('output formats', () => {
 });
 
 describe('the markdown report', () => {
-  it('is exported, so a surface can paste the same thing the CLI prints', () => {
-    const markdown = renderMarkdown(
+  it('names the tool, the verdict, and the finding a surface would paste', () => {
+    const markdown = render(
       report({
         findings: [{ severity: 'high', code: 'metadata.present', message: 'EXIF is present', target: '/a.jpg' }],
       }),
+      'markdown',
     );
     expect(markdown.startsWith('## crypto.sha256')).toBe(true);
     expect(markdown).toContain('**Status:** ok');
