@@ -14,6 +14,11 @@ are small relative to it. Three of them are defects a user can hit today.
 > and a store that changed since it was opened is refused with `conflict` rather
 > than overwritten. Open: D3's `secret` argument kind, D9, D10, D13, and the two
 > frozen-file items (`sealed()` and `generateKeyPair`).
+>
+> **Since this review.** The window has been rebuilt (§5 item 7 shipped: the
+> palette ranks with `similarity()`, so a typo still finds the tool), but this
+> document remains a review of the 0.9.0 tree: it is a snapshot, and the open
+> items are tracked in [ENHANCEMENTS.md](ENHANCEMENTS.md) and the ADRs.
 
 ---
 

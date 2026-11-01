@@ -35,6 +35,17 @@ policy that cancels non-local requests**. Since then: the **argument gate**,
 API, its bearer token, and the pack protocol were removed at 0.8; no item below
 assumes a pack.
 
+The window was rebuilt around two views rather than one scrolling page: a
+**command palette** that searches tools, tags, capabilities, and actions; a
+**report view** of its own with severity-grouped findings, tables typed from
+`DataSpec`, a byte map for a metadata scan, and a diff against the previous run;
+**pins and recents** above the catalogue; **verify-after-run**; **copy as
+Markdown**; **remembered geometry**; and a screenshot harness (`make shots`) that
+photographs nine states at two sizes and two themes. The shell's rules moved out
+of `main.ts` into testable modules — `handlers.ts`, `session-policy.ts`,
+`menu-template.ts`, `bounds.ts` — so an IPC change is a unit test rather than a
+manual click.
+
 ---
 
 ## Crypto, privacy, and metadata
@@ -317,7 +328,7 @@ design, but it is currently only documented in code
 | WASM target | Metadata scan/strip, hashing, and password generation all work on bytes and would run in a browser with no upload. High privacy value. WebCrypto has no ChaCha20-Poly1305, so the container needs a noble fallback or must be AES-GCM-only there. | L |
 | Windows CI job | A Windows zip and NSIS installer ship, but every CI job is `ubuntu-latest`. Path arithmetic in `batch` already normalises both separators; a typecheck + vitest job is what is missing. | M |
 | Desktop batch | `batch` is the one capability with no desktop path: drag files or folders onto a tool and get the same aggregate report. | M |
-| Verify after run | A button on a strip or encrypt result that runs `metadata-verify` / `crypto.inspect` on the output. Trust is built by showing the check. | S |
+| ~~Verify after run~~ | **Shipped**: a strip or encrypt report offers its verifier — `metadata-verify` / `crypto.inspect` — on the output, pre-filled. | — |
 | ~~TUI~~ | **Shipped**: `gimlet tui`. | — |
 | ~~Shell completions + man pages~~ | **Shipped in 0.9**: `gimlet completions <shell>` and `gimlet man`, generated from `packages/cli/src/surface.ts`. | — |
 | ~~`--output <file>` and `--quiet`~~ | **Shipped in 0.9** as global flags, so `batch` and `doctor` honour them too. | — |
@@ -331,6 +342,7 @@ design, but it is currently only documented in code
 |---|---|---|
 | ~~MSRV CI job~~ | gone with the Rust; the Node floor is `engines.node` and `setup-node`. | — |
 | ~~End-to-end UI tests against a live engine~~ | **Shipped**: the `e2e` job drives the real window with Playwright. | — |
+| ~~Visual regression for the window~~ | **Shipped**: `make shots` captures nine states at two sizes and two themes with volatile values masked; `make shots-check` diffs a capture against the PNGs in `e2e/baselines`, which are generated under the `e2e` job's runner. | — |
 | ~~Benchmarks for large files~~ | **Shipped in 0.9**: `make bench` (`scripts/bench.mjs`) with floors for hashing, the container, and the scrub. | — |
 | ~~Reproducible release artifacts~~ | **Shipped**: the `reproducible` job rebuilds and compares, and `SHA256SUMS` is signed. | — |
 | Report JSON Schema export | `gimlet tools show --schema` emitting a schema from `DataSpec`, so a consumer stops hand-writing a parser and a field drift fails their build, not their production. | S |

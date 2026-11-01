@@ -173,9 +173,56 @@ manifest), and the same reports as the command line — because it is the same
 implementation, called directly. There is no server, no port, and no token: the
 app talks to the engine through its own process, and nothing else can reach it.
 
+**Finding a tool.** <kbd>Ctrl</kbd> <kbd>K</kbd> (or the field at the top) opens
+the command palette: type a name, an id (`metadata-scan`), a tag, a capability
+(`fs:read`), or an action (`settings`, `dark theme`, `recent runs`). Typos are
+forgiving. Tools you use often stay under **Recent**, and anything you pin with
+the pin button on a tool's header stays under **Pinned**. Each row also says when
+that tool last ran, read from the audit trail.
+
+**Two views.** The form is where a run starts; the report is where it ends. A
+run moves the window to the report, and **Edit parameters** brings the form back
+with the values you used. <kbd>Esc</kbd> does the same.
+
+**Reading a report.** *Findings* groups what needs a decision by severity, narrows
+by a severity chip, and offers the next tool where one applies (*Remove
+metadata*, *Show disk usage*). The copy button beside the chips writes exactly
+what is on screen as Markdown, ready for a ticket.
+*Data* is the tool's structured result, sortable by column. *Changes* compares
+the report with the previous run of the same tool — what appeared, what went, and
+which verdicts moved — and appears once there is a previous run to compare with. *Raw* is the JSON, and every report can be copied as JSON,
+downloaded, or repeated as a `gimlet run …` command. A metadata scan also draws a
+**map of the file**: one bar per segment, in the order they sit in the bytes, so
+"three segments found" becomes "these three, here".
+
+**Checking the result.** A strip or encrypt report offers the tool that verifies
+its own output — *Verify removal* or *Inspect the container* — with the file it
+just wrote already filled in. A run that changes something should end with the check
+that it changed the right thing.
+
+**Settings and diagnostics** (the gear, or <kbd>Ctrl</kbd> <kbd>,</kbd>) names the
+version, the engine, and where `GIMLET_HOME`, the configuration file, and the
+audit trail live — with copy buttons and a way to open the data folder. The clock
+button lists recent runs from the local audit trail; each row carries its verdict.
+
+**Files.** Every `path` argument has a **Browse** button — a file picker or a
+folder picker, whichever that argument's manifest implies — and a file dragged
+onto the parameter card fills the first empty path. Drag and drop reads the path in
+the preload, so the page never gains filesystem access.
+
+**What the window remembers.** The theme (until you choose one, it follows the
+system), the spacing (comfortable, or compact for shorter rows), the tool you were
+using, the category, your pins and recents, the dry-run switch, and the window's
+size and position. A window that would reopen off-screen is pulled back onto a
+display that exists. **Settings → Use compact spacing**, or the palette's *Use
+compact spacing*, toggles the density.
+
+**Keyboard.** <kbd>?</kbd> lists every shortcut in the app; the same table is what
+the hints in the window are generated from. The first <kbd>Tab</kbd> is *Skip to
+the tool*, which lands you in the workbench instead of walking the chrome.
+
 Every report carries the equivalent `gimlet run …` command, so a run in the
-window can be repeated in a script. The clock button lists recent runs from the
-local audit trail.
+window can be repeated in a script.
 
 ## Scripting
 

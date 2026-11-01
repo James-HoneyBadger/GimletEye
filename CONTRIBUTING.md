@@ -27,7 +27,20 @@ make check        # tsc, vitest, and the documentation gates
 make smoke        # the CLI against real files
 make mutation     # break the code on purpose; every mutation must be caught
 make bench        # hashing, the container, and the scrub, against time floors
+make shots        # capture the window's baseline states into e2e/shots
+make shots-check  # diff a fresh capture against e2e/baselines
 ```
+
+A change to the window should leave a screenshot behind: `make shots` writes the
+nine states at two sizes and two themes, and the pull request can show the one
+that moved. `make shots-check` diffs a fresh capture against the baselines in
+`apps/desktop/e2e/baselines`; that directory holds only a README until someone
+generates the set, and `--check` then says so and exits non-zero.
+
+Generate them under the `e2e` job's own conditions — `ubuntu-latest`, Xvfb at the
+screen size in `.github/workflows/ci.yml` — not on your machine, because
+rasterisation differs by distribution and architecture. The commands are in
+[apps/desktop/e2e/baselines/README.md](apps/desktop/e2e/baselines/README.md).
 
 `make mutation` is slower and is not a CI job, but it is how most of the gaps in
 this project were found: a green suite says the tests pass, not that they can
@@ -42,10 +55,15 @@ until it passes, because a green baseline is what makes review cheap.
 |---|---|
 | What a run means: verdicts, reports, resolution, config, audit | `packages/core` |
 | A command, a flag, or terminal output | `packages/cli` |
-| The window, forms, and result rendering | `apps/desktop/src` |
+| The window: views, forms, the report, the palette | `apps/desktop/src` |
 | A host-inspection tool (`/proc`, `df`) | `packages/core/src/tools` |
 | Anything touching key material or a file format | `packages/engine` |
-| The window or the OS boundary | `apps/desktop/electron` |
+| The window or the OS boundary: channels, session policy, menu, geometry | `apps/desktop/electron` |
+
+Hidden logic is the usual source of a bug that outlives its cause: if a rule can
+be a function with a name — what a run sends, what the report draws, who may call
+a channel — put it in `src/lib` or a sibling module and test it there. The
+components should be left doing what they are named for.
 
 Two rules decide most placement questions:
 

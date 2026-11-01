@@ -13,6 +13,7 @@
 | [ROADMAP.md](ROADMAP.md) | see phases and their acceptance criteria |
 | [ENHANCEMENTS.md](ENHANCEMENTS.md) | pick the next feature; effort and risk per item |
 | [adr/](adr/) | understand why a decision was made and what it cost |
+| [../apps/desktop/README.md](../apps/desktop/README.md) | work on the window: its modules, its shell boundary, and its tests |
 | [../SECURITY.md](../SECURITY.md) | review the threat model and data-handling guarantees |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | set up a development environment and open a change |
 

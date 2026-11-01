@@ -91,6 +91,10 @@ what a container can say, only how much work a stranger can ask for.
    input, the terminal hides the argument line of a tool that takes one, and the
    desktop's copyable command shows `passphrase=<redacted>`. Argument *values*
    never reach a report, a log line, or the audit trail, only their names.
+   Copying a report is a main-process clipboard write of the text already on
+   screen, capped at 1 MB; the page has no clipboard of its own — the permission
+   is refused like every other — so an injected script cannot read what the user
+   copied.
 8. **Bounded work from untrusted input.** KDF parameters in a hostile header are
    validated before key derivation, so a 75-byte file cannot demand minutes of
    CPU.

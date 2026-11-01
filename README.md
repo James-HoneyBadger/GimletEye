@@ -68,19 +68,26 @@ last of the Rust left the tree.
 
 The desktop app (no cloud, no account, no uploads):
 
-- **Start** from the three pillars — System, Crypto, Privacy — which are buttons:
-  each narrows the catalogue and opens its first tool. Your last tool is restored
-  next time.
-- **Browse** by category, or search across names, summaries, tags, capabilities,
-  and argument names (`Ctrl/⌘ K`).
+- **Start** wherever you left off: the window restores the tool you were using,
+  its size and position. The three pillars — System, Crypto, Privacy — are
+  buttons: each narrows the catalogue and opens its first tool.
+- **Find** anything from the command palette (`Ctrl/⌘ K`): type a name, a tool id
+  (`metadata-scan`), a tag, a capability (`fs:read`), or an action — "dark
+  theme", "recent runs", "settings". Misspellings still land. Pinned tools and
+  tools you last ran sit above the catalogue.
 - **Fill in** generated forms: every field comes from the tool's manifest, so a
-  new tool appears with its own inputs and no frontend change.
-- **Read** results as findings with severity, warnings, and structured data —
-  with a JSON view, one-click copy, and a JSON download.
-- **Repeat** the run anywhere: every report carries the equivalent
-  `gimlet run …` command.
-- **Audit** what happened: recent runs from the local trail, with argument names
-  only, never values.
+  new tool appears with its own inputs and no frontend change. A path argument
+  gets the picker its manifest implies — file, folder, or either — and accepts a
+  file dragged from the desktop.
+- **Read** the report, which is its own view: findings grouped by severity, each
+  offering the tool that answers it; the data as a sortable table; a diff against
+  the previous run; the raw JSON. A metadata scan draws its segments in the file.
+- **Check** what you did: strip and encrypt reports offer their verifier in one
+  click, and every report keeps the equivalent `gimlet run …` command, copies as
+  JSON or Markdown, and downloads.
+- **Audit** what happened: recent runs from the local trail with their verdict,
+  argument names only, never values. Settings → diagnostics names the version,
+  the engine, and where the data lives.
 
 The command line has the same catalogue: `gimlet tools list`.
 
@@ -162,7 +169,7 @@ the batch still runs unless `--fail-fast` is given.
 | CLI: `run`, `batch`, `tools`, `config`, `audit`, `doctor`, `tui` | ✅ |
 | Terminal surface (`gimlet tui`): filter, arguments, report, scroll | ✅ |
 | Report as one self-contained page (`--format html`) | ✅ |
-| Desktop app (Electron): catalogue, generated forms, reports, history | ✅ |
+| Desktop app (Electron): palette, generated forms, report view, diagnostics, history | ✅ |
 | `sysadmin.system-info`, `sysadmin.disk-usage`, `sysadmin.kernel-hardening`, `sysadmin.network` | ✅ TypeScript |
 | `crypto.*`, `privacy.metadata-*` | ✅ TypeScript |
 | Encryption container (chunked v2), AEAD, Argon2id, Ed25519 signatures | ✅ TypeScript |

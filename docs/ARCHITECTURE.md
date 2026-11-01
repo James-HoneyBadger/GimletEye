@@ -155,13 +155,24 @@ still holds.
 
 **Desktop app.** `apps/desktop` is an Electron 45 window. The main process in
 `apps/desktop/electron` holds the one `Runtime` and owns the operating-system
-boundary; the renderer is a view that asks for a catalogue, a report, or the
-audit tail over four fixed IPC channels exposed by the preload. It holds no
-runtime and no key material, so a passphrase never enters a webview. There is no
-HTTP server, no port, no token, and no way for a web page to drive the tools.
+boundary; the renderer is a view that asks for a catalogue, a report, the audit
+tail, a picked path, or a clipboard write over a fixed set of IPC channels exposed
+by the preload. It holds no runtime and no key material, so a passphrase never
+enters a webview. The session refuses every permission and cancels every non-local
+request, so "no network" is a property of the process rather than a promise about
+the source. There is no HTTP server, no port, no token, and no way for a web page
+to drive the tools.
+
+The renderer has two views — the parameters and the report — and one overlay that
+reaches both: the command palette. `lib/run.ts` decides what a run sends,
+`lib/report-view.ts` decides what the report draws, and `lib/preferences.ts`
+parses what the window remembers, so each is a function with its own tests rather
+than behaviour buried in a component.
 
 The same TypeScript tests drive both: `packages/core` is tested against a fake
-host, and the UI against a mocked engine module.
+host, and the UI against a mocked bridge. The shell's own rules — who may call a
+channel, which permissions are refused, which menu roles exist, where a window may
+be restored — are tested without Electron by passing in fakes.
 
 ## 6. Configuration and state
 
@@ -261,11 +272,14 @@ A tool that touches key material or a file format goes beside the primitives in
 |---|---|---|
 | Contracts | Report verdicts, argument coercion, resolution, config, paths, audit | `packages/core/test` (vitest, fake host) |
 | CLI | Parsing, batch expansion, aggregate reports, declared surface | `packages/cli/test` |
-| Desktop | Generated forms, validation, run flow, sheets, focus management | `apps/desktop/src/**/*.test.ts` (vitest + jsdom, mocked engine) |
+| Desktop | Generated forms, validation, the compose/report round trip, palette ranking, typing from `DataSpec`, diffs, focus management | `apps/desktop/src/**/*.test.ts` (vitest + jsdom, mocked bridge) |
+| Shell | Channel validation and failure envelopes, session policy, menu roles, remembered window bounds | `apps/desktop/electron/*.test.ts` (fakes, no Electron) |
+| End to end (window) | The real window: palette, a run, the report, diagnostics, the audit trail, no network request | `apps/desktop/e2e/run.mjs` (`make e2e`) |
+| Visual | Nine states at two sizes and two themes, diffed against PNGs generated under the `e2e` job's runner and screen size | `apps/desktop/e2e/shots.mjs` (`make shots`, `make shots-check`) |
 | Engine | Tool behaviour, container versions, keystore, parsers | `packages/engine/test` (vitest) |
 | Container format | A second implementation reads what this build writes | `packages/engine/test/fixtures/read_container.py` |
 | Parser corpus | The inputs the Rust fuzz targets saved, replayed | `packages/engine/test/corpus.test.ts` |
-| End to end | The CLI against real files | `scripts/smoke.sh` |
+| End to end (CLI) | The CLI against real files | `scripts/smoke.sh` |
 | Claims | Every README example, run as written | `scripts/check-readme-claims.sh` |
 | The tests themselves | The code is broken on purpose; each break must fail a test | `scripts/mutation-check.sh` (`make mutation`) |
 

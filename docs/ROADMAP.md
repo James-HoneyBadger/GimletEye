@@ -414,6 +414,12 @@ from there — no standing waiver, and nothing to remember to switch on.
   | Declared capabilities | `capabilities.test.ts`: a write or an `exec` not declared fails with `capability_denied` |
   | Platform contract | `platform-contract.test.ts`: every tool that names one platform refuses the others with `unsupported` before it reads anything |
 
+  The rows above are the record of the tree 1.0 was cut from. The tree has moved
+  since — 596 tests over 57 files, ten end-to-end checks (the palette, the report
+  view, diagnostics, the audit trail, and the absence of a network request), and
+  a screenshot harness for the window — so `make check` is the live number and
+  this table is the dated one.
+
   One row of ADR 0006 is **not** claimed and does not need to be: "secrets are
   zeroized on drop". They are not, and SECURITY.md says so in the cryptographic
   posture rather than the docs implying otherwise — the ADR's own rule is that a
