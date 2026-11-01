@@ -3,11 +3,13 @@ import './styles/app.css';
 
 import { createActions, FOCUSABLE, type Renderer } from './lib/actions';
 import { modLabel } from './lib/format';
+import { shortcutFor } from './lib/shortcuts';
 import { persist, state } from './lib/store';
 import { renderSidebar } from './components/sidebar';
 import { renderTopbar } from './components/topbar';
 import { renderWorkbench } from './components/workbench';
-import { renderResult } from './components/result';
+import { renderReport } from './components/report';
+import { renderPalette, renderPaletteResults } from './components/palette';
 import { renderSheets } from './components/sheets';
 import { icons } from './components/icons';
 
@@ -19,28 +21,37 @@ const root: HTMLDivElement = mount;
 
 document.documentElement.dataset.mod = modLabel;
 
-function applyTheme(): void {
+function applyShell(): void {
   document.documentElement.dataset.theme = state.theme;
+  document.documentElement.dataset.density = state.density;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
     meta.setAttribute('content', state.theme === 'dark' ? '#100e0c' : '#f6f4f0');
   }
 }
 
+/** The main pane is one of two places: the parameters, or the report. */
+function mainPane(): string {
+  return state.view === 'report' ? renderReport(state) : renderWorkbench(state);
+}
+
 function renderAll(): void {
-  applyTheme();
+  applyShell();
   const offset = sidebarScroll();
   root.innerHTML = `
     <div class="app">
+      <button class="skip-link" type="button" data-skip>Skip to the tool</button>
       ${renderTopbar(state)}
       <div class="body">
         ${renderSidebar(state)}
-        ${renderWorkbench(state)}
+        ${mainPane()}
       </div>
       <div class="toast-stack" id="toasts" aria-live="polite"></div>
+      <div id="palette-root"></div>
       <div id="sheet-root"></div>
     </div>`;
   restoreSidebarScroll(offset, true);
+  renderPaletteHost();
   renderSheetHost();
 }
 
@@ -67,7 +78,7 @@ function restoreSidebarScroll(offset: number, revealActive: boolean): void {
   scroller.scrollTop = offset;
 }
 
-/** Sidebar only — used while typing in search so focus is never stolen. */
+/** Sidebar only — used while typing in the palette so focus is never stolen. */
 function renderSidebarOnly(): void {
   const current = root.querySelector('.sidebar');
   if (!current) {
@@ -79,20 +90,23 @@ function renderSidebarOnly(): void {
   restoreSidebarScroll(offset, false);
 }
 
-/** Result only — used for tab switches and run completion. */
-function renderResultOnly(): void {
-  const region = root.querySelector('#result-region');
-  if (!region) {
+/** The report pane only — for tab switches, sorting, and run completion. */
+function renderReportOnly(): void {
+  const main = root.querySelector('.main');
+  if (!main || state.view !== 'report') {
     renderAll();
     return;
   }
-  region.innerHTML = renderResult(state);
+  const scroll = main.scrollTop;
+  main.outerHTML = renderReport(state);
+  const replaced = root.querySelector<HTMLElement>('.main');
+  if (replaced) replaced.scrollTop = scroll;
 }
 
 /** Workbench only — used when validation messages change. */
 function renderWorkbenchOnly(): void {
   const main = root.querySelector('.main');
-  if (!main) {
+  if (!main || state.view !== 'compose') {
     renderAll();
     return;
   }
@@ -104,7 +118,7 @@ function renderWorkbenchOnly(): void {
 
 /** Topbar affordances that change without a full re-render. */
 function renderChrome(): void {
-  applyTheme();
+  applyShell();
   const toggle = root.querySelector<HTMLElement>('#toggle-theme');
   if (toggle) {
     toggle.innerHTML = state.theme === 'dark' ? icons.sun : icons.moon;
@@ -114,21 +128,71 @@ function renderChrome(): void {
   if (badge) badge.textContent = state.history.length > 0 ? String(state.history.length) : '';
 }
 
+/**
+ * The palette, and the input it must not lose.
+ *
+ * Typing re-renders the list and the sidebar underneath (the palette is also the
+ * search), so the overlay is only rebuilt when it is not already on screen.
+ */
+function renderPaletteHost(): void {
+  const host = root.querySelector('#palette-root');
+  if (!host) return;
+  if (!state.palette.open) {
+    host.innerHTML = '';
+    return;
+  }
+  const items = actions.paletteEntries();
+  const input = host.querySelector<HTMLInputElement>('#palette-input');
+  const results = host.querySelector<HTMLElement>('#palette-results');
+  if (input && results) {
+    results.innerHTML = renderPaletteResults(items, state.palette.index);
+    input.setAttribute('aria-activedescendant', `palette-item-${state.palette.index}`);
+    return;
+  }
+  host.innerHTML = renderPalette(state, items);
+  host.querySelector<HTMLInputElement>('#palette-input')?.focus();
+}
+
+/**
+ * The sheet, and the focus it owns.
+ *
+ * The history sheet re-renders when the audit tail arrives, which replaces the
+ * control the user was on and drops focus to `<body>`. Put it back on the
+ * panel, so the next Tab starts from inside the dialog rather than behind it.
+ */
 function renderSheetHost(): void {
   const host = root.querySelector('#sheet-root');
-  if (host) host.innerHTML = renderSheets(state);
+  if (!host) return;
+  const previous = document.activeElement;
+  const wasInside = previous instanceof HTMLElement && host.contains(previous);
+  const wasLost = previous === null || previous === document.body;
+  host.innerHTML = renderSheets(state);
+  if (state.sheet === null || !(wasInside || wasLost)) return;
+  host.querySelector<HTMLElement>('[data-sheet-panel] .icon-button')?.focus();
 }
 
 const render: Renderer = {
   all: renderAll,
   sidebar: renderSidebarOnly,
   workbench: renderWorkbenchOnly,
-  result: renderResultOnly,
+  report: renderReportOnly,
   sheets: renderSheetHost,
+  palette: renderPaletteHost,
   chrome: renderChrome,
 };
 
 const actions = createActions(root, render);
+
+/** Fill the first empty path field with a path the desktop handed back. */
+function fillPath(field: string | null, path: string): void {
+  const input = field
+    ? root.querySelector<HTMLInputElement>(`#args [name="${field}"]`)
+    : root.querySelector<HTMLInputElement>('#args input[data-type="path"]');
+  if (!input) return;
+  input.value = path;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+}
 
 root.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
@@ -158,10 +222,93 @@ root.addEventListener('click', (event) => {
     return;
   }
 
-  const tab = target.closest<HTMLElement>('[data-tab]');
-  if (tab) {
-    state.tab = tab.dataset.tab === 'json' ? 'json' : 'details';
-    renderResultOnly();
+  if (target.closest('[data-palette-open]')) {
+    actions.openPalette();
+    return;
+  }
+
+  const paletteRow = target.closest<HTMLElement>('[data-palette-index]');
+  if (paletteRow) {
+    actions.acceptPalette(Number(paletteRow.dataset.paletteIndex));
+    return;
+  }
+
+  if (target.hasAttribute('data-palette-backdrop')) {
+    actions.closePalette();
+    return;
+  }
+
+  if (target.closest('[data-skip]')) {
+    root.querySelector<HTMLElement>('#main')?.focus();
+    return;
+  }
+
+  const findingFilter = target.closest<HTMLElement>('[data-finding-filter]');
+  if (findingFilter) {
+    const value = findingFilter.dataset.findingFilter;
+    actions.setFindingFilter(value ? (value as 'info' | 'low' | 'medium' | 'high' | 'critical') : null);
+    return;
+  }
+
+  const reportTab = target.closest<HTMLElement>('[data-report-tab]');
+  if (reportTab?.dataset.reportTab) {
+    actions.setReportTab(reportTab.dataset.reportTab as 'findings' | 'data' | 'changes' | 'raw');
+    return;
+  }
+
+  const sort = target.closest<HTMLElement>('[data-sort]');
+  if (sort?.dataset.sort) {
+    actions.sortReport(sort.dataset.sort);
+    return;
+  }
+
+  if (target.closest('[data-edit-parameters]')) {
+    actions.setView('compose');
+    return;
+  }
+
+  const pin = target.closest<HTMLElement>('[data-pin-tool]');
+  if (pin?.dataset.pinTool) {
+    actions.togglePin(pin.dataset.pinTool);
+    return;
+  }
+
+  const suggestion = target.closest<HTMLElement>('[data-suggest-tool]');
+  if (suggestion?.dataset.suggestTool) {
+    let args: Record<string, string> = {};
+    try {
+      args = JSON.parse(suggestion.dataset.suggestArgs ?? '{}') as Record<string, string>;
+    } catch {
+      args = {};
+    }
+    actions.applySuggestion(suggestion.dataset.suggestTool, args);
+    return;
+  }
+
+  const pick = target.closest<HTMLElement>('[data-pick]');
+  if (pick?.dataset.pick) {
+    const mode = pick.dataset.pick === 'directory' ? 'directory' : 'file';
+    const field = pick.dataset.field ?? null;
+    void actions.pick(mode).then((chosen) => {
+      if (chosen !== null) fillPath(field, chosen);
+    });
+    return;
+  }
+
+  const reveal = target.closest<HTMLElement>('[data-reveal]');
+  if (reveal?.dataset.reveal) {
+    void actions.reveal(reveal.dataset.reveal);
+    return;
+  }
+
+  const action = target.closest<HTMLElement>('[data-action]');
+  if (action?.dataset.action) {
+    actions.execute({
+      id: `action:${action.dataset.action}`,
+      kind: 'action',
+      title: '',
+      detail: '',
+    });
     return;
   }
 
@@ -178,13 +325,8 @@ root.addEventListener('click', (event) => {
   }
 
   const sheetTrigger = target.closest<HTMLElement>('[data-sheet]');
-  if (sheetTrigger?.dataset.sheet === 'history') {
-    actions.openSheet(sheetTrigger.dataset.sheet);
-    return;
-  }
-
-  if (target.closest('[data-clear-search]')) {
-    actions.clearSearch();
+  if (sheetTrigger?.dataset.sheet) {
+    actions.openSheet(sheetTrigger.dataset.sheet as 'history' | 'diagnostics' | 'shortcuts');
     return;
   }
 
@@ -198,7 +340,7 @@ root.addEventListener('click', (event) => {
     return;
   }
 
-  if (target.closest('#run')) {
+  if (target.closest('#run') || target.closest('[data-retry-run]')) {
     void actions.run();
     return;
   }
@@ -220,17 +362,15 @@ root.addEventListener('submit', (event) => {
 });
 
 root.addEventListener('input', (event) => {
-  const target = event.target as HTMLElement;
-  if (target.id === 'search' && target instanceof HTMLInputElement) {
-    state.query = target.value;
-    renderSidebarOnly();
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
+  if (target.id === 'palette-input') {
+    actions.setPaletteQuery(target.value);
     return;
   }
-  if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) {
-    if (target.dataset.type) {
-      actions.rememberDraft();
-      actions.clearFieldError(target.name);
-    }
+  if (target.dataset.type) {
+    actions.rememberDraft();
+    actions.clearFieldError(target.name);
   }
 });
 
@@ -239,8 +379,7 @@ root.addEventListener('change', (event) => {
   if (!(target instanceof HTMLInputElement)) return;
 
   if (target.id === 'dry-run') {
-    state.dryRun = target.checked;
-    persist();
+    actions.setDryRun(target.checked);
     return;
   }
 
@@ -265,19 +404,93 @@ root.addEventListener('change', (event) => {
   }
 });
 
-root.addEventListener('keydown', (event) => {
-  const mod = event.metaKey || event.ctrlKey;
-  const target = event.target as HTMLElement;
-  const inSidebar = target.closest('.sidebar') !== null;
+// A file dragged from the desktop is a real path. The preload resolves it (the
+// page cannot) and leaves the answer on the drop zone.
+root.addEventListener('gimlet:dropped', (event) => {
+  const zone = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-drop-zone]') : null;
+  const path = zone?.dataset.droppedPath;
+  if (!zone || !path) return;
+  delete zone.dataset.droppedPath;
+  zone.classList.remove('is-drop');
+  const input = zone.querySelector<HTMLInputElement>('input[data-type="path"]');
+  if (input) {
+    input.value = path;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  }
+});
 
-  if (mod && event.key.toLowerCase() === 'k') {
+for (const type of ['dragenter', 'dragover'] as const) {
+  root.addEventListener(type, (event) => {
+    const zone = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-drop-zone]') : null;
+    if (!zone) return;
     event.preventDefault();
-    actions.focusSearch();
+    zone.classList.add('is-drop');
+  });
+}
+
+root.addEventListener('dragleave', (event) => {
+  const zone = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-drop-zone]') : null;
+  zone?.classList.remove('is-drop');
+});
+
+root.addEventListener('drop', (event) => {
+  const zone = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-drop-zone]') : null;
+  if (!zone) return;
+  // The preload reads the path; the page just stops Chromium navigating.
+  event.preventDefault();
+});
+
+// Keydown is bound to the document, not `#app`: focus can land on `<body>` (a
+// re-rendered sheet, a dismissed control), and an event targeted there never
+// reaches a listener attached to a descendant — Escape would do nothing.
+document.addEventListener('keydown', (event) => {
+  // A view that has been replaced must not answer for the one on screen.
+  if (!root.isConnected) return;
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const inSidebar = target?.closest('.sidebar') != null;
+  const typing = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement;
+  const shortcut = shortcutFor(event);
+
+  if (shortcut === 'palette') {
+    event.preventDefault();
+    if (state.palette.open) actions.closePalette();
+    else actions.openPalette();
     return;
   }
 
-  if (mod && event.key === 'Enter') {
+  if (shortcut === 'settings') {
     event.preventDefault();
+    actions.openSheet('diagnostics');
+    return;
+  }
+
+  if (state.palette.open) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      actions.closePalette();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      actions.movePalette(event.key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      actions.acceptPalette();
+      return;
+    }
+    if (event.key === 'Tab') {
+      // The palette has one field; Tab has nowhere useful to go.
+      event.preventDefault();
+      return;
+    }
+  }
+
+  if (shortcut === 'run' || shortcut === 'dry-run') {
+    event.preventDefault();
+    if (shortcut === 'dry-run' && selectedToolMutates()) actions.setDryRun(true);
     void actions.run();
     return;
   }
@@ -305,29 +518,34 @@ root.addEventListener('keydown', (event) => {
       actions.closeSheet();
       return;
     }
-    if (target instanceof HTMLInputElement && target.id === 'search') {
-      if (state.query) {
-        actions.clearSearch();
-      } else {
-        target.blur();
-      }
+    if (state.view === 'report') {
+      event.preventDefault();
+      actions.setView('compose');
+      return;
     }
     return;
   }
 
+  if (shortcut === 'shortcuts' && !typing) {
+    event.preventDefault();
+    actions.openSheet('shortcuts');
+    return;
+  }
+
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    if (inSidebar || target.id === 'search') {
+    if (inSidebar || target?.id === 'palette-input') {
       event.preventDefault();
       actions.moveSelection(event.key === 'ArrowDown' ? 1 : -1);
     }
     return;
   }
 
-  if (event.key === 'Enter' && target instanceof HTMLInputElement && target.id === 'search') {
-    event.preventDefault();
-    const first = root.querySelector<HTMLElement>('.tool');
-    if (first?.dataset.tool) actions.selectTool(first.dataset.tool, true);
-  }
 });
+
+function selectedToolMutates(): boolean {
+  const id = state.selectedId;
+  if (!id) return false;
+  return state.tools.find((tool) => tool.id === id)?.mutates === true;
+}
 
 void actions.boot();

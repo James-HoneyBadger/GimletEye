@@ -43,6 +43,21 @@ export function normalize(path: string): string {
   return absolute ? `/${body}` : body === '' ? '.' : body;
 }
 
+/**
+ * Whether `target` is `root` itself or lives underneath it.
+ *
+ * Both sides are normalised first, so `..` cannot climb out and a sibling named
+ * `root-old` is not mistaken for a child of `root`. Used anywhere a path from one
+ * process (or one window) is about to be acted on by another.
+ */
+export function isWithin(root: string, target: string): boolean {
+  const parent = normalize(root);
+  const child = normalize(target);
+  if (child === parent) return true;
+  const prefix = parent.endsWith(sep) ? parent : `${parent}${sep}`;
+  return child.startsWith(prefix);
+}
+
 export function dirname(path: string): string {
   const clean = normalize(path);
   const at = clean.lastIndexOf('/');

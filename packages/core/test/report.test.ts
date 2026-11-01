@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOutputFormat, render, sealed, type Report } from '../src/report.js';
+import { parseOutputFormat, render, renderMarkdown, sealed, type Report } from '../src/report.js';
 
 const report = (over: Partial<Report> = {}): Report => ({
   tool: 'crypto.sha256',
@@ -72,5 +72,19 @@ describe('output formats', () => {
 
   it('still rejects what it never supported', () => {
     expect(() => parseOutputFormat('yaml')).toThrow(/unknown output format/);
+  });
+});
+
+describe('the markdown report', () => {
+  it('is exported, so a surface can paste the same thing the CLI prints', () => {
+    const markdown = renderMarkdown(
+      report({
+        findings: [{ severity: 'high', code: 'metadata.present', message: 'EXIF is present', target: '/a.jpg' }],
+      }),
+    );
+    expect(markdown.startsWith('## crypto.sha256')).toBe(true);
+    expect(markdown).toContain('**Status:** ok');
+    expect(markdown).toContain('`metadata.present`');
+    expect(markdown).toContain('/a.jpg');
   });
 });

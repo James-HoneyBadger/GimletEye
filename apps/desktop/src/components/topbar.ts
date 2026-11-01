@@ -19,14 +19,13 @@ export function renderTopbar(state: AppState): string {
         <span class="brand-name">Gimlet<em>Eye</em></span>
       </div>
 
-      <div class="search" role="search">
+      <button class="search search--trigger" id="open-palette" type="button" data-palette-open
+              title="Search tools and actions" aria-label="Search tools and actions"
+              aria-keyshortcuts="Control+K Meta+K">
         ${icons.search}
-        <input id="search" type="search" spellcheck="false" autocomplete="off"
-               placeholder="Search tools, tags, capabilities, arguments"
-               aria-label="Search tools"
-               value="${escapeHtml(state.query)}" />
+        <span class="search-placeholder">Search tools and actions</span>
         <kbd>${modLabel} K</kbd>
-      </div>
+      </button>
 
       <div class="topbar-actions">
         <span class="conn" title="${connected ? 'Engine ready' : 'Engine unavailable'}">${status}</span>
@@ -38,6 +37,10 @@ export function renderTopbar(state: AppState): string {
                 title="Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme"
                 aria-label="Toggle theme">
           ${state.theme === 'dark' ? icons.sun : icons.moon}
+        </button>
+        <button class="icon-button" id="open-settings" type="button"
+                data-sheet="diagnostics" title="Settings and diagnostics" aria-label="Settings and diagnostics">
+          ${icons.gear}
         </button>
       </div>
     </header>

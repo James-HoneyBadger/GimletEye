@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cliCommand, formatWhen, humanDuration, matchesQuery, searchText, truncate } from './format';
+import { cliCommand, elapsed, formatWhen, humanDuration, matchesQuery, searchText, truncate } from './format';
 
 const scan = {
   id: 'privacy.metadata-scan',
@@ -105,5 +105,29 @@ describe('formatWhen', () => {
   it('renders a time for today', () => {
     const now = new Date().toISOString();
     expect(formatWhen(now)).toMatch(/\d/);
+  });
+});
+
+describe('elapsed', () => {
+  const at = (iso: string): number => new Date(iso).getTime();
+  const now = at('2026-10-31T12:00:00Z');
+
+  it('says "just now" for the last few seconds', () => {
+    expect(elapsed('2026-10-31T11:59:50Z', now)).toBe('just now');
+  });
+
+  it('counts minutes, hours, days, and months', () => {
+    expect(elapsed('2026-10-31T11:57:00Z', now)).toBe('3m ago');
+    expect(elapsed('2026-10-31T09:00:00Z', now)).toBe('3h ago');
+    expect(elapsed('2026-10-28T12:00:00Z', now)).toBe('3d ago');
+    expect(elapsed('2026-08-31T12:00:00Z', now)).toBe('2mo ago');
+  });
+
+  it('says nothing about a timestamp it cannot read', () => {
+    expect(elapsed('not-a-date', now)).toBe('');
+  });
+
+  it('does not report a future run as negative', () => {
+    expect(elapsed('2026-10-31T12:05:00Z', now)).toBe('just now');
   });
 });

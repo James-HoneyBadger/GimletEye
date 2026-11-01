@@ -18,6 +18,12 @@ export interface Health {
   engine: string;
   tools: number;
   home: string;
+  config: string;
+  audit: string;
+}
+
+export interface DoctorSnapshot extends Health {
+  auditEnabled: boolean;
 }
 
 export interface AuditTail {
@@ -28,9 +34,16 @@ export interface AuditTail {
 
 export interface GimletBridge {
   health(): Promise<Health>;
+  doctor(): Promise<DoctorSnapshot>;
   tools(): Promise<ToolManifest[]>;
   run(tool: string, args: Args, dryRun: boolean): Promise<Report>;
   audit(limit: number): Promise<AuditTail>;
+  /** The system file dialog; the window never sees the filesystem itself. */
+  pick(mode: 'file' | 'directory' | 'either'): Promise<{ path: string | null }>;
+  /** Open a path the runtime owns in the desktop's file manager. */
+  reveal(path: string): Promise<unknown>;
+  /** The system clipboard; the session denies the web permission. */
+  copy(text: string): Promise<unknown>;
 }
 
 declare global {

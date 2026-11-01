@@ -107,6 +107,46 @@ export function cliCommand(toolId: string, args: Record<string, unknown>, dryRun
   return parts.join(' ');
 }
 
+/** `1536` → `1.5 kB`: the unit a person reads, without a locale. */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** A ratio in `0..1` as a percentage, without a locale. */
+export function formatPercent(ratio: number, digits = 1): string {
+  if (!Number.isFinite(ratio)) return '—';
+  return `${(ratio * 100).toFixed(digits)}%`;
+}
+
+/** `2, "segment"` → `2 segments`; a count and its noun should never disagree. */
+export function plural(count: number, singular: string, pluralForm?: string): string {
+  return `${count} ${count === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
+}
+
+/**
+ * How long ago a run was, in the unit a glance needs.
+ *
+ * `now` is a parameter so a test can hold the clock still; the caller passes the
+ * real one.
+ */
+export function elapsed(iso: string, now: number = Date.now()): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const seconds = Math.max(0, Math.round((now - then) / 1000));
+  if (seconds < 45) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.round(days / 30);
+  return `${months}mo ago`;
+}
+
 /** `2026-10-24T11:31:45Z` → `24 Oct, 11:31` in the viewer's timezone. */
 export function formatWhen(iso: string): string {
   const date = new Date(iso);

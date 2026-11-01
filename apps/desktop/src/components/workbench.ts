@@ -1,16 +1,16 @@
-import { isSecretArg } from '@gimlet-eye/core';
+import { describeArgs, type DescribedArg } from '@gimlet-eye/core';
 
 import type { ArgSpec, ToolManifest } from '../lib/engine';
-import { escapeHtml, modLabel, titleCase } from '../lib/format';
+import { elapsed, escapeHtml, modLabel, titleCase } from '../lib/format';
 import {
   categories,
   draftFor,
+  runSummaryFor,
   selectedTool,
   type AppState,
   type RawValues,
 } from '../lib/store';
 import { icons } from './icons';
-import { renderResult } from './result';
 
 /** Above this many values an enum stays a dropdown. */
 const SEGMENT_LIMIT = 4;
@@ -43,7 +43,7 @@ function segmented(
   </div>`;
 }
 
-function field(spec: ArgSpec, draft: RawValues, error: string | undefined): string {
+function field(spec: ArgSpec, draft: RawValues, error: string | undefined, described?: DescribedArg): string {
   const id = `arg-${spec.name}`;
   const invalid = error ? ' input--invalid' : '';
   const label = `<label for="${id}" id="${id}-label">${escapeHtml(titleCase(spec.name))}${spec.required ? '<span class="required" title="Required">*</span>' : ''}</label>`;
@@ -85,14 +85,26 @@ function field(spec: ArgSpec, draft: RawValues, error: string | undefined): stri
     </select>`;
   } else {
     // A passphrase is masked rather than shown: the field is generated from the
-    // manifest, and the manifest calls the argument one.
-    const secret = type === 'string' && isSecretArg(spec.name);
+    // manifest, which says which arguments carry one.
+    const secret = described?.secret ?? false;
     const inputType = type === 'integer' ? 'number' : secret ? 'password' : 'text';
     const placeholder = type === 'path' ? '/path/to/file' : '';
     const mono = type === 'path' ? ' input--mono' : '';
-    control = `<input class="input${mono}${invalid}" type="${inputType}" id="${id}" name="${escapeHtml(spec.name)}"
+    const input = `<input class="input${mono}${invalid}" type="${inputType}" id="${id}" name="${escapeHtml(spec.name)}"
       data-type="${type}" placeholder="${placeholder}" value="${escapeHtml(raw)}" spellcheck="false"
       autocomplete="${secret ? 'new-password' : 'off'}"${describedBy} />`;
+    // A path is a thing on this machine, not a string to type from memory. The
+    // manifest says whether this argument names a file, a folder, or either.
+    const picker = described?.picker ?? null;
+    const pickerLabel = picker === 'directory' ? 'a folder' : picker === 'either' ? 'a file or folder' : 'a file';
+    control =
+      picker === null
+        ? input
+        : `<div class="input-row">${input}
+             <button type="button" class="icon-button input-browse" data-pick="${picker}"
+                     data-field="${escapeHtml(spec.name)}" title="Choose ${pickerLabel}"
+                     aria-label="Choose ${escapeHtml(spec.name)}">${icons.folder}</button>
+           </div>`;
   }
 
   return `<div class="field field--${type}">${label}${control}${help}${message}</div>`;
@@ -189,7 +201,7 @@ function dryRunControls(tool: ToolManifest, state: AppState): string {
 export function renderWorkbench(state: AppState): string {
   const tool = selectedTool();
   if (!tool) {
-    return `<main class="main">${emptyState(state)}</main>`;
+    return `<main class="main" id="main" tabindex="-1">${emptyState(state)}</main>`;
   }
 
   const args = tool.args ?? [];
@@ -200,9 +212,11 @@ export function renderWorkbench(state: AppState): string {
   const tags = (tool.tags ?? []).slice(0, 4).map((tag) => `<span class="chip chip--quiet">${escapeHtml(tag)}</span>`).join('');
   const errors = state.errors;
   const draft = draftFor(tool.id);
+  const described = new Map(describeArgs(tool).map((entry) => [entry.spec.name, entry]));
+  const lastRun = runSummaryFor(tool.id);
 
   return `
-    <main class="main">
+    <main class="main" id="main" tabindex="-1">
       <section class="tool-head">
         <div class="tool-head-top">
           <div>
@@ -211,6 +225,10 @@ export function renderWorkbench(state: AppState): string {
           </div>
           <div class="tool-badges">
             ${tool.mutates ? `<span class="badge badge--writes" title="This tool can write to this machine">${icons.warning}writes</span>` : ''}
+            <button class="icon-button${state.pins.includes(tool.id) ? ' is-on' : ''}" data-pin-tool="${escapeHtml(tool.id)}"
+                    aria-pressed="${state.pins.includes(tool.id)}"
+                    title="${state.pins.includes(tool.id) ? 'Unpin this tool' : 'Pin this tool'}"
+                    aria-label="${state.pins.includes(tool.id) ? 'Unpin this tool' : 'Pin this tool'}">${icons.pin}</button>
           </div>
         </div>
 
@@ -222,6 +240,11 @@ export function renderWorkbench(state: AppState): string {
           ${platforms}
           ${capabilities}
           ${tags}
+          ${
+            lastRun
+              ? `<span class="muted tool-last-run" data-volatile title="Most recent run in the audit trail">last run ${escapeHtml(elapsed(lastRun.ts))} · ${escapeHtml(lastRun.status)}</span>`
+              : ''
+          }
         </div>
       </section>
 
@@ -232,20 +255,39 @@ export function renderWorkbench(state: AppState): string {
         </div>
         ${args.length === 0
           ? '<p class="muted panel-body">This tool takes no parameters.</p>'
-          : `<form class="args-grid panel-body" id="args" autocomplete="off" novalidate>${args
-              .map((spec) => field(spec, draft, errors[spec.name]))
-              .join('')}</form>`}
+          : `<form class="args-grid panel-body" id="args" autocomplete="off" novalidate data-drop-zone>${args
+              .map((spec) => field(spec, draft, errors[spec.name], described.get(spec.name)))
+              .join('')}
+             <p class="drop-hint" aria-hidden="true">${icons.folder}Drop a file to fill the first path</p>
+            </form>`}
       </section>
+
+      <details class="manifest">
+        <summary>Manifest</summary>
+        <pre class="code-block">${escapeHtml(
+          JSON.stringify(
+            {
+              id: tool.id,
+              category: tool.category,
+              capabilities: tool.capabilities ?? [],
+              platforms: tool.platforms ?? [],
+              mutates: tool.mutates === true,
+              args,
+              data: tool.data,
+            },
+            null,
+            2,
+          ),
+        )}</pre>
+      </details>
 
       <section class="actionbar">
         ${dryRunControls(tool, state)}
         <span class="actionbar-spacer"></span>
         <span class="kbd-hint"><kbd>${modLabel}</kbd><kbd>↵</kbd></span>
         <button class="button button--primary" id="run" ${state.running ? 'disabled' : ''}>
-          ${state.running ? '<span class="spinner" aria-hidden="true"></span>Running…' : `${icons.play}Run`}
+          ${state.running ? '<span class="spinner" aria-hidden="true"></span>Running…' : `${icons.play}<span class="run-label">Run</span>`}
         </button>
       </section>
-
-      <div id="result-region">${renderResult(state)}</div>
     </main>`;
 }

@@ -1,6 +1,16 @@
+/*
+ * The whole vocabulary: colour, type, space, radius, elevation, motion, density.
+ *
+ * `app.css` may only use these names. A literal `font-size` or `border-radius`
+ * there is a bug, and `tokens.test.ts` fails when one appears. Contrast is
+ * asserted rather than eyeballed: every text pair is at least 4.5:1 on the
+ * surfaces it is used on, in both themes.
+ */
+
 :root {
   color-scheme: dark;
 
+  /* surfaces */
   --bg: #100e0c;
   --surface: #181513;
   --surface-2: #201c18;
@@ -8,15 +18,19 @@
   --border: #2e2823;
   --border-strong: #3b342c;
 
+  /* text */
   --text: #ece5dc;
   --text-muted: #a2968a;
-  --text-faint: #6f655b;
+  /* 5.54:1 on --bg, 4.52:1 on --surface-3: quiet, still legible. */
+  --text-faint: #92887c;
 
+  /* accent: one colour, for the thing you can act on */
   --accent: #e3aa42;
   --accent-strong: #f0bd61;
   --accent-ink: #1a1207;
   --accent-soft: rgba(227, 170, 66, 0.14);
 
+  /* verdict */
   --ok: #5fbf7a;
   --ok-soft: rgba(95, 191, 122, 0.14);
   --warn: #e0b04a;
@@ -25,18 +39,70 @@
   --error-soft: rgba(226, 105, 95, 0.14);
   --info-soft: rgba(140, 160, 200, 0.14);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* elevation: one hairline level, one floating level */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 8px 24px rgba(0, 0, 0, 0.35);
 
-  --radius-sm: 7px;
-  --radius: 10px;
-  --radius-lg: 14px;
-
-  --topbar-h: 56px;
-  --sidebar-w: 306px;
-
+  /* type */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 26px;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+
+  --weight-normal: 400;
+  --weight-medium: 550;
+  --weight-strong: 650;
+
+  /* space: a 2px base, used for every gap and inset */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+
+  /* radius: three sizes and a pill; nothing else */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* motion */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 700ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* focus: one ring, everywhere */
+  --focus-ring: var(--accent);
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* layout */
+  --topbar-h: 56px;
+  --sidebar-w: 306px;
+  --sheet-width: min(560px, 92vw);
+
+  /* density: only geometry, never type */
+  --control-h: 32px;
+  --control-h-sm: 24px;
+  --row-pad: 10px;
+  --table-row-h: 34px;
+  --list-pad: 12px;
 }
 
 [data-theme='light'] {
@@ -50,22 +116,32 @@
   --border-strong: #cec4b6;
 
   --text: #211c17;
-  --text-muted: #6b6156;
-  --text-faint: #918676;
+  --text-muted: #5b5248;
+  /* 5.51:1 on --bg, 4.79:1 on --surface-3. */
+  --text-faint: #6b6156;
 
-  --accent: #a16a10;
-  --accent-strong: #8a5a0a;
+  /* 5.39:1 on --bg, 5.92:1 on --surface: the old #a16a10 was 4.17:1. */
+  --accent: #8a5a0a;
+  --accent-strong: #744b07;
   --accent-ink: #fffaf1;
-  --accent-soft: rgba(161, 106, 16, 0.1);
+  --accent-soft: rgba(138, 90, 10, 0.1);
 
-  --ok: #2c7a48;
-  --ok-soft: rgba(44, 122, 72, 0.1);
-  --warn: #8f6410;
-  --warn-soft: rgba(143, 100, 16, 0.1);
-  --error: #ac3a33;
-  --error-soft: rgba(172, 58, 51, 0.1);
+  --ok: #24683b;
+  --ok-soft: rgba(36, 104, 59, 0.1);
+  --warn: #7c560e;
+  --warn-soft: rgba(124, 86, 14, 0.1);
+  --error: #9e332c;
+  --error-soft: rgba(158, 51, 44, 0.1);
   --info-soft: rgba(46, 74, 125, 0.08);
 
-  --shadow-sm: 0 1px 2px rgba(40, 30, 20, 0.08);
-  --shadow-md: 0 10px 30px rgba(40, 30, 20, 0.12);
+  --elev-1: 0 1px 2px rgba(40, 30, 20, 0.08);
+  --elev-2: 0 10px 30px rgba(40, 30, 20, 0.12);
+}
+
+/* The compact setting changes how much fits, never how big the words are. */
+[data-density='compact'] {
+  --control-h: 28px;
+  --row-pad: 6px;
+  --table-row-h: 28px;
+  --list-pad: 8px;
 }

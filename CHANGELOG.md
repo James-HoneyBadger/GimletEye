@@ -4,6 +4,90 @@ All notable changes to Gimlet Eye. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **The command palette is the search.** <kbd>Ctrl</kbd> <kbd>K</kbd> opens one
+  list of tools and actions: run, repeat, dry run, theme, density, recent runs,
+  settings, shortcuts, and pillar jumps. Ranking forgives a misspelling and
+  matches an id, a tag, a capability, or an argument name.
+- **Pinned and recent tools** sit above the catalogue. Both live in the UI's own
+  preferences, not the audit trail.
+- **The report has its own view.** A run lands on the report; *Edit parameters*
+  returns to the form with its values. Sections are Findings (grouped by severity,
+  each with the tool that answers it), Data (sorted by the manifest's `DataSpec`,
+  with sortable headers), Changes (a diff against the previous run of the same
+  tool), and Raw. Strip and encrypt reports offer their verifier in one click.
+- **Settings and diagnostics** (the gear, or <kbd>Ctrl</kbd> <kbd>,</kbd>) shows
+  the version, the engine, and the real `GIMLET_HOME`, config, and audit paths,
+  with copy buttons and *Open data folder* (a path the runtime owns, validated in
+  the main process).
+- **`path` arguments have a Browse button and accept a drop.** The file dialog and
+  the dropped file's path both come from the main process; the page still has no
+  filesystem access.
+- **A visual baseline harness**: `make shots` captures nine states at two sizes
+  and two themes with volatile values masked, and `make shots-check` diffs a
+  capture against the PNGs in `apps/desktop/e2e/baselines` — which have to be
+  generated under the `e2e` job's runner.
+- **Findings narrow and travel**: severity chips with counts, and a copy button
+  that writes exactly what is on screen as Markdown — so a filtered list is a
+  paste-ready ticket line.
+- **The catalogue remembers**: each tool row says when it last ran and colours
+  the age by the verdict, read from the audit trail (names and outcomes only, as
+  ever). The trail is refreshed after every run, so the clock, the sheet, and the
+  rows agree.
+- **A skip link**: the first Tab goes to "Skip to the tool", which lands focus on
+  the workbench instead of walking the topbar and the catalogue.
+- **The window reopens where you left it.** Size and position are saved to the
+  profile and clamped to the displays that exist, so a window last seen on an
+  unplugged monitor comes back on a real one.
+
+### Changed
+
+- **One token system.** Type, space, radius, elevation, motion, focus, and density
+  are declared in `tokens.css` and asserted by `tokens.test.ts`; `app.css` may not
+  invent a size or a radius. A **compact** density is available in the palette and
+  the settings sheet.
+- **Contrast passes WCAG AA in both themes** — `--text-faint`, the light accent,
+  and the light verdict colours all moved to at least 4.5:1, and a test computes
+  it rather than trusting the palette.
+- The sidebar is a catalogue again: the palette is the search, so the list no
+  longer disappears while you type.
+- The desktop e2e flow now covers the palette, the report round-trip, and the
+  diagnostics sheet, and runs in a throwaway profile.
+
+### Fixed
+
+- **"Try again" after a failed boot works.** A rejected runtime load was cached
+  for the life of the process, so fixing a configuration file and retrying could
+  never succeed until the window was restarted.
+- **Copying works again.** The window denies every permission request, which
+  includes the web clipboard, so every copy button failed; copying now goes
+  through the desktop's own clipboard in the main process.
+- **"Run again" and <kbd>Ctrl</kbd> <kbd>↵</kbd> keep the arguments.** In the
+  report view there is no form, so the run used an empty argument set and
+  overwrote the draft; it now reuses the draft the last run used.
+- The palette's arrow keys walk the list on screen, not the unfiltered one, so
+  Enter always chooses what is highlighted.
+- The **Recent runs** sheet stays usable after the audit trail arrives: focus
+  returns to the panel, so Escape closes it and Tab stays inside. Keydown is
+  heard on the document, which is where focus lands when a re-render replaces
+  the control that had it.
+- A failed run reports what the engine said instead of "Error invoking remote
+  method 'gimlet:run': …", keeps the last good report above the failure, and
+  offers **Try again** and **Copy the error**.
+- The workbench keeps its two columns at the window's own minimum width. The
+  stacked layout now applies below 880px, which is a browser or a zoomed page
+  rather than a window this app can produce.
+- The application menu is the toolkit's own — File, Edit, View (zoom and
+  fullscreen), Window, and Help → About. Electron's default Reload, Force
+  Reload, and Toggle Developer Tools are gone; nothing in the window reloads.
+- The audit trail shows each run's verdict as an icon and a word rather than a
+  colour-only dot.
+- A file dialog that fails says what happened; it no longer shows the renderer
+  the IPC channel it was called on.
+
 ## [1.0.0] — 2026-10-29
 
 The promise, in one paragraph: **the surfaces other people build against will

@@ -12,6 +12,8 @@ dist/
 # Playwright: traces, videos, and the HTML report from a failed run
 apps/desktop/test-results/
 apps/desktop/playwright-report/
+# Screenshot runs: the harness writes here; only e2e/baselines/ is committed.
+apps/desktop/e2e/shots/
 
 # Fuzz working state: crash reproducers and the corpus libFuzzer grows during a
 # run. The committed starting points live in crates/scrub/fuzz/seeds/.

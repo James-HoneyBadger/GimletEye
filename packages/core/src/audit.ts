@@ -43,6 +43,34 @@ export function auditEntry(tool: string, status: Status, durationMs: number, arg
   };
 }
 
+export interface AuditSummary {
+  /** The newest run of each tool, with how many times it ran in the window read. */
+  latest: Map<string, { ts: string; status: Status; runs: number }>;
+  /** How many entries of each verdict. */
+  counts: Record<Status, number>;
+}
+
+/**
+ * Reduce a tail of the trail to "what last happened, and how often".
+ *
+ * Read-only and order-independent: a trail read newest-first and one read
+ * oldest-first produce the same answer, which is what lets a UI and a CLI share
+ * it without agreeing on how they read the file.
+ */
+export function summariseAudit(entries: readonly AuditEntry[]): AuditSummary {
+  const latest = new Map<string, { ts: string; status: Status; runs: number }>();
+  const counts: Record<Status, number> = { ok: 0, warning: 0, error: 0 };
+  for (const entry of entries) {
+    counts[entry.status] = (counts[entry.status] ?? 0) + 1;
+    const seen = latest.get(entry.tool);
+    // RFC 3339 sorts as a string, so no date arithmetic is needed.
+    if (!seen) latest.set(entry.tool, { ts: entry.ts, status: entry.status, runs: 1 });
+    else if (entry.ts > seen.ts) latest.set(entry.tool, { ts: entry.ts, status: entry.status, runs: seen.runs + 1 });
+    else latest.set(entry.tool, { ts: seen.ts, status: seen.status, runs: seen.runs + 1 });
+  }
+  return { latest, counts };
+}
+
 /** Current time as RFC 3339 UTC with second precision, e.g. `2026-10-23T16:28:42Z`. */
 export function rfc3339(time: Date): string {
   return `${time.toISOString().slice(0, 19)}Z`;

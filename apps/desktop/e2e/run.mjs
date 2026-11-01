@@ -38,7 +38,9 @@ let electronApp;
 
 try {
   electronApp = await electron.launch({
-    args: [app, '--ozone-platform=x11'],
+    // A fresh profile: preferences and recents live in localStorage, and a
+    // previous run's shortcuts would change what the sidebar renders.
+    args: [app, '--ozone-platform=x11', `--user-data-dir=${join(home, 'electron')}`],
     env: { ...process.env, GIMLET_HOME: home, GIMLET_SIDECAR: join(home, 'no-engine') },
     timeout: 60_000,
   });
@@ -63,7 +65,7 @@ try {
   // sidebar opens on the Crypto filter, so "all" has to be chosen first — the
   // count below is of rows rendered, not of tools known.
   await window.getByRole('tab', { name: /^All/ }).click();
-  const rows = await window.locator('.tool').count();
+  const rows = await window.locator('[data-group] .tool').count();
   // The count comes from the same list the main process registers, so adding a
   // tool cannot leave this asserting a number from two releases ago.
   assert.equal(rows, NODE_TOOLS.length, `expected ${NODE_TOOLS.length} tools in the sidebar, saw ${rows}`);
@@ -72,6 +74,15 @@ try {
   const footer = await window.locator('.sidebar-footer').innerText();
   assert.match(footer, /engine built in/, `footer read: ${footer}`);
   step('the footer names the built-in engine');
+
+  // The palette is the search: the keyboard opens it, an id narrows it, and
+  // Enter opens the tool. This is the path a returning user takes every day.
+  await window.keyboard.press('Control+k');
+  await window.waitForSelector('#palette-input', { timeout: 5_000 });
+  await window.fill('#palette-input', 'crypto.sha256');
+  await window.keyboard.press('Enter');
+  await window.waitForSelector('#arg-text', { timeout: 5_000 });
+  step('the palette opens a tool by id');
 
   // A tool that needs no filesystem input, run the way a person would. The
   // sidebar keeps whatever was selected when the filter changed, so the tool is
@@ -84,6 +95,22 @@ try {
   // back from the main process and rendered, not that a spinner stopped.
   await window.waitForSelector('text=2cf24dba5fb0a30e', { timeout: 30_000 });
   step('a run reaches the report view');
+
+  // The report is a view, not a footer: the form is gone until asked for, and
+  // it comes back with what was typed.
+  await window.click('[data-edit-parameters]');
+  await window.waitForSelector('#arg-text', { timeout: 5_000 });
+  assert.equal(await window.inputValue('#arg-text'), 'hello', 'the form lost its value');
+  step('the report hands the form back with its values');
+
+  // Diagnostics is the only place paths are visible, so it has to be truthful.
+  await window.click('#open-settings');
+  await window.waitForSelector('[data-sheet-diagnostics]', { timeout: 5_000 });
+  const diagnostics = await window.locator('.sheet-body').innerText();
+  assert.ok(diagnostics.includes(home), `diagnostics did not name ${home}`);
+  assert.match(diagnostics, /config\.toml/, 'diagnostics should name the config file');
+  await window.keyboard.press('Escape');
+  step('diagnostics names where data lives');
 
   assert.deepEqual(external, [], `the window made a non-local request: ${external.join(', ')}`);
   step('the window made no network request');

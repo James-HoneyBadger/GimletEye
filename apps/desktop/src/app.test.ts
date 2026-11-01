@@ -50,7 +50,25 @@ const history = [
 
 // The window has no server to talk to any more: it calls the shared runtime.
 vi.mock('./lib/engine', () => ({
-  fetchHealth: async () => ({ status: 'ok', version: '0.1.0', engine: '0.1.0', tools: 3, home: '/tmp/home' }),
+  fetchHealth: async () => ({
+    status: 'ok',
+    version: '0.1.0',
+    engine: '0.1.0',
+    tools: 3,
+    home: '/tmp/home',
+    config: '/tmp/home/config.toml',
+    audit: '/tmp/home/audit.jsonl',
+  }),
+  fetchDoctor: async () => ({
+    status: 'ok',
+    version: '0.1.0',
+    engine: '0.1.0',
+    tools: 3,
+    home: '/tmp/home',
+    config: '/tmp/home/config.toml',
+    audit: '/tmp/home/audit.jsonl',
+    auditEnabled: true,
+  }),
   fetchTools: async () => catalogue,
   fetchAudit: async (limit = 50) => ({
     enabled: true,
@@ -123,9 +141,26 @@ describe('workbench shell', () => {
     document.querySelector<HTMLButtonElement>('#run')!.click();
 
     await vi.waitFor(() => expect(document.querySelector('.status--ok')).not.toBeNull());
-    expect(document.querySelector('.result-summary')?.textContent).toContain('read 4 bytes');
-    const copyCommand = document.querySelector('#result-region [data-copy]');
+    expect(document.querySelector('.report-verdict p')?.textContent).toContain('read 4 bytes');
+    const copyCommand = document.querySelector('.report-actions [data-copy]');
     expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.echo input=/tmp/a.txt');
+  });
+
+  it('runs again from the report with the values it used', async () => {
+    await boot();
+    await openTool('demo.echo');
+    const input = document.querySelector<HTMLInputElement>('#arg-input')!;
+    input.value = '/tmp/a.txt';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    document.querySelector<HTMLButtonElement>('#run')!.click();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+
+    // The form is not on screen any more; the draft is what the run used.
+    document.querySelector<HTMLElement>('[data-retry-run]')!.click();
+    await vi.waitFor(() => expect(runs).toHaveLength(2));
+    expect(runs[1]?.args).toEqual(runs[0]?.args);
+    expect(document.querySelector('.callout--error')).toBeNull();
   });
 
   it('keeps a typed value when the tool is re-selected', async () => {
@@ -167,7 +202,7 @@ describe('workbench shell', () => {
     document.querySelector<HTMLButtonElement>('#run')!.click();
 
     await vi.waitFor(() => expect(document.querySelector('.callout--info')?.textContent).toContain('Nothing was written'));
-    const copyCommand = document.querySelector('#result-region [data-copy]');
+    const copyCommand = document.querySelector('.report-actions [data-copy]');
     expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.write --dry-run');
   });
 
@@ -345,6 +380,21 @@ describe('workbench shell', () => {
     expect(document.querySelector('.run-tool')?.textContent).toBe('demo.echo');
   });
 
+  it('keeps the sheet usable after the audit trail re-renders it', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('#show-history')!.click();
+
+    // The trail arrives asynchronously and replaces the sheet body, including
+    // the close button that had focus. Focus falling to <body> used to make
+    // Escape do nothing, because keydown is heard on the document and an event
+    // targeted at <body> never reaches a listener on a descendant.
+    await vi.waitFor(() => expect(document.querySelector('.run')).not.toBeNull());
+    expect(document.activeElement).not.toBe(document.body);
+
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('.sheet')).toBeNull());
+  });
+
   it('lists groups in the same order as the category chips', async () => {
     await boot();
     const groups = [...document.querySelectorAll<HTMLElement>('[data-group]')].map((el) => el.dataset.group);
@@ -354,13 +404,70 @@ describe('workbench shell', () => {
     expect(groups).toEqual(chips);
   });
 
-  it('filters the sidebar by capability, as the search box promises', async () => {
+  it('finds a tool by its capability through the palette', async () => {
     await boot();
-    const search = document.querySelector<HTMLInputElement>('#search')!;
+    document.querySelector<HTMLElement>('#open-palette')!.click();
+    await vi.waitFor(() => expect(document.querySelector('#palette-input')).not.toBeNull());
+
+    const search = document.querySelector<HTMLInputElement>('#palette-input')!;
     search.value = 'fs:read';
     search.dispatchEvent(new Event('input', { bubbles: true }));
 
-    await vi.waitFor(() => expect(document.querySelectorAll('[data-tool]').length).toBe(1));
-    expect(document.querySelector('[data-tool]')?.getAttribute('data-tool')).toBe('demo.echo');
+    // Only demo.echo declares fs:read, so it is the only tool in the list.
+    await vi.waitFor(() => expect(document.querySelector('.palette-item')).not.toBeNull());
+    const tools = [...document.querySelectorAll<HTMLElement>('.palette-item')].filter((row) =>
+      row.textContent?.includes('demo.'),
+    );
+    expect(tools).toHaveLength(1);
+    expect(tools[0]?.textContent).toContain('Echo');
+  });
+
+  it('opens the palette with the keyboard and opens a tool from it', async () => {
+    await boot();
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('#palette-input')).not.toBeNull());
+
+    const search = document.querySelector<HTMLInputElement>('#palette-input')!;
+    search.value = 'echo';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    await vi.waitFor(() => expect(document.querySelector('.palette-item')).not.toBeNull());
+    const rows = [...document.querySelectorAll<HTMLElement>('.palette-item')];
+    const tool = rows.find((row) => row.textContent?.includes('Echo'))!;
+    tool.click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelector('.tool--active')?.getAttribute('data-tool')).toBe('demo.echo'),
+    );
+    expect(document.querySelector('.palette')).toBeNull();
+    expect(document.querySelector('#arg-input')).not.toBeNull();
+  });
+
+  it('reads a run as a report, and comes back to the form with its values', async () => {
+    await boot();
+    await openTool('demo.echo');
+    const input = document.querySelector<HTMLInputElement>('#arg-input')!;
+    input.value = '/tmp/a.txt';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    document.querySelector<HTMLButtonElement>('#run')!.click();
+    await vi.waitFor(() => expect(document.querySelector('.report-title h1')).not.toBeNull());
+    // The form is not on screen while the report is.
+    expect(document.querySelector('#arg-input')).toBeNull();
+
+    document.querySelector<HTMLElement>('[data-edit-parameters]')!.click();
+    await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('#arg-input')).not.toBeNull());
+    expect(document.querySelector<HTMLInputElement>('#arg-input')?.value).toBe('/tmp/a.txt');
+  });
+
+  it('shows where data lives in the diagnostics sheet', async () => {
+    await boot();
+    document.querySelector<HTMLElement>('#open-settings')!.click();
+    await vi.waitFor(() => expect(document.querySelector('[data-sheet-diagnostics]')).not.toBeNull());
+
+    const text = document.querySelector('.sheet-body')?.textContent ?? '';
+    expect(text).toContain('/tmp/home');
+    expect(text).toContain('/tmp/home/config.toml');
+    expect(text).toContain('/tmp/home/audit.jsonl');
   });
 });

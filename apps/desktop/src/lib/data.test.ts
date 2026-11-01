@@ -27,7 +27,7 @@ describe('renderData', () => {
   it('says when columns were dropped, even if only a later row is wide', () => {
     const narrow = { a: 1 };
     const wide = Object.fromEntries('abcdefghi'.split('').map((key, index) => [key, index]));
-    expect(renderData([narrow, wide])).toContain('Showing the first 8 columns');
+    expect(renderData([narrow, wide])).toContain('Showing the first 8 of 9 columns');
     expect(renderData([narrow])).not.toContain('Showing the first');
   });
 

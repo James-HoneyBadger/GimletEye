@@ -25,7 +25,11 @@ function stubRuntime(overrides: {
       size: 21,
       list: () => [{ id: 'crypto.sha256' }],
     },
-    paths: { root: '/home/tester/.gimlet' },
+    paths: {
+      root: '/home/tester/.gimlet',
+      configFile: '/home/tester/.gimlet/config.toml',
+      auditFile: '/home/tester/.gimlet/audit.jsonl',
+    },
     config: { audit: { enabled: overrides.auditEnabled ?? true } },
     audit: { path: '/home/tester/.gimlet/audit.jsonl' },
     run,
@@ -46,10 +50,19 @@ describe('the desktop boundary', () => {
       engine: '0.7.0',
       tools: 21,
       home: '/home/tester/.gimlet',
+      config: '/home/tester/.gimlet/config.toml',
+      audit: '/home/tester/.gimlet/audit.jsonl',
     });
     await api.health();
     // The thunk is what makes the first request pay for loading, not startup.
     expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the audit switch only where it is asked for', async () => {
+    const { runtime } = stubRuntime({ auditEnabled: false });
+    const api = createApi(async () => runtime);
+    expect(await api.doctor()).toMatchObject({ auditEnabled: false });
+    expect(await api.health()).not.toHaveProperty('auditEnabled');
   });
 
   it('returns the catalogue the registry holds', async () => {

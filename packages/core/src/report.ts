@@ -130,7 +130,7 @@ function renderText(report: Report): string {
   return `${lines.join('\n')}\n`;
 }
 
-function renderMarkdown(report: Report): string {
+export function renderMarkdown(report: Report): string {
   const out: string[] = [`## ${report.tool}\n`, `**Status:** ${report.status} · **Duration:** ${report.duration_ms} ms\n`];
   if (report.summary) out.push(`${report.summary}\n`);
 
