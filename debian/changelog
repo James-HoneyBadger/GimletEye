@@ -1,3 +1,20 @@
+gimlet-eye-toolkit (1.1.0) unstable; urgency=medium
+
+  * The window is rebuilt around two views -- the parameters and the report --
+    and a command palette that reaches both: a tool is found by name, id, tag,
+    capability, or argument, and an action by what it does, with ranking that
+    forgives a misspelling instead of returning nothing.
+  * The report is its own view: findings grouped by severity with the tool that
+    answers each, tables typed from DataSpec, a diff against the previous run of
+    the same tool, a byte map for a metadata scan, and the verifier for a strip
+    or an encrypt prefilled with the file it just wrote.
+  * Copying goes through the main process, because the session refuses the web
+    clipboard like every other permission; a failed boot can be retried without
+    restarting the window; and the window reopens where it was left.
+  * No versioned surface moved: this is the window, not the contract.
+
+ -- Gimlet Eye maintainers <maintainers@example.invalid>  Sat, 31 Oct 2026 00:00:00 +0000
+
 gimlet-eye-toolkit (1.0.0) unstable; urgency=medium
 
   * The freeze. Tool ids, the report shape, the engine protocol, the config

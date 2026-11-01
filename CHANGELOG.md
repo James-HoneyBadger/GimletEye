@@ -4,7 +4,15 @@ All notable changes to Gimlet Eye. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] — 2026-10-31
+
+The window, rebuilt. No versioned surface moved and no tool changed what it does;
+what changed is how the toolkit is reached. The palette replaced the search field,
+the report became a view rather than the bottom of a page, and the shell's rules
+moved out of one file into modules with tests — which is what makes the rest of
+this list safe to trust. Copying, retrying a failed boot, and running again from
+the report did not work before; they do now, and the tests that say so are the
+ones that failed first.
 
 ### Added
 
