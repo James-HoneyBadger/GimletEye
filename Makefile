@@ -56,7 +56,7 @@ doctor: ## Report installation state
 smoke: ## End-to-end check of the CLI
 	./scripts/smoke.sh
 
-e2e: build ## Drive the real window: run a tool, read the report and the trail
+e2e: desktop ## Drive the real window: run a tool, read the report and the trail
 	$(NPM) run e2e -w @gimlet-works/desktop
 
 shots: build ## Capture the window in its baseline states (writes e2e/shots)

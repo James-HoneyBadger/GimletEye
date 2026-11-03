@@ -27,6 +27,10 @@ All notable changes to Gimlet Works. Format follows
   trigger disk-capacity errors by default.
 - The README command gate now checks the JSON report even when a valid host
   finding makes the CLI return a non-zero verdict.
+- `--format csv` escapes column headings the same way it already escaped values,
+  so a field name containing a comma or a quote no longer produces a broken row.
+- The OpenPGP interop tools separate their file arguments with `--`, so a path
+  that begins with `-` is read as a path.
 
 ## [1.1.0] — 2026-10-31
 

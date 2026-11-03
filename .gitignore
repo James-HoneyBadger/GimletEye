@@ -1,8 +1,3 @@
-# Rust
-/target/
-**/target/
-*.rs.bk
-
 # Node
 node_modules/
 dist/
@@ -15,10 +10,9 @@ apps/desktop/playwright-report/
 # Screenshot runs: the harness writes here; only e2e/baselines/ is committed.
 apps/desktop/e2e/shots/
 
-# Fuzz working state: crash reproducers and the corpus libFuzzer grows during a
-# run. The committed starting points live in crates/scrub/fuzz/seeds/.
-crates/scrub/fuzz/artifacts/
-crates/scrub/fuzz/corpus/
+# Fuzz working state: the reproducers a crashing input is saved as. The corpus
+# the targets grow from is committed, under packages/engine/test/fixtures/corpus.
+fuzz/crashes/
 # A soak stages its rows here and appends them to the ledger when it finishes, so
 # the file is only ever half-written state.
 fuzz/*.tmp

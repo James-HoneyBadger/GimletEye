@@ -22,11 +22,21 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Versioned surfaces have not moved
-        # No waiver here on purpose. The script knows the countdown restarted at
-        # v0.8.0 (ADR 0008) and enforces from that tag on, so this reads as
-        # "not enforcing yet" until 0.8.0 ships and then starts failing on any
-        # change to a frozen surface. A permanent ALLOW_SURFACE_CHANGE would be
-        # a required check that cannot fail.
+        # A waiver is temporary by construction: the script fails when one is set
+        # and nothing moved, so it cannot outlive the break it declares.
+        #
+        # This one is the release that adds recursive `ToolManifest.data`
+        # schemas — a nested object, a table row, and an array item are now
+        # described — which CHANGELOG.md records as additive to the frozen
+        # manifest contract. ADR 0006 restarts the two-release countdown for it:
+        # tag the release that ships the break, move `restart_release` in
+        # scripts/check-quiet-period.sh to that tag, and delete this env block.
+        env:
+          ALLOW_SURFACE_CHANGE: >-
+            recursive DataSpec (nested objects, table rows, array items) added to
+            the frozen manifest contract; also the rename's report titles, the
+            CSV header escaping fix, and CONTAINER.md's fixture paths. The
+            keystore module no longer touches the filesystem at all.
         run: ./scripts/check-quiet-period.sh
 
   typescript:
