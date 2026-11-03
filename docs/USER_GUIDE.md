@@ -46,7 +46,7 @@ remains available as an alias.
 ## Tools
 
 ```bash
-gimlet-works tools list                 # the catalogue, with origins and platforms
+gimlet-works tools list                 # the catalogue: id, category, writes, platforms
 gimlet-works tools list --category crypto
 gimlet-works tools show crypto.encrypt  # one manifest as JSON
 ```

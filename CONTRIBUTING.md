@@ -46,8 +46,10 @@ rasterisation differs by distribution and architecture. The commands are in
 this project were found: a green suite says the tests pass, not that they can
 fail. Add a row when you fix a bug the tests did not catch.
 
-`make check` is what CI runs. A pull request that fails it will not be reviewed
-until it passes, because a green baseline is what makes review cheap.
+`make check` is the fast half of what CI runs. A pull request that fails it will
+not be reviewed until it passes, because a green baseline is what makes review
+cheap. The slower jobs — corpus replay, the Electron `e2e` drive, the
+install/upgrade rehearsal, packaging, and the dependency audit — run in CI only.
 
 ## Where a change goes
 

@@ -1,6 +1,7 @@
 # 0001 — Rust workspace as the spine, with polyglot packs
 
-- **Status:** Accepted
+- **Status:** Superseded by [0008](0008-typescript-surfaces-rust-engine.md), which
+  removed the pack protocol, and in full by [0010](0010-retire-rust.md)
 - **Date:** 2026-10-23
 
 ## Context

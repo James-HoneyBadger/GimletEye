@@ -5,7 +5,7 @@ considered and what it cost.
 
 | ADR | Decision | Status |
 |---|---|---|
-| [0001](0001-rust-spine-with-polyglot-packs.md) | A Rust spine with polyglot packs | Superseded by 0008 |
+| [0001](0001-rust-spine-with-polyglot-packs.md) | A Rust spine with polyglot packs | Superseded by 0008, then in full by 0010 |
 | [0002](0002-single-report-contract.md) | One report contract for every tool | Accepted |
 | [0003](0003-one-ui-for-all-surfaces.md) | One UI for all surfaces | Partly superseded by 0008 (the HTTP and browser surfaces are gone; the shared UI package became the desktop frontend) |
 | [0004](0004-namespaced-configuration.md) | Namespaced configuration | Accepted |
@@ -14,7 +14,7 @@ considered and what it cost.
 | [0007](0007-keystore-and-recipients.md) | A keystore and recipient encryption | Accepted |
 | [0008](0008-typescript-surfaces-rust-engine.md) | TypeScript surfaces over one Rust engine | Accepted |
 | [0009](0009-four-surfaces.md) | Four surfaces, one contract | Accepted |
-| [0010](0010-retire-rust.md) | Retire Rust | Proposed |
+| [0010](0010-retire-rust.md) | Retire Rust | Accepted |
 | [0011](0011-rust-free-application-platform.md) | A Rust-free application platform | Accepted |
 | [0012](0012-report-and-manifest-contracts.md) | The report and manifest are versioned contracts | Accepted |
 
