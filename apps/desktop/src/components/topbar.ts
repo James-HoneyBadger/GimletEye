@@ -16,7 +16,7 @@ export function renderTopbar(state: AppState): string {
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">G</span>
-        <span class="brand-name">Gimlet<em>Eye</em></span>
+        <span class="brand-name">Gimlet <em>Works</em></span>
       </div>
 
       <button class="search search--trigger" id="open-palette" type="button" data-palette-open

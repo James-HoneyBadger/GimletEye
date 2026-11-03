@@ -11,6 +11,7 @@ import {
   basename,
   invalidArgs,
   join,
+  newRunId,
   notFound,
   render,
   sealed,
@@ -18,7 +19,7 @@ import {
   type Host,
   type OutputFormat,
   type Report,
-} from '@gimlet-eye/core';
+} from '@gimlet-works/core';
 
 import { write, writeLine } from './output.js';
 
@@ -36,7 +37,7 @@ export interface BatchOptions {
 }
 
 export interface BatchRunner {
-  run(tool: string, args: Args): Promise<Report>;
+  run(tool: string, args: Args, metadata?: { runId: string; runIndex: number; runCount: number }): Promise<Report>;
 }
 
 export interface BatchSummary {
@@ -71,7 +72,7 @@ export async function executeBatch(
   }
 
   const started = Date.now();
-  const outcomes = await runAll(runner, options, files);
+  const outcomes = await runAll(runner, options, files, newRunId());
   // Wall time, not the sum of per-file times: with `--concurrency 4` the two
   // differ by a factor of four, and this is what the audit trail records.
   const report = aggregate(options, files, outcomes, Date.now() - started);
@@ -170,7 +171,12 @@ function accepts(path: string, wanted: readonly string[]): boolean {
   return wanted.includes(name.slice(at + 1).toLowerCase());
 }
 
-async function runAll(runner: BatchRunner, options: BatchOptions, files: readonly string[]): Promise<Outcome[]> {
+async function runAll(
+  runner: BatchRunner,
+  options: BatchOptions,
+  files: readonly string[],
+  runId: string,
+): Promise<Outcome[]> {
   const workers = Math.min(Math.max(options.concurrency, 1), 32, Math.max(files.length, 1));
   const queue = files.map((path, index) => ({ index, path }));
   const outcomes: Outcome[] = [];
@@ -185,7 +191,11 @@ async function runAll(runner: BatchRunner, options: BatchOptions, files: readonl
       const started = Date.now();
       const args: Args = { ...options.args, [options.inputArg]: next.path };
       try {
-        const report = await runner.run(options.tool, args);
+        const report = await runner.run(options.tool, args, {
+          runId,
+          runIndex: next.index + 1,
+          runCount: files.length,
+        });
         const failed = report.status === 'error';
         if (failed && options.failFast) stop = true;
         outcomes.push({ index: next.index, path: next.path, duration_ms: Date.now() - started, report });

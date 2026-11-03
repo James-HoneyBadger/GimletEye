@@ -7,9 +7,9 @@
  * wrong instead of printing a usage wall.
  */
 
-import { invalidArgs } from '@gimlet-eye/core';
+import { invalidArgs } from '@gimlet-works/core';
 import { isShell, type Shell } from './completions.js';
-import type { OutputFormat } from '@gimlet-eye/core';
+import type { OutputFormat } from '@gimlet-works/core';
 
 export interface Globals {
   home: string | undefined;

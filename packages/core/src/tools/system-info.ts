@@ -20,16 +20,51 @@ const MANIFEST: ToolManifest = {
   capabilities: ['system'],
   data: {
     shape: 'object',
-    required: {
-    arch: 'string',
-    cpu: 'object',
-    hostname: 'string',
-    kernel: 'string',
-    load: 'object',
-    memory: 'object',
-    os: 'object',
-    swap: 'object',
-    uptime: 'object',
+    required: { arch: 'string' },
+    optional: {
+      cpu: {
+        shape: 'object',
+        required: { model: 'string', cores: 'number' },
+        optional: { mhz: 'number' },
+      },
+      hostname: 'string',
+      kernel: 'string',
+      load: {
+        shape: 'object',
+        required: {
+          avg_1m: 'number',
+          avg_5m: 'number',
+          avg_15m: 'number',
+          running: 'number',
+          total: 'number',
+        },
+      },
+      memory: {
+        shape: 'object',
+        required: {
+          total_kb: 'number',
+          available_kb: 'number',
+          used_kb: 'number',
+          used_percent: 'number',
+        },
+      },
+      os: {
+        shape: 'object',
+        required: {
+          id: 'string|null',
+          name: 'string|null',
+          version: 'string|null',
+          pretty_name: 'string|null',
+        },
+      },
+      swap: {
+        shape: 'object',
+        required: { total_kb: 'number', free_kb: 'number', used_percent: 'number' },
+      },
+      uptime: {
+        shape: 'object',
+        required: { seconds: 'number', human: 'string' },
+      },
     },
   },
   tags: ['inspection', 'snapshot', 'host'],
@@ -83,7 +118,13 @@ export const systemInfo: LocalTool = {
     }
 
     const cpu = parseCpuinfo((await readTrim(ctx, '/proc/cpuinfo')) ?? '');
-    if (cpu.cores > 0) data['cpu'] = { model: cpu.model, cores: cpu.cores, mhz: cpu.mhz };
+    if (cpu.cores > 0) {
+      data['cpu'] = {
+        model: cpu.model,
+        cores: cpu.cores,
+        ...(cpu.mhz === undefined ? {} : { mhz: cpu.mhz }),
+      };
+    }
 
     const memory = parseMeminfo((await readTrim(ctx, '/proc/meminfo')) ?? '');
     let usedPercent = 0;

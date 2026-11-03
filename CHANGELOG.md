@@ -1,8 +1,32 @@
 # Changelog
 
-All notable changes to Gimlet Eye. Format follows
+All notable changes to Gimlet Works. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Changed
+
+- Renamed Gimlet Eye to Gimlet Works. The new primary command is `gimlet-works`;
+  `gimlet` remains available for compatibility. Existing configuration, audit,
+  keystore, encrypted files, and desktop preferences remain usable.
+
+### Added
+
+- Recursive `ToolManifest.data` schemas validate nested objects, table rows, and
+  array items. This is additive to the frozen manifest contract; the next release
+  must restart the quiet-period counter as required by the release policy.
+- Audit entries carry a run id and dry-run state. Batch entries share a run id,
+  include their position, and are retained/pruned as one logical run so a large
+  batch does not evict the entire prior trail.
+
+### Fixed
+
+- Host reports remain valid when Linux has no swap, and Snap image mounts do not
+  trigger disk-capacity errors by default.
+- The README command gate now checks the JSON report even when a valid host
+  finding makes the CLI return a non-zero verdict.
 
 ## [1.1.0] — 2026-10-31
 
@@ -543,7 +567,7 @@ it starts empty.
   | `keystore.melv` | `keystore.gimlet` |
   | `.melv` / magic `MELV` | `.gimlet` / magic `GIML` |
   | `mellivora-pack.toml` | `gimlet-pack.toml` |
-  | `@mellivora/ui` | `@gimlet-eye/ui` |
+  | `@mellivora/ui` | `@gimlet-works/ui` |
 
   Three things keep reading what the old name wrote, so an upgrade does not
   orphan data: a home directory at `~/.config/mellivora` is used when no
@@ -812,8 +836,8 @@ it starts empty.
   Node 20 before the package — the `.deb` declares `nodejs (>= 20)` and Debian 12
   ships 18 — and the block that does it no longer closes its own quoting early.
 
-- **The Windows CLI zip no longer carries junctions.** `@gimlet-eye/core` and
-  `@gimlet-eye/engine` are copied into `node_modules`; an NTFS junction stores an
+- **The Windows CLI zip no longer carries junctions.** `@gimlet-works/core` and
+  `@gimlet-works/engine` are copied into `node_modules`; an NTFS junction stores an
   absolute target, so the ones it shipped pointed back at the build agent after
   unzip.
 

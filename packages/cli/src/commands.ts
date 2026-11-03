@@ -5,8 +5,8 @@
  * the same code whether a person typed the command or a script did.
  */
 
-import { nodeHost } from '@gimlet-eye/core/host-node';
-import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
+import { nodeHost } from '@gimlet-works/core/host-node';
+import { NODE_TOOLS, Runtime } from '@gimlet-works/core/node';
 import {
   GimletError,
   configToToml,
@@ -18,11 +18,12 @@ import {
   type Category,
   type OutputFormat,
   type Report,
-} from '@gimlet-eye/core';
+} from '@gimlet-works/core';
 
 import { executeBatch, type BatchRunner } from './batch.js';
 import { completionScript, manPage } from './completions.js';
 import { parseArgs, type Command, type Globals } from './cli.js';
+import { commandName } from './name.js';
 import { configure, finish, formatFromArgv, write, writeFailure, writeLine } from './output.js';
 import { helpText, versionText } from './help.js';
 import { runTui } from './tui/session.js';
@@ -133,7 +134,7 @@ async function runBatch(
   command: Extract<Command, { kind: 'batch' }>,
 ): Promise<number> {
   const runner: BatchRunner = {
-    run: async (tool, args) => (await runtime.run(tool, args)).report,
+    run: async (tool, args, metadata) => (await runtime.run(tool, args, metadata)).report,
   };
   const summary = await executeBatch(
     runtime.host,
@@ -207,7 +208,7 @@ function showConfig(runtime: Runtime, _globals: Globals): number {
 async function initConfig(runtime: Runtime, _globals: Globals, force: boolean): Promise<number> {
   const exists = await runtime.host.exists(runtime.paths.configFile);
   if (exists && !force) {
-    process.stderr.write(`gimlet: ${runtime.paths.configFile} already exists; pass --force to replace it\n`);
+    process.stderr.write(`${commandName()}: ${runtime.paths.configFile} already exists; pass --force to replace it\n`);
     return 1;
   }
   await runtime.host.createDir(runtime.paths.configDir);
@@ -231,8 +232,14 @@ async function showAudit(runtime: Runtime, globals: Globals, limit: number): Pro
     return 0;
   }
   for (const entry of entries) {
+    const details = [
+      entry.dry_run === true ? 'dry-run' : '',
+      entry.run_count !== undefined && entry.run_count > 1
+        ? `batch ${entry.run_index ?? '?'} of ${entry.run_count} (${entry.run_id?.slice(0, 8) ?? 'legacy'})`
+        : '',
+    ].filter(Boolean);
     writeLine(
-      `${entry.ts}  ${entry.status.padEnd(8)} ${entry.tool.padEnd(30)} ${String(entry.duration_ms).padStart(6)} ms  ${(entry.arg_keys ?? []).join(',')}`,
+      `${entry.ts}  ${entry.status.padEnd(8)} ${entry.tool.padEnd(30)} ${String(entry.duration_ms).padStart(6)} ms  ${(entry.arg_keys ?? []).join(',')}${details.length === 0 ? '' : `  ${details.join(' · ')}`}`,
     );
   }
   return 0;

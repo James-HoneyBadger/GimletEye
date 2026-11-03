@@ -73,15 +73,15 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          name="gimlet-${RELEASE_TAG#v}-${{ matrix.target }}"
-          mkdir -p "dist/$name/node_modules/@gimlet-eye" "dist/$name/node_modules/@noble"
+          name="gimlet-works-${RELEASE_TAG#v}-${{ matrix.target }}"
+          mkdir -p "dist/$name/node_modules/@gimlet-works" "dist/$name/node_modules/@noble"
           cp -r packages "dist/$name/packages"
           rm -rf "dist/$name/packages"/*/node_modules "dist/$name/packages"/*/*.tsbuildinfo
-          # The workspace links are how `@gimlet-eye/core` resolves from the CLI
+          # The workspace links are how `@gimlet-works/core` resolves from the CLI
           # once the tree is unpacked somewhere else; the installers create the
           # same thing in scripts/stage-package.sh.
-          ln -sfn ../../packages/core "dist/$name/node_modules/@gimlet-eye/core"
-          ln -sfn ../../packages/engine "dist/$name/node_modules/@gimlet-eye/engine"
+          ln -sfn ../../packages/core "dist/$name/node_modules/@gimlet-works/core"
+          ln -sfn ../../packages/engine "dist/$name/node_modules/@gimlet-works/engine"
           cp -r node_modules/smol-toml "dist/$name/node_modules/smol-toml"
           cp -r node_modules/@noble/hashes "dist/$name/node_modules/@noble/hashes"
           cp README.md LICENSE CHANGELOG.md "dist/$name/"
@@ -93,18 +93,18 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
-          $name = "gimlet-$version-${{ matrix.target }}"
+          $name = "gimlet-works-$version-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path "dist/$name" | Out-Null
           Copy-Item -Recurse packages "dist/$name/packages"
           Get-ChildItem "dist/$name/packages" -Directory | ForEach-Object {
             Remove-Item -Recurse -Force "$($_.FullName)/node_modules" -ErrorAction SilentlyContinue
           }
-          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@gimlet-eye" | Out-Null
+          New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@gimlet-works" | Out-Null
           New-Item -ItemType Directory -Force -Path "dist/$name/node_modules/@noble" | Out-Null
           # A copy, not a junction: an NTFS junction stores an absolute target, so
           # one created here would point back at the build agent after unzip.
           "core", "engine" | ForEach-Object {
-            Copy-Item -Recurse "dist/$name/packages/$_" "dist/$name/node_modules/@gimlet-eye/$_"
+            Copy-Item -Recurse "dist/$name/packages/$_" "dist/$name/node_modules/@gimlet-works/$_"
           }
           # `*.tsbuildinfo` holds absolute paths from the build agent, which is the
           # one thing the unix tarball strips and this step used to keep.
@@ -142,7 +142,7 @@ jobs:
       - run: npm ci
 
       - name: Render the icon
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-eye/desktop
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-works/desktop
 
       - uses: actions/upload-artifact@v4
         with:
@@ -192,7 +192,7 @@ jobs:
         run: npm ci
 
       - name: Build the installers
-        run: npm run package -w @gimlet-eye/desktop
+        run: npm run package -w @gimlet-works/desktop
 
       - uses: actions/upload-artifact@v4
         with:
@@ -383,6 +383,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
-            gh release create "$RELEASE_TAG" --title "Gimlet Eye ${RELEASE_TAG#v}" --generate-notes
+            gh release create "$RELEASE_TAG" --title "Gimlet Works ${RELEASE_TAG#v}" --generate-notes
           gh release upload "$RELEASE_TAG" release/* --clobber
           gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | sort

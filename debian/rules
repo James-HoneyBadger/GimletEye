@@ -15,9 +15,9 @@ override_dh_auto_test:
 	# the package build time for results that are already known.
 	true
 
-# One binary package, so the build root is the package root.
+# The main package owns the payload; debhelper builds the transitional package.
 override_dh_auto_install:
-	./scripts/stage-package.sh debian/gimlet
+	./scripts/stage-package.sh debian/gimlet-works
 
 override_dh_strip:
 	dh_strip --no-automatic-dbgsym

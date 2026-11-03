@@ -17,7 +17,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { nodeHost } from '@gimlet-eye/core/host-node';
+import { nodeHost } from '@gimlet-works/core/host-node';
 import { createEntry, insert, load, KEYSTORE_FILE, newId, open, save, SCHEMA_VERSION, seal } from '../src/keystore.js';
 import { generateKeyPair } from '../src/keys.js';
 import type { Keystore } from '../src/keystore.js';

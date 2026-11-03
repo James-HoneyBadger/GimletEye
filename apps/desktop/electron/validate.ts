@@ -8,7 +8,7 @@
  * cheap to refuse at the boundary.
  */
 
-import type { Args } from '@gimlet-eye/core';
+import type { Args } from '@gimlet-works/core';
 
 /** More than any tool declares, by an order of magnitude. */
 const MAX_ARGS = 64;

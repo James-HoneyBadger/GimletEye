@@ -1,13 +1,13 @@
 # Security policy
 
-Gimlet Eye handles credentials, private keys, and files that people
+Gimlet Works handles credentials, private keys, and files that people
 expect to be deleted. Two rules follow: nothing leaves the machine, and nothing
 sensitive is written down.
 
 ## Reporting a vulnerability
 
 Open a private security advisory on
-[GitHub](https://github.com/James-HoneyBadger/GimletEye/security/advisories/new)
+[GitHub](https://github.com/James-HoneyBadger/GimletWorks/security/advisories/new)
 rather than a public issue. Include the tool id, the input, and the expected
 versus actual behaviour. Please do not include real credentials in a report.
 
@@ -20,9 +20,9 @@ versus actual behaviour. Please do not include real credentials in a report.
 | Keystore (`keystore.gimlet`) | Argon2id → AEAD, so a wrong passphrase fails before any JSON is parsed; rotation re-seals the document and does not touch key material |
 | Recipient containers (v3) | The recipient list and ephemeral public key are visible in the header; the payload key is wrapped per recipient and the plaintext is not |
 | `gpg` (OpenPGP interop) | `crypto.gpg-verify`/`crypto.gpg-encrypt` run the system `gpg` as a subprocess with paths as arguments (never a shell); the tools declare `process:exec` |
-| Audit entries | `$GIMLET_HOME/audit.jsonl` — tool, status, duration, argument **names** |
+| Audit entries | `$GIMLET_WORKS_HOME/audit.jsonl` — tool, status, duration, argument **names** |
 | Network | Nothing opens a socket; no tool declares `network` |
-| The engine | Compiled from this tree (`packages/engine`) and called in the same process; an optional `GIMLET_SIDECAR` engine exists only to compare against |
+| The engine | Compiled from this tree (`packages/engine`) and called in the same process; an optional `GIMLET_WORKS_SIDECAR` engine exists only to compare against |
 
 There is no telemetry, no auto-update check, and no remote logging. The desktop
 window's session cancels every request whose scheme is not local (`file:`,
@@ -165,7 +165,7 @@ untrusted comment: minisign public key 5F87CFD4343B9B84
 RWSEmzs01M+HX6BEgq9OUX4naG53feGQ01VTaT3SP6Xz1VbX4TXU6ojG
 ```
 
-Anything claiming to be a Gimlet Eye release and not signed by that key is
+Anything claiming to be a Gimlet Works release and not signed by that key is
 not one. `scripts/verify-release.sh` uses it by default and fails when the
 signature is missing, when the key does not match, or when any listed file does
 not match its checksum — a partial verification is not a verification.

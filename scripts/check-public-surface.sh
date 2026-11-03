@@ -36,10 +36,10 @@ import("./packages/cli/dist/surface.js").then((m) => {
 missing=()
 while read -r name; do
     [ -z "$name" ] && continue
-    # A command is documented as `gimlet <command>`; a flag as `--flag`.
+    # A command is documented as `gimlet-works <command>`; a flag as `--flag`.
     case "$name" in
         --* | -*) needle="$name" ;;
-        *) needle="gimlet $name" ;;
+        *) needle="gimlet-works $name" ;;
     esac
     grep -qF -- "$needle" "$doc" || missing+=("$name")
 done <<<"$declared"

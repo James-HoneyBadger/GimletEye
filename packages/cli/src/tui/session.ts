@@ -7,8 +7,9 @@
  * audit trail.
  */
 
-import { fromPairs, render, type Runtime, type ToolManifest } from '@gimlet-eye/core';
+import { fromPairs, render, type Runtime, type ToolManifest } from '@gimlet-works/core';
 
+import { commandName } from '../name.js';
 import { decodeKeys } from './keys.js';
 import { renderFrame, type Size } from './render.js';
 import {
@@ -40,7 +41,7 @@ export function defaultIo(): TuiIo {
 
 export async function runTui(runtime: Runtime, io: TuiIo = defaultIo()): Promise<number> {
   if (io.stdin.isTTY !== true || io.stdout.isTTY !== true) {
-    io.stderr.write('gimlet: tui needs an interactive terminal (stdin and stdout must be a TTY)\n');
+    io.stderr.write(`${commandName()}: tui needs an interactive terminal (stdin and stdout must be a TTY)\n`);
     return 2;
   }
 

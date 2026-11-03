@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://gimleteye.dev/schema/report-1.json",
-  "title": "Gimlet Eye report",
+  "title": "Gimlet Works report",
   "description": "The result of one tool run. 1.0 shape: the envelope fields added in 1.1 (report_version, tool_version, generated_at, host) are optional and readers ignore fields they do not know.",
   "type": "object",
   "additionalProperties": false,

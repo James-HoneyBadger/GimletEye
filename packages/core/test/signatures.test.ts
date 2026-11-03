@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { encodePublic, encodeSecret, generateKeyPair } from '@gimlet-eye/engine';
+import { encodePublic, encodeSecret, generateKeyPair } from '@gimlet-works/engine';
 
 import { defaultConfig } from '../src/config.js';
 import { signFile, verifyFile } from '../src/tools/signatures.js';

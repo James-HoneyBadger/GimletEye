@@ -19,7 +19,7 @@ Ordered by value per unit of risk. Everything else can wait.
 | # | Item | Why now | Effort | Risk |
 |---|---|---|---|---|
 | 1 | ~~[Observe declared capabilities](#4-observe-declared-capabilities)~~ | **Shipped**: the runtime hands each built-in tool a guarded `Host`. | — | — |
-| 2 | [The audit trail as a ledger](#6-the-audit-trail-as-a-ledger) | `batch` can evict a trail's whole history, and a trail without a run id or `dry_run` cannot answer "what happened". | M | Low |
+| 2 | [The audit trail as a ledger](#6-the-audit-trail-as-a-ledger) | Run ids and batch-aware retention are in place; rotation, integrity checks, and filters remain. | M | Low |
 | 3 | [Render snapshots before the freeze](#8-render-snapshots-before-the-freeze) | 1.0 promises `Report` output; a snapshot per format makes a renderer change visible instead of argued about. | S | Low |
 | 4 | [Native parsers for the remaining formats](#2-native-parsers-for-the-remaining-formats) | Format parity is a parser each, and the format people ask for first (GIF) is the cheapest. | L | Medium |
 | 5 | [Scheduled runs](#5-scheduled-runs) | The engine can repeat work per file; the next ask is per hour. | M | Medium |
@@ -145,7 +145,7 @@ exec, and secrets.
 
 ### 5. Scheduled runs
 
-**Problem.** `gimlet batch` answers "clean this directory once". The next
+**Problem.** `gimlet-works batch` answers "clean this directory once". The next
 request is always "do it every night", and today that means cron plus a shell
 script that loses the audit trail.
 
@@ -161,17 +161,20 @@ so dry-run must be the default and the first run must be reported.
 
 ### 6. The audit trail as a ledger
 
-**Problem.** The trail records the tool, the verdict, the duration, and the
-argument *names*, which is the right kind of record. But one entry per file means
-a `batch` over 2 000 photos evicts every other record at the 1 000-entry cap; an
-entry carries no `dry_run`, no run id, no build version, and a second-precision
-timestamp; trimming is a read-modify-write two processes can race; and `tail()`
-reads the whole file to return the last twenty lines.
+**Shipped in this change.** Entries carry `run_id` and `dry_run`; batch entries
+share a run id and include their index and count. `max_entries` now counts
+logical runs and keeps a batch's per-file rows together, including when the batch
+is larger than the cap. Legacy rows without a run id remain readable and count
+as individual runs.
+
+**Remaining.** Entries still lack the build version, platform, and millisecond
+timestamp; pruning is a read-modify-write that concurrent processes can race;
+and `tail()` reads the whole file to return the last twenty lines.
 
 **Why.** "What happened on this host" is a promise the toolkit makes. A trail a
 routine batch can erase is not evidence.
 
-**Shape.**
+**Next steps.**
 - Entry: `id`, `ts` (milliseconds), `tool`, `status`, `duration_ms`, `dry_run`,
   `gimlet_version`, `platform`, `arg_keys`, and optionally `batch_id` and
   `report_sha256`.
@@ -179,7 +182,7 @@ routine batch can erase is not evidence.
   cap rule that never evicts a summary.
 - Rotation into `audit.1.jsonl` instead of a racy rewrite; `tail()` reads
   backwards from the end.
-- `gimlet audit --tool/--status/--since` and `gimlet audit verify`, which reports
+- `gimlet-works audit --tool/--status/--since` and `gimlet-works audit verify`, which reports
   a truncated or non-monotonic trail. The desktop history panel gains the same
   filters.
 
@@ -195,7 +198,7 @@ desktop keeps its field-level validator for per-field messages.
 **Problem.** Argument rules are split between `packages/core/src/args.ts`
 (coercion, read piecemeal by each tool) and `apps/desktop/src/lib/args.ts`
 (required fields and integer shape). The runtime accepts any name:
-`gimlet passgen length=12 bogus=1` reports `ok`, and a misspelled `in_place` or
+`gimlet-works passgen length=12 bogus=1` reports `ok`, and a misspelled `in_place` or
 `overwrite` silently changes what a destructive tool does. (Duplicate keys are
 deliberately last-wins and pinned by a test, so that is not part of this item.)
 
@@ -228,7 +231,7 @@ before 1.0.
 
 ### Shipped: batch execution
 
-`gimlet batch <tool> <path>...` expands files and directories, runs the tool
+`gimlet-works batch <tool> <path>...` expands files and directories, runs the tool
 once per file with the path bound to `--input-arg`, and folds the results into
 one aggregate report: counts, per-file status and summary, and a finding per
 failing file. `--concurrency` bounds parallelism, `--fail-fast` stops after the
@@ -329,8 +332,8 @@ design, but it is currently only documented in code
 | Windows CI job | A Windows zip and NSIS installer ship, but every CI job is `ubuntu-latest`. Path arithmetic in `batch` already normalises both separators; a typecheck + vitest job is what is missing. | M |
 | Desktop batch | `batch` is the one capability with no desktop path: drag files or folders onto a tool and get the same aggregate report. | M |
 | ~~Verify after run~~ | **Shipped**: a strip or encrypt report offers its verifier — `metadata-verify` / `crypto.inspect` — on the output, pre-filled. | — |
-| ~~TUI~~ | **Shipped**: `gimlet tui`. | — |
-| ~~Shell completions + man pages~~ | **Shipped in 0.9**: `gimlet completions <shell>` and `gimlet man`, generated from `packages/cli/src/surface.ts`. | — |
+| ~~TUI~~ | **Shipped**: `gimlet-works tui`. | — |
+| ~~Shell completions + man pages~~ | **Shipped in 0.9**: `gimlet-works completions <shell>` and `gimlet-works man`, generated from `packages/cli/src/surface.ts`. | — |
 | ~~`--output <file>` and `--quiet`~~ | **Shipped in 0.9** as global flags, so `batch` and `doctor` honour them too. | — |
 | Structured logging / OpenTelemetry spans | Turns "why was that slow" into a query. Every run already carries `duration_ms`; a span would say where it went. | M |
 
@@ -345,7 +348,7 @@ design, but it is currently only documented in code
 | ~~Visual regression for the window~~ | **Shipped**: `make shots` captures nine states at two sizes and two themes with volatile values masked; `make shots-check` diffs a capture against the PNGs in `e2e/baselines`, which are generated under the `e2e` job's runner. | — |
 | ~~Benchmarks for large files~~ | **Shipped in 0.9**: `make bench` (`scripts/bench.mjs`) with floors for hashing, the container, and the scrub. | — |
 | ~~Reproducible release artifacts~~ | **Shipped**: the `reproducible` job rebuilds and compares, and `SHA256SUMS` is signed. | — |
-| Report JSON Schema export | `gimlet tools show --schema` emitting a schema from `DataSpec`, so a consumer stops hand-writing a parser and a field drift fails their build, not their production. | S |
+| Report JSON Schema export | `gimlet-works tools show --schema` emitting a schema from `DataSpec`, so a consumer stops hand-writing a parser and a field drift fails their build, not their production. | S |
 | An SBOM over the npm tree | Signed artifacts and checksums exist; a bill of materials does not. | M |
 | Docs site | Markdown is fine now; linked HTML with search pays off past ~10 documents. | M |
 
@@ -353,7 +356,7 @@ design, but it is currently only documented in code
 
 ## Explicitly not doing
 
-- **An IDE.** Gimlet Eye is a workbench, not an editor. Editors stay editors.
+- **An IDE.** Gimlet Works is a workbench, not an editor. Editors stay editors.
 - **A hosted service.** Everything is local; a cloud mode would undo the privacy
   guarantee that makes the toolkit worth using.
 - **Custom cryptographic primitives.** Wrap audited implementations; never

@@ -119,7 +119,7 @@ def main() -> int:
 
     binary = args.binary
     if binary is None:
-        candidate = ROOT / "packages/cli/bin/gimlet"
+        candidate = ROOT / "packages/cli/bin/gimlet-works"
         if candidate.exists():
             binary = str(candidate)
     if binary is None:
@@ -134,7 +134,7 @@ def main() -> int:
 
     env = {
         **os.environ,
-        "GIMLET_HOME": str(home),
+        "GIMLET_WORKS_HOME": str(home),
         "DEMO_PASSPHRASE": "reference-passphrase",
         "DEMO_NEW_PASSPHRASE": "reference-passphrase-rotated",
         "GNUPGHOME": str(gnupg),
@@ -299,7 +299,7 @@ def main() -> int:
         for tool in sorted(by_category[category], key=lambda entry: entry["id"]):
             placement = EXAMPLES[tool["id"]]
             arguments = [argument.format(**placeholders) for argument in placement]
-            shown = " ".join(["gimlet", tool["id"], *arguments])
+            shown = " ".join(["gimlet-works", tool["id"], *arguments])
             code, output = run([binary, tool["id"], *arguments], env, args.timeout)
             body = strip_ansi(output).strip().splitlines()
             keep = body[:OUTPUT_LINES]
@@ -325,7 +325,7 @@ def main() -> int:
                 lines.append(f"… {len(body) - OUTPUT_LINES} more line(s)")
             lines.append("```")
             lines.append("")
-            produced_report = len(body) > 1 and not body[0].startswith("gimlet: ")
+            produced_report = len(body) > 1 and not body[0].startswith(("gimlet-works: ", "gimlet: "))
             if code != 0 and not produced_report:
                 failed.append(f"{tool['id']} (exit {code})")
 

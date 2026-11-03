@@ -21,47 +21,62 @@ fail() { printf '\033[31m  FAIL  %s\033[0m\n' "$*" >&2; exit 1; }
 ok() { printf '  ok    %s\n' "$*"; }
 
 # --- the layout the recipes promise -----------------------------------------
-[ -L "$stage/usr/bin/gimlet" ] || fail "usr/bin/gimlet is not a symlink"
-target="$(readlink "$stage/usr/bin/gimlet")"
-[ -x "$stage/usr/lib/gimlet/cli/bin/gimlet" ] || fail "the symlink target does not exist: $target"
-ok "usr/bin/gimlet -> $target"
+for command in gimlet-works gimlet; do
+    [ -L "$stage/usr/bin/$command" ] || fail "usr/bin/$command is not a symlink"
+    [ -x "$stage/usr/bin/$command" ] || fail "usr/bin/$command has no executable target"
+    ok "usr/bin/$command -> $(readlink "$stage/usr/bin/$command")"
+done
 
 for path in \
-    usr/lib/gimlet/cli/bin/gimlet \
-    usr/lib/gimlet/cli/dist/main.js \
-    usr/lib/gimlet/core/dist/index.js \
-    usr/lib/gimlet/core/package.json \
-    usr/lib/gimlet/engine/dist/index.js \
-    usr/lib/gimlet/engine/package.json \
-    usr/lib/gimlet/node_modules/smol-toml/package.json \
-    usr/lib/gimlet/node_modules/@noble/hashes/package.json \
-    usr/lib/gimlet/node_modules/@gimlet-eye/core \
-    usr/lib/gimlet/node_modules/@gimlet-eye/engine \
-    usr/share/doc/gimlet/README.md \
-    usr/share/doc/gimlet/COMPATIBILITY.md; do
+    usr/lib/gimlet-works/cli/bin/gimlet-works \
+    usr/lib/gimlet-works/cli/bin/gimlet \
+    usr/lib/gimlet-works/cli/dist/main.js \
+    usr/lib/gimlet-works/core/dist/index.js \
+    usr/lib/gimlet-works/core/package.json \
+    usr/lib/gimlet-works/engine/dist/index.js \
+    usr/lib/gimlet-works/engine/package.json \
+    usr/lib/gimlet-works/node_modules/smol-toml/package.json \
+    usr/lib/gimlet-works/node_modules/@noble/hashes/package.json \
+    usr/lib/gimlet-works/node_modules/@gimlet-works/core \
+    usr/lib/gimlet-works/node_modules/@gimlet-works/engine \
+    usr/share/doc/gimlet-works/README.md \
+    usr/share/doc/gimlet-works/COMPATIBILITY.md; do
     [ -e "$stage/$path" ] || fail "missing $path"
 done
 ok "the layout is complete"
 
 # --- and it runs -------------------------------------------------------------
-export GIMLET_HOME="$work/home"
-unset GIMLET_SIDECAR || true
-gimlet="$stage/usr/bin/gimlet"
+export GIMLET_WORKS_HOME="$work/home"
+unset GIMLET_HOME GIMLET_WORKS_SIDECAR GIMLET_SIDECAR || true
+cli="$stage/usr/bin/gimlet-works"
+legacy="$stage/usr/bin/gimlet"
 
-"$gimlet" --version | grep -q '^gimlet ' || fail "--version did not print a version"
-ok "--version"
+"$cli" --version | grep -q '^gimlet-works ' || fail "the new command did not print a version"
+"$legacy" --version | grep -q '^gimlet ' || fail "the legacy command did not print a version"
+if "$legacy" --not-a-real-flag >"$work/legacy.out" 2>"$work/legacy.err"; then
+    fail "the legacy command accepted an invalid flag"
+fi
+grep -q '^gimlet: ' "$work/legacy.err" || fail "the legacy command changed its error prefix"
+ok "both commands and the legacy error format work"
 
-"$gimlet" tools list --json | grep -q '"sysadmin.system-info"' || fail "the catalogue is incomplete"
+"$cli" tools list --json | grep -q '"sysadmin.system-info"' || fail "the catalogue is incomplete"
 ok "the catalogue loads"
 
-"$gimlet" system-info >/dev/null || fail "a TypeScript tool failed to run"
+"$cli" system-info >/dev/null || fail "a TypeScript tool failed to run"
 ok "a TypeScript tool runs"
 
 # This is the one that catches a module that only resolves in the checkout:
 # `crypto.sha256` needs the engine package and its Argon2id dependency, loaded by
 # name from the installed tree rather than by relative path.
-"$gimlet" crypto.sha256 text=hello --format json | grep -q '2cf24dba5fb0a30e' ||
+"$legacy" crypto.sha256 text=hello --format json | grep -q '2cf24dba5fb0a30e' ||
     fail "the crypto tool did not run from the installed tree"
 ok "a crypto tool runs"
+
+unset GIMLET_WORKS_HOME
+export XDG_CONFIG_HOME="$work/config"
+mkdir -p "$XDG_CONFIG_HOME/gimlet"
+[ "$("$cli" config path)" = "$XDG_CONFIG_HOME/gimlet/config.toml" ] ||
+    fail "the new command did not use an existing legacy state root"
+ok "the legacy state root is retained"
 
 printf '\npackage layout: everything passed\n'

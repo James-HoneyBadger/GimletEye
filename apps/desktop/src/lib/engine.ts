@@ -7,11 +7,11 @@
  * this module's shape is unchanged.
  */
 
-import type { Args, Report, ToolManifest } from '@gimlet-eye/core';
+import type { Args, Report, ToolManifest } from '@gimlet-works/core';
 
 import { bridge, type AuditTail, type DoctorSnapshot, type Health } from './bridge.js';
 
-export type { ArgSpec, Args, AuditEntry, DataSpec, Finding, Report, Severity, Status, ToolManifest } from '@gimlet-eye/core';
+export type { ArgSpec, Args, AuditEntry, DataSpec, Finding, Report, Severity, Status, ToolManifest } from '@gimlet-works/core';
 export type { AuditTail, DoctorSnapshot, Health } from './bridge.js';
 export { bridge } from './bridge.js';
 

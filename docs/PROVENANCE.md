@@ -1,6 +1,6 @@
 # Provenance
 
-Gimlet Eye is an independent project: its contracts, module layout, surfaces,
+Gimlet Works is an independent project: its contracts, module layout, surfaces,
 and infrastructure are defined here, for this toolkit.
 
 Some capabilities began by reimplementing behaviour that already existed in

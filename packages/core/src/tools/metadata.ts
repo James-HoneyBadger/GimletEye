@@ -30,7 +30,7 @@ import {
   withOverrides,
   type GpsRedaction,
   type RemovalPolicy,
-} from '@gimlet-eye/engine';
+} from '@gimlet-works/engine';
 
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { invalidArgs, io, notFound, toolFailed } from '../errors.js';
@@ -71,12 +71,21 @@ const SCAN_MANIFEST: ToolManifest = {
     shape: 'object',
     required: {
       format: 'string',
-      labels: 'array',
+      labels: { shape: 'array', items: 'string' },
       metadata_bytes: 'number',
       path: 'string',
       policy: 'string',
       removable_bytes: 'number',
-      segments: 'array',
+      segments: {
+        shape: 'array',
+        row: {
+          kind: 'string',
+          label: 'string',
+          category: 'string',
+          offset: 'number',
+          size: 'number',
+        },
+      },
       size_bytes: 'number',
     },
   },
@@ -93,12 +102,12 @@ const VERIFY_MANIFEST: ToolManifest = {
   data: {
     shape: 'object',
     required: {
-    format: 'string',
-    metadata_bytes: 'number',
-    path: 'string',
-    policy: 'string',
-    removable_bytes: 'number',
-    removable_segments: 'array',
+      format: 'string',
+      metadata_bytes: 'number',
+      path: 'string',
+      policy: 'string',
+      removable_bytes: 'number',
+      removable_segments: { shape: 'array', items: 'string' },
     },
   },
   tags: ['metadata', 'verification', 'ci'],
@@ -227,7 +236,15 @@ const STRIP_MANIFEST: ToolManifest = {
       gps: 'object|null',
       input: 'string',
       output: 'string|null',
-      policy: 'object',
+      policy: {
+        shape: 'object',
+        required: {
+          categories: { shape: 'array', items: 'string' },
+          remove: { shape: 'array', items: 'string' },
+          keep: { shape: 'array', items: 'string' },
+          description: 'string',
+        },
+      },
       removed_bytes: 'number',
     },
     // A file with nothing to remove reports neither byte count.

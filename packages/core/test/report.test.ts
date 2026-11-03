@@ -15,7 +15,7 @@ describe('the html report', () => {
     const html = render(report(), 'html');
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).toContain('default-src \'none\'');
-    expect(html).toContain('<title>crypto.sha256 — Gimlet Eye</title>');
+    expect(html).toContain('<title>crypto.sha256 — Gimlet Works</title>');
     // Nothing that could run or fetch: a report is a document, not an app.
     expect(html).not.toContain('<script');
     expect(html).not.toMatch(/\bsrc=/);

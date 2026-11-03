@@ -2,8 +2,8 @@
  * Where the toolkit keeps its state.
  *
  * Everything lives under one root, so a backup, a container mount, or a test
- * fixture is one path. `GIMLET_HOME` overrides it; otherwise it is
- * `<config dir>/gimlet`.
+ * fixture is one path. `GIMLET_WORKS_HOME` overrides it; otherwise it is
+ * `<config dir>/gimlet-works`.
  */
 
 import { join } from './pathutil.js';
@@ -36,18 +36,19 @@ export function pathsUnder(root: string): AppPaths {
  * Resolve the root from the environment, falling back to the per-user config
  * directory.
  *
- * An installation that already has `~/.config/mellivora` keeps using it when
- * `~/.config/gimlet` does not exist yet: renaming the project must not strand a
- * keystore or an audit trail.
+ * Existing Gimlet Eye and Mellivora installations keep using their old roots
+ * until a Gimlet Works root exists, so upgrades and rollbacks share their state.
  */
 export async function discoverPaths(host: Host, override?: string): Promise<AppPaths> {
-  const fromEnv = override ?? envValue('GIMLET_HOME');
+  const fromEnv = override ?? (envValue('GIMLET_WORKS_HOME') || envValue('GIMLET_HOME'));
   if (fromEnv) return pathsUnder(fromEnv);
 
-  const current = join(host.configDir, 'gimlet');
-  const legacy = join(host.configDir, 'mellivora');
-  if (!(await host.exists(current)) && (await host.exists(legacy))) {
-    return pathsUnder(legacy);
+  const current = join(host.configDir, 'gimlet-works');
+  if (!(await host.exists(current))) {
+    for (const name of ['gimlet', 'mellivora']) {
+      const legacy = join(host.configDir, name);
+      if (await host.exists(legacy)) return pathsUnder(legacy);
+    }
   }
   return pathsUnder(current);
 }

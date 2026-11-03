@@ -2,12 +2,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { nodeHost } from '@gimlet-eye/core/host-node';
+import { nodeHost } from '@gimlet-works/core/host-node';
 import { dirname, tempName } from '../src/pathutil.js';
 
-import { AuditLog, auditEntry } from '../src/audit.js';
+import { AuditLog, auditEntry, summariseAudit } from '../src/audit.js';
 import { configToToml, defaultConfig, loadConfig, moduleSetting, parseConfig } from '../src/config.js';
 import { discoverPaths, keystorePath, pathsUnder } from '../src/paths.js';
 import { fakeHost } from './fake-host.js';
@@ -67,10 +67,41 @@ require_token = false
 });
 
 describe('paths', () => {
-  it('uses GIMLET_HOME above everything else', async () => {
+  beforeEach(() => {
+    vi.stubEnv('GIMLET_WORKS_HOME', undefined);
+    vi.stubEnv('GIMLET_HOME', undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('uses an explicit override before either environment variable', async () => {
     const host = fakeHost();
+    vi.stubEnv('GIMLET_WORKS_HOME', '/tmp/new');
+    vi.stubEnv('GIMLET_HOME', '/tmp/legacy');
     const paths = await discoverPaths(host, '/tmp/explicit');
     expect(paths.root).toBe('/tmp/explicit');
+  });
+
+  it('prefers the new environment variable but accepts the old one', async () => {
+    const host = fakeHost();
+    vi.stubEnv('GIMLET_HOME', '/tmp/legacy');
+    expect((await discoverPaths(host)).root).toBe('/tmp/legacy');
+    vi.stubEnv('GIMLET_WORKS_HOME', '/tmp/new');
+    expect((await discoverPaths(host)).root).toBe('/tmp/new');
+    vi.stubEnv('GIMLET_WORKS_HOME', '');
+    expect((await discoverPaths(host)).root).toBe('/tmp/legacy');
+  });
+
+  it('uses the new state root for a fresh installation', async () => {
+    expect((await discoverPaths(fakeHost())).root).toBe('/home/tester/.config/gimlet-works');
+  });
+
+  it('keeps using a Gimlet Eye home when the new one does not exist', async () => {
+    const host = fakeHost();
+    host.dirs.add('/home/tester/.config/gimlet');
+    expect((await discoverPaths(host)).root).toBe('/home/tester/.config/gimlet');
   });
 
   it('keeps using a pre-rename home when the new one does not exist', async () => {
@@ -80,12 +111,14 @@ describe('paths', () => {
     expect(paths.root).toBe('/home/tester/.config/mellivora');
   });
 
-  it('prefers the new home once it exists', async () => {
+  it('prefers Gimlet Eye over Mellivora, and Gimlet Works over both', async () => {
     const host = fakeHost();
     host.dirs.add('/home/tester/.config/mellivora');
     host.dirs.add('/home/tester/.config/gimlet');
     const paths = await discoverPaths(host);
     expect(paths.root).toBe('/home/tester/.config/gimlet');
+    host.dirs.add('/home/tester/.config/gimlet-works');
+    expect((await discoverPaths(host)).root).toBe('/home/tester/.config/gimlet-works');
   });
 
   it('reads a keystore sealed before the rename', async () => {
@@ -154,6 +187,44 @@ describe('audit trail', () => {
     const raw = host.files.get('/tmp/home/audit.jsonl') ?? '';
     expect(raw).not.toContain('correct-horse');
     expect(raw.trim().split('\n')).toHaveLength(2);
+    expect(tail[0]?.run_id).toBeTruthy();
+    expect(tail[0]?.dry_run).toBe(false);
+  });
+
+  it('retains a complete batch as one logical run and records its dry-run state', async () => {
+    const host = fakeHost();
+    const log = new AuditLog(host, '/tmp/home/audit.jsonl', 2);
+    await log.record(auditEntry('old.tool', 'ok', 1, [], { runId: 'old' }));
+    for (let index = 1; index <= 4; index += 1) {
+      await log.record(
+        auditEntry('batch.tool', 'ok', index, ['input'], {
+          runId: 'batch',
+          dryRun: true,
+          runIndex: index,
+          runCount: 4,
+        }),
+      );
+    }
+
+    const entries = await log.readAll();
+    expect(entries).toHaveLength(5);
+    expect(entries.map((entry) => entry.run_id)).toEqual(['old', 'batch', 'batch', 'batch', 'batch']);
+    expect(entries.slice(1).every((entry) => entry.dry_run && entry.run_count === 4)).toBe(true);
+
+    await log.record(auditEntry('new.tool', 'ok', 1, [], { runId: 'new' }));
+    expect((await log.readAll()).map((entry) => entry.run_id)).toEqual(['batch', 'batch', 'batch', 'batch', 'new']);
+  });
+
+  it('counts multiple batch entries as one tool run', () => {
+    const summary = summariseAudit([
+      { ...auditEntry('batch.tool', 'ok', 1, [], { runId: 'batch', runIndex: 1, runCount: 2 }), ts: '2026-10-31T09:00:00Z' },
+      { ...auditEntry('batch.tool', 'warning', 1, [], { runId: 'batch', runIndex: 2, runCount: 2 }), ts: '2026-10-31T10:00:00Z' },
+    ]);
+    expect(summary.latest.get('batch.tool')).toEqual({
+      ts: '2026-10-31T10:00:00Z',
+      status: 'warning',
+      runs: 1,
+    });
   });
 
   it('keeps every run when they overlap, which a rewrite did not', async () => {

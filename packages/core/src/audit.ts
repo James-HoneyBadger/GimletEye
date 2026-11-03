@@ -31,15 +31,43 @@ export interface AuditEntry {
   status: Status;
   duration_ms: number;
   arg_keys?: string[];
+  run_id?: string;
+  dry_run?: boolean;
+  run_index?: number;
+  run_count?: number;
 }
 
-export function auditEntry(tool: string, status: Status, durationMs: number, argKeys: string[] = []): AuditEntry {
+export interface AuditContext {
+  runId?: string;
+  dryRun?: boolean;
+  runIndex?: number;
+  runCount?: number;
+}
+
+let runSequence = 0;
+
+export function newRunId(): string {
+  runSequence += 1;
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${runSequence.toString(36)}`;
+}
+
+export function auditEntry(
+  tool: string,
+  status: Status,
+  durationMs: number,
+  argKeys: string[] = [],
+  context: AuditContext = {},
+): AuditEntry {
   return {
     ts: rfc3339(new Date()),
     tool,
     status,
     duration_ms: durationMs,
     ...(argKeys.length === 0 ? {} : { arg_keys: argKeys }),
+    run_id: context.runId ?? newRunId(),
+    dry_run: context.dryRun ?? false,
+    ...(context.runIndex === undefined ? {} : { run_index: context.runIndex }),
+    ...(context.runCount === undefined ? {} : { run_count: context.runCount }),
   };
 }
 
@@ -59,15 +87,18 @@ export interface AuditSummary {
  */
 export function summariseAudit(entries: readonly AuditEntry[]): AuditSummary {
   const latest = new Map<string, { ts: string; status: Status; runs: number }>();
+  const runsByTool = new Map<string, Set<string>>();
   const counts: Record<Status, number> = { ok: 0, warning: 0, error: 0 };
-  for (const entry of entries) {
+  entries.forEach((entry, index) => {
     counts[entry.status] = (counts[entry.status] ?? 0) + 1;
+    const runs = runsByTool.get(entry.tool) ?? new Set<string>();
+    runs.add(entry.run_id ?? `legacy:${index}`);
+    runsByTool.set(entry.tool, runs);
     const seen = latest.get(entry.tool);
     // RFC 3339 sorts as a string, so no date arithmetic is needed.
-    if (!seen) latest.set(entry.tool, { ts: entry.ts, status: entry.status, runs: 1 });
-    else if (entry.ts > seen.ts) latest.set(entry.tool, { ts: entry.ts, status: entry.status, runs: seen.runs + 1 });
-    else latest.set(entry.tool, { ts: seen.ts, status: seen.status, runs: seen.runs + 1 });
-  }
+    if (!seen || entry.ts > seen.ts) latest.set(entry.tool, { ts: entry.ts, status: entry.status, runs: runs.size });
+    else latest.set(entry.tool, { ts: seen.ts, status: seen.status, runs: runs.size });
+  });
   return { latest, counts };
 }
 
@@ -93,7 +124,7 @@ export class AuditLog {
   private async trimIfLarge(): Promise<void> {
     if (this.maxEntries <= 0) return;
     const entries = await this.readAll();
-    if (entries.length <= this.maxEntries) return;
+    if (runGroupCount(entries) <= this.maxEntries) return;
     await this.writeAll(prune(entries, this.maxEntries));
   }
 
@@ -137,7 +168,27 @@ export class AuditLog {
 }
 
 function prune(entries: AuditEntry[], maxEntries: number): AuditEntry[] {
-  return maxEntries > 0 && entries.length > maxEntries ? entries.slice(entries.length - maxEntries) : entries;
+  if (maxEntries <= 0) return entries;
+
+  const latestIndex = new Map<string, number>();
+  entries.forEach((entry, index) => latestIndex.set(groupKey(entry, index), index));
+  if (latestIndex.size <= maxEntries) return entries;
+
+  const retained = new Set(
+    [...latestIndex.entries()]
+      .sort((left, right) => left[1] - right[1])
+      .slice(-maxEntries)
+      .map(([key]) => key),
+  );
+  return entries.filter((entry, index) => retained.has(groupKey(entry, index)));
+}
+
+function runGroupCount(entries: readonly AuditEntry[]): number {
+  return new Set(entries.map(groupKey)).size;
+}
+
+function groupKey(entry: AuditEntry, index: number): string {
+  return entry.run_id === undefined ? `legacy:${index}` : `run:${entry.run_id}`;
 }
 
 function processStamp(): string {

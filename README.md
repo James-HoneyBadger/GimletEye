@@ -1,4 +1,4 @@
-# Gimlet Eye
+# Gimlet Works
 
 **One workbench for system administration, cryptography, and metadata privacy.**
 
@@ -6,14 +6,14 @@ A single tool registry, one report format, one configuration file, one audit
 trail — behind a desktop app and a command line that share their implementation.
 
 ```bash
-gimlet system-info                       # what is this host doing?
-gimlet disk-usage --format json          # what is filling the disk?
-gimlet passgen length=32                 # generate a secret
-gimlet crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
-gimlet keygen kind=x25519 label=alice keystore=true passphrase_env=KEY_PASS
-gimlet crypto.encrypt input=notes.txt to=alice.pub   # for Alice, no shared secret
-gimlet metadata-strip input=photo.jpg profile=sharing
-gimlet metadata-strip input=photo.jpg profile=archive redact_gps=city
+gimlet-works system-info                       # what is this host doing?
+gimlet-works disk-usage --format json          # what is filling the disk?
+gimlet-works passgen length=32                 # generate a secret
+gimlet-works crypto.encrypt input=notes.txt passphrase_env=NOTES_PASS
+gimlet-works keygen kind=x25519 label=alice keystore=true passphrase_env=KEY_PASS
+gimlet-works crypto.encrypt input=notes.txt to=alice.pub   # for Alice, no shared secret
+gimlet-works metadata-strip input=photo.jpg profile=sharing
+gimlet-works metadata-strip input=photo.jpg profile=archive redact_gps=city
 ```
 
 The same catalogue, the same reports, and the same audit trail are in the
@@ -83,19 +83,19 @@ The desktop app (no cloud, no account, no uploads):
   offering the tool that answers it; the data as a sortable table; a diff against
   the previous run; the raw JSON. A metadata scan draws its segments in the file.
 - **Check** what you did: strip and encrypt reports offer their verifier in one
-  click, and every report keeps the equivalent `gimlet run …` command, copies as
+  click, and every report keeps the equivalent `gimlet-works run …` command, copies as
   JSON or Markdown, and downloads.
 - **Audit** what happened: recent runs from the local trail with their verdict,
   argument names only, never values. Settings → diagnostics names the version,
   the engine, and where the data lives.
 
-The command line has the same catalogue: `gimlet tools list`.
+The command line has the same catalogue: `gimlet-works tools list`.
 
 ## Install a release
 
 Tagged releases carry prebuilt artifacts:
 
-- `gimlet-<version>-<target>.tar.gz` / `.zip` — the CLI **and** the engine, for
+- `gimlet-works-<version>-<target>.tar.gz` / `.zip` — the CLI **and** the engine, for
   Linux (x86_64, aarch64), macOS (x86_64, aarch64), and Windows (x86_64)
 - `.deb` and an Electron bundle (`.AppImage`, `.dmg`, NSIS `.exe`) — the desktop
   app, engine included; RPM and Arch recipes live in `packaging/` for building
@@ -104,14 +104,19 @@ Tagged releases carry prebuilt artifacts:
 
 The archive carries the engine with the CLI: `packages/engine` is a workspace
 dependency of `packages/core`, resolved from the tree, so there is no second
-binary to place beside anything. An optional `GIMLET_SIDECAR` can point at a
+binary to place beside anything. An optional `GIMLET_WORKS_SIDECAR` can point at a
 separate engine when you want to compare two implementations.
 
-The packages need Node 20 or newer on the system. Current distributions ship
+The CLI archives and source-built CLI packages need Node 20 or newer on the
+system; desktop installers bundle their runtime. Current distributions ship
 older: Debian 12 has 18, Ubuntu 22.04 has 12. Install a newer one from
 [NodeSource](https://github.com/nodesource/distributions) (or Debian backports)
-first, because the `.deb` declares `nodejs (>= 20)` and `dpkg` refuses to unpack
-it otherwise.
+first, because the CLI distribution package declares `nodejs (>= 20)`.
+
+The former `gimlet` command and `GIMLET_HOME`/`GIMLET_SIDECAR` variables remain
+supported. Existing state and desktop preferences are reused in place; see the
+[upgrade guide](docs/ADMIN_GUIDE.md#upgrading-and-rolling-back) for package and
+platform-specific migration steps. Older releases retain their original names.
 
 ## Quick start
 
@@ -126,23 +131,23 @@ Or by hand:
 
 ```bash
 npm install && npm run build
-node packages/cli/bin/gimlet tools list
-node packages/cli/bin/gimlet system-info
+node packages/cli/bin/gimlet-works tools list
+node packages/cli/bin/gimlet-works system-info
 ```
 
 ## Commands
 
 ```bash
-gimlet tools list [--category sysadmin] [--format json]
-gimlet tools show system-info
-gimlet run <tool> [key=value ...] [--format text|json|markdown|csv|html] [--dry-run] [--strict]
-gimlet <tool> [key=value ...]        # shorthand for `run`
-gimlet batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
+gimlet-works tools list [--category sysadmin] [--format json]
+gimlet-works tools show system-info
+gimlet-works run <tool> [key=value ...] [--format text|json|markdown|csv|html] [--dry-run] [--strict]
+gimlet-works <tool> [key=value ...]        # shorthand for `run`
+gimlet-works batch <tool> <path>... [--arg key=value] [--input-arg NAME] [--ext EXT]
                 [--concurrency 4] [--fail-fast] [--no-recursive]
-gimlet config show|init|path
-gimlet audit [--limit N]
-gimlet doctor
-gimlet tui                          # browse and run tools in the terminal
+gimlet-works config show|init|path
+gimlet-works audit [--limit N]
+gimlet-works doctor
+gimlet-works tui                          # browse and run tools in the terminal
 ```
 
 Exit codes: `0` ok or warning, `1` tool returned an error, `2` usage error.
@@ -154,8 +159,8 @@ once per file with the path bound to `--input-arg` (default `input`), and prints
 one aggregate report with a per-file entry:
 
 ```bash
-gimlet batch privacy.metadata-strip ~/Pictures --ext jpg --ext png --dry-run
-gimlet batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
+gimlet-works batch privacy.metadata-strip ~/Pictures --ext jpg --ext png --dry-run
+gimlet-works batch privacy.metadata-scan ~/Pictures --format json --concurrency 8
 ```
 
 A failing file names itself in the report and sets exit code `1`, but the rest of
@@ -167,7 +172,7 @@ the batch still runs unless `--fail-fast` is given.
 |---|---|
 | `Report` contract, registry, config, audit trail | ✅ |
 | CLI: `run`, `batch`, `tools`, `config`, `audit`, `doctor`, `tui` | ✅ |
-| Terminal surface (`gimlet tui`): filter, arguments, report, scroll | ✅ |
+| Terminal surface (`gimlet-works tui`): filter, arguments, report, scroll | ✅ |
 | Report as one self-contained page (`--format html`) | ✅ |
 | Desktop app (Electron): palette, generated forms, report view, diagnostics, history | ✅ |
 | `sysadmin.system-info`, `sysadmin.disk-usage`, `sysadmin.kernel-hardening`, `sysadmin.network` | ✅ TypeScript |

@@ -1,10 +1,46 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://gimleteye.dev/schema/manifest-1.json",
-  "title": "Gimlet Eye tool manifest",
+  "title": "Gimlet Works tool manifest",
   "description": "What a tool declares about itself. The desktop builds its forms from this, and the CLI resolves tool ids against it.",
   "type": "object",
   "additionalProperties": false,
+  "definitions": {
+    "dataFieldSpec": {
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/definitions/dataSpec" }
+      ]
+    },
+    "dataFieldMap": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/dataFieldSpec" }
+    },
+    "dataSpec": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape", "required"],
+          "properties": {
+            "shape": { "const": "object" },
+            "required": { "$ref": "#/definitions/dataFieldMap" },
+            "optional": { "$ref": "#/definitions/dataFieldMap" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape"],
+          "properties": {
+            "shape": { "const": "array" },
+            "row": { "$ref": "#/definitions/dataFieldMap" },
+            "items": { "$ref": "#/definitions/dataFieldSpec" }
+          }
+        }
+      ]
+    }
+  },
   "required": ["id", "title", "summary", "category"],
   "properties": {
     "id": {
@@ -46,27 +82,7 @@
     "tags": { "type": "array", "items": { "type": "string" } },
     "data": {
       "description": "The declared shape of Report.data, checked when a report is returned.",
-      "oneOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["shape", "required"],
-          "properties": {
-            "shape": { "const": "object" },
-            "required": { "type": "object", "additionalProperties": { "type": "string" } },
-            "optional": { "type": "object", "additionalProperties": { "type": "string" } }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["shape"],
-          "properties": {
-            "shape": { "const": "array" },
-            "row": { "type": "object", "additionalProperties": { "type": "string" } }
-          }
-        }
-      ]
+      "$ref": "#/definitions/dataSpec"
     },
     "mutates": { "type": "boolean" },
     "platforms": {

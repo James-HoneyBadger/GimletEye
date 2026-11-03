@@ -53,26 +53,32 @@ export type ArgSpec = EnumArgSpec | ScalarArgSpec;
 /** The primitive kinds a `Report.data` value can have. */
 export type DataField = 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array' | 'unknown';
 
+/** A primitive kind (or union), or a recursively declared object/array. */
+export type DataFieldSpec = DataField | `${DataField}|${DataField}` | DataSpec;
+
 /**
  * What a tool's `Report.data` is.
  *
  * ADR 0006 Gate 3 asks that a consumer can parse a report without
  * reverse-engineering it, so the shape is declared per tool and checked when the
- * report is returned. A union like `'number|null'` is written because a dry run
- * legitimately returns null where a real run returns a value.
+ * report is returned. Nested objects and arrays can be described recursively.
+ * A union like `'number|null'` is written because a dry run legitimately returns
+ * null where a real run returns a value.
  */
 export type DataSpec =
   | {
       shape: 'object';
       /** Always present. */
-      required: Record<string, DataField | `${DataField}|${DataField}`>;
+      required: Record<string, DataFieldSpec>;
       /** Present only on some paths, e.g. a dry run or a failure. */
-      optional?: Record<string, DataField | `${DataField}|${DataField}`>;
+      optional?: Record<string, DataFieldSpec>;
     }
   | {
       shape: 'array';
       /** The fields of each row, when the tool returns a table. */
-      row?: Record<string, DataField | `${DataField}|${DataField}`>;
+      row?: Record<string, DataFieldSpec>;
+      /** The value schema for arrays that are not tables. */
+      items?: DataFieldSpec;
     };
 
 export interface ToolManifest {

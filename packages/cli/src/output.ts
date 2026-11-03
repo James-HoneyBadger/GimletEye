@@ -1,14 +1,16 @@
 /**
  * Stdout that survives a closed pipe.
  *
- * `gimlet tools list | head` must finish quietly. A write to a closed pipe
+ * `gimlet-works tools list | head` must finish quietly. A write to a closed pipe
  * raises `EPIPE`, which unhandled turns an ordinary shell pipeline into a
  * backtrace, so every line goes through here.
  */
 
 import { closeSync, openSync, writeSync } from 'node:fs';
 
-import { GimletError } from '@gimlet-eye/core';
+import { GimletError } from '@gimlet-works/core';
+
+import { commandName } from './name.js';
 
 let patched = false;
 
@@ -47,7 +49,7 @@ function tolerateClosedPipe(): void {
   process.stdout.on('error', (error: NodeJS.ErrnoException) => {
     // The reader stopped listening; that is how `| head` ends.
     if (error.code === 'EPIPE') return;
-    process.stderr.write(`gimlet: cannot write output: ${error.message}\n`);
+    process.stderr.write(`${commandName()}: cannot write output: ${error.message}\n`);
   });
 }
 
@@ -66,7 +68,7 @@ export function writeLine(text = ''): void {
 }
 
 export function warn(text: string): void {
-  process.stderr.write(`gimlet: ${text}\n`);
+  process.stderr.write(`${commandName()}: ${text}\n`);
 }
 
 /**
@@ -81,7 +83,7 @@ export function writeFailure(code: string, message: string, format: string | und
     process.stderr.write(`${JSON.stringify({ error: { code, message } })}\n`);
     return;
   }
-  process.stderr.write(`gimlet: ${message}\n`);
+  process.stderr.write(`${commandName()}: ${message}\n`);
 }
 
 /** The format named on the command line, for the case where parsing failed. */

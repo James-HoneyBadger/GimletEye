@@ -6,9 +6,8 @@
 # upgrade and a rollback, with their permissions intact and the keystore still
 # openable by the binary that came back.
 #
-# Two packages are built from this tree: `old` at the current version, and `new`
-# with the patch number bumped, so the sequence is a genuine version change rather
-# than a reinstall of the same thing.
+# The old package is built from the last Gimlet Eye release, not today's source.
+# The new package uses this working tree with its patch number bumped.
 #
 #   ./scripts/rehearse-upgrade.sh
 #
@@ -42,54 +41,60 @@ if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
     exit 0
 fi
 
-version="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
-next="${version%.*}.$(( ${version##*.} + 1 ))"
-echo "old = $version, new = $next"
+legacy_tag="${GIMLET_WORKS_LEGACY_TAG:-v1.1.0}"
+git cat-file -e "$legacy_tag^{commit}" || fail "legacy release tag $legacy_tag is not available"
+version="${legacy_tag#v}"
+current="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
+next="${current%.*}.$(( ${current##*.} + 1 ))"
+echo "old = $version ($legacy_tag), new = $next"
 
 # ── stage two source trees ────────────────────────────────────────────────────
 step "stage the two versions"
-# The working tree, not `git archive HEAD`: the packaging files being rehearsed
-# are usually the uncommitted part, and a rehearsal that cannot see them would
-# test the previous commit.
-for kind in old new; do
-    mkdir -p "$work/$kind"
-    tar -C "$root" \
-        --exclude=.git --exclude=target --exclude=node_modules \
-        --exclude=dist --exclude=external --exclude=test-results \
-        -cf - . | tar -xf - -C "$work/$kind"
-done
+mkdir -p "$work/old" "$work/new"
+git archive "$legacy_tag" | tar -xf - -C "$work/old"
+# The working tree includes the packaging changes under test.
+tar -C "$root" \
+    --exclude=.git --exclude=target --exclude=node_modules \
+    --exclude=dist --exclude=external --exclude=test-results --exclude=apps/desktop/release \
+    -cf - . | tar -xf - -C "$work/new"
 # The version lives in one constant; the npm manifests copy it for their own
 # benefit, and the packaging files are checked against it.
 python3 - "$work/new" "$next" <<'PY'
 import json, pathlib, re, sys
 root, next_version = pathlib.Path(sys.argv[1]), sys.argv[2]
 
-constant = root / "packages/core/src/version.ts"
-constant.write_text(re.sub(r"^export const VERSION = '.*';$",
-                           f"export const VERSION = '{next_version}';",
-                           constant.read_text(), count=1, flags=re.M))
+def replace(path, pattern, replacement):
+    text, count = re.subn(pattern, replacement, path.read_text(), count=1, flags=re.M)
+    if count != 1:
+        raise SystemExit(f"could not update {path}")
+    path.write_text(text)
 
-for manifest in ["packages/cli/package.json", "packages/core/package.json",
+replace(root / "packages/core/src/version.ts", r"^export const VERSION = '.*';$",
+        f"export const VERSION = '{next_version}';")
+
+for manifest in ["package.json", "packages/cli/package.json", "packages/core/package.json",
                  "packages/engine/package.json", "apps/desktop/package.json"]:
     path = root / manifest
     data = json.loads(path.read_text())
     data["version"] = next_version
     path.write_text(json.dumps(data, indent=2) + "\n")
 
-changelog = root / "debian/changelog"
-changelog.write_text(re.sub(r'^gimlet-eye-toolkit \([^)]*\)',
-                            f'gimlet-eye-toolkit ({next_version})',
-                            changelog.read_text(), count=1, flags=re.M))
+lockfile = root / "package-lock.json"
+lock = json.loads(lockfile.read_text())
+lock["version"] = next_version
+for package in ["", "packages/cli", "packages/core", "packages/engine", "apps/desktop"]:
+    lock["packages"][package]["version"] = next_version
+lockfile.write_text(json.dumps(lock, indent=2) + "\n")
+
+replace(root / "debian/changelog", r'^gimlet-works-toolkit \([^)]*\)',
+        f'gimlet-works-toolkit ({next_version}-1)')
 
 for recipe, pattern in [("packaging/arch/PKGBUILD", r'^pkgver=.*$'),
-                        ("packaging/fedora/gimlet-eye-toolkit.spec", r'^Version: .*$')]:
+                        ("packaging/fedora/gimlet-works-toolkit.spec", r'^Version: .*$')]:
     path = root / recipe
     replacement = "pkgver=" + next_version if recipe.endswith("PKGBUILD") else "Version:        " + next_version
-    path.write_text(re.sub(pattern, replacement, path.read_text(), count=1, flags=re.M))
+    replace(path, pattern, replacement)
 PY
-for kind in old new; do
-    rm -rf "$work/$kind/packaging/arch" # makepkg is irrelevant inside Debian
-done
 echo "staged $work"
 
 # ── build both .debs in a container ───────────────────────────────────────────
@@ -105,8 +110,12 @@ docker run --rm -v "$work:/w" -w /w "$IMAGE" bash -euc '
         # `-d` skips the build-dependency check on purpose: the container
         # installs the toolchain by hand rather than through apt.
         dpkg-buildpackage -b -uc -us -d >/tmp/$kind.log 2>&1 || { tail -30 /tmp/$kind.log; exit 1; }
-        # `gimlet_*.deb` is the binary package; a `-dbgsym` build is not it.
-        mv /w/gimlet_[0-9]*.deb "/w/$kind.deb"
+        if [ "$kind" = old ]; then
+            mv /w/gimlet_[0-9]*.deb /w/old.deb
+        else
+            mv /w/gimlet-works_[0-9]*.deb /w/new.deb
+            mv /w/gimlet_[0-9]*.deb /w/transition.deb
+        fi
         echo "built $kind"
     done
 ' || fail "the package build failed"
@@ -127,11 +136,9 @@ cat > "$work/inside.sh" <<'INSIDE'
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null
     apt-get install -y -qq nodejs >/dev/null
     node --version | grep -qE "^v(2[0-9]|[3-9][0-9])" || { echo "the package needs node 20 or newer"; exit 1; }
-    export GIMLET_HOME=/home/tester/.config/gimlet
     export KEEP_PASS=rehearsal-passphrase
-    useradd -m tester >/dev/null 2>&1 || true
-
-    install_as_tester() { su tester -s /bin/bash -c "$*"; }
+    useradd -m tester
+    legacy_home=/home/tester/.config/gimlet
 
     echo "--- install $VERSION"
     dpkg -i "$OLD" >/dev/null
@@ -140,58 +147,67 @@ cat > "$work/inside.sh" <<'INSIDE'
     echo "--- create state with $VERSION"
     su tester -s /bin/bash -c "
         set -e
-        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        export KEEP_PASS=$KEEP_PASS
         gimlet crypto.keygen label=survivor kind=x25519 keystore=true passphrase_env=KEEP_PASS >/dev/null
         gimlet crypto.sha256 text=before >/dev/null
-        test -f \$GIMLET_HOME/keystore.gimlet
-        test -f \$GIMLET_HOME/audit.jsonl
+        test -f $legacy_home/keystore.gimlet
+        test -f $legacy_home/audit.jsonl
     "
     key_id_before=$(su tester -s /bin/bash -c "
-        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
+        export KEEP_PASS=$KEEP_PASS
         gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
-    mode_before=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
-    entries_before=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
+    mode_before=$(stat -c %a "$legacy_home/keystore.gimlet")
+    entries_before=$(wc -l < "$legacy_home/audit.jsonl")
     echo "key id $key_id_before, keystore mode $mode_before, $entries_before audit entries"
 
     echo "--- upgrade to $NEXT"
-    dpkg -i "$NEW" >/dev/null
-    su tester -s /bin/bash -c "gimlet --version" | grep -q "$NEXT" || { echo "version did not change"; exit 1; }
+    apt-get install -y "$NEW" "$TRANSITION" >/dev/null
+    su tester -s /bin/bash -c "gimlet-works --version" | grep -q "$NEXT" || { echo "version did not change"; exit 1; }
+    su tester -s /bin/bash -c "gimlet --version" | grep -q "$NEXT" || { echo "legacy command did not upgrade"; exit 1; }
+    [ "$(su tester -s /bin/bash -c 'gimlet-works config path')" = "$legacy_home/config.toml" ] || {
+        echo "the old state root was not reused"; exit 1;
+    }
 
     key_id_after=$(su tester -s /bin/bash -c "
-        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+        export KEEP_PASS=$KEEP_PASS
+        gimlet-works crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_after" = "$key_id_before" ] || { echo "the keystore changed across the upgrade"; exit 1; }
     su tester -s /bin/bash -c "
-        export GIMLET_HOME=$GIMLET_HOME
-        gimlet crypto.sha256 text=during >/dev/null
+        gimlet-works crypto.sha256 text=during >/dev/null
     "
     echo "keystore opens after upgrade; key id unchanged"
 
     echo "--- roll back to $VERSION"
+    dpkg -r gimlet gimlet-works >/dev/null
     dpkg -i "$OLD" >/dev/null
     su tester -s /bin/bash -c "gimlet --version" | grep -q "$VERSION" || { echo "rollback did not restore the version"; exit 1; }
+    key_id_rollback=$(su tester -s /bin/bash -c "
+        export KEEP_PASS=$KEEP_PASS
+        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+    ")
+    [ "$key_id_rollback" = "$key_id_before" ] || { echo "the keystore did not open after rollback"; exit 1; }
 
-    mode_after=$(stat -c %a "/home/tester/.config/gimlet/keystore.gimlet")
+    mode_after=$(stat -c %a "$legacy_home/keystore.gimlet")
     [ "$mode_after" = "$mode_before" ] || { echo "keystore permissions changed: $mode_before -> $mode_after"; exit 1; }
 
-    entries_after=$(wc -l < /home/tester/.config/gimlet/audit.jsonl)
+    entries_after=$(wc -l < "$legacy_home/audit.jsonl")
     [ "$entries_after" -gt "$entries_before" ] || { echo "the audit trail lost entries across the round trip"; exit 1; }
     echo "$entries_after audit entries after the round trip"
 
     echo "--- upgrade again, and the state still opens"
-    dpkg -i "$NEW" >/dev/null
+    apt-get install -y "$NEW" "$TRANSITION" >/dev/null
     key_id_final=$(su tester -s /bin/bash -c "
-        export GIMLET_HOME=$GIMLET_HOME KEEP_PASS=$KEEP_PASS
-        gimlet crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
+        export KEEP_PASS=$KEEP_PASS
+        gimlet-works crypto.key-list passphrase_env=KEEP_PASS --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"data\"][\"keys\"][0][\"id\"])'
     ")
     [ "$key_id_final" = "$key_id_before" ] || { echo "the keystore did not survive the second upgrade"; exit 1; }
     echo "rehearsal passed"
 INSIDE
 chmod +x "$work/inside.sh"
 
-docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb \
+docker run --rm -v "$work:/w" -e OLD=/w/old.deb -e NEW=/w/new.deb -e TRANSITION=/w/transition.deb \
     -e VERSION="$version" -e NEXT="$next" "$IMAGE" bash -euc /w/inside.sh \
     || fail "the install/upgrade/rollback rehearsal failed"
 

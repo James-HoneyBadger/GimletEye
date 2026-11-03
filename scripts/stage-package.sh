@@ -5,14 +5,13 @@
 # build root, so they cannot drift from each other or from the layout the CLI
 # looks for at run time:
 #
-#   usr/bin/gimlet                    -> ../lib/gimlet/cli/bin/gimlet
-#   usr/lib/gimlet/cli/bin/gimlet     the entry point
-#   usr/lib/gimlet/cli/{bin,dist}     the command line
-#   usr/lib/gimlet/core/{dist,package.json}
-#   usr/lib/gimlet/engine/{dist,package.json}
-#   usr/lib/gimlet/node_modules/@noble/hashes   the engine's Argon2id
-#   usr/lib/gimlet/node_modules/...   the one runtime dependency
-#   usr/share/doc/gimlet/             README, CHANGELOG, licence, docs
+#   usr/bin/gimlet-works                    the primary command
+#   usr/bin/gimlet                          the compatibility alias
+#   usr/lib/gimlet-works/cli/{bin,dist}     the command line
+#   usr/lib/gimlet-works/core/{dist,package.json}
+#   usr/lib/gimlet-works/engine/{dist,package.json}
+#   usr/lib/gimlet-works/node_modules/...    the runtime dependencies
+#   usr/share/doc/gimlet-works/             README, CHANGELOG, licence, docs
 #
 # Usage: scripts/stage-package.sh <root>
 set -euo pipefail
@@ -23,15 +22,15 @@ cd "$root"
 
 die() { printf '\033[31mstage-package: %s\033[0m\n' "$*" >&2; exit 1; }
 
-lib="$dest/usr/lib/gimlet"
-doc="$dest/usr/share/doc/gimlet"
+lib="$dest/usr/lib/gimlet-works"
+doc="$dest/usr/share/doc/gimlet-works"
 
 [ -f packages/cli/dist/main.js ] || die "build the CLI first: npm run build"
 [ -f packages/core/dist/index.js ] || die "build the core first: npm run build"
 [ -f packages/engine/dist/index.js ] || die "build the engine first: npm run build"
 [ -d node_modules/smol-toml ] || die "install the dependencies first: npm ci"
 
-install -d "$lib/cli" "$lib/core" "$lib/engine" "$lib/node_modules/@gimlet-eye" \
+install -d "$lib/cli" "$lib/core" "$lib/engine" "$lib/node_modules/@gimlet-works" \
     "$lib/node_modules/@noble" "$dest/usr/bin" "$doc"
 
 cp -r packages/cli/dist "$lib/cli/dist"
@@ -47,10 +46,11 @@ cp packages/engine/package.json "$lib/engine/package.json"
 cp -r node_modules/smol-toml "$lib/node_modules/smol-toml"
 [ -d node_modules/@noble/hashes ] || die "install the dependencies first: npm ci"
 cp -r node_modules/@noble/hashes "$lib/node_modules/@noble/hashes"
-ln -sfn ../../core "$lib/node_modules/@gimlet-eye/core"
-ln -sfn ../../engine "$lib/node_modules/@gimlet-eye/engine"
+ln -sfn ../../core "$lib/node_modules/@gimlet-works/core"
+ln -sfn ../../engine "$lib/node_modules/@gimlet-works/engine"
 
-ln -sfn ../lib/gimlet/cli/bin/gimlet "$dest/usr/bin/gimlet"
+ln -sfn ../lib/gimlet-works/cli/bin/gimlet-works "$dest/usr/bin/gimlet-works"
+ln -sfn ../lib/gimlet-works/cli/bin/gimlet "$dest/usr/bin/gimlet"
 
 for file in README.md CHANGELOG.md LICENSE; do
     install -m 0644 "$file" "$doc/$file"

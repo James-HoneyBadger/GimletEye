@@ -1,4 +1,4 @@
-import type { Args, ToolManifest } from '@gimlet-eye/core';
+import type { Args, ToolManifest } from '@gimlet-works/core';
 import type { RawValues } from './store';
 
 /** Read the rendered form exactly as the user left it. */

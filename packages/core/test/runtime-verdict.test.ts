@@ -58,6 +58,15 @@ describe('the runtime verdict', () => {
     runtime.close();
   });
 
+  it('records the effective dry-run state and a run id', async () => {
+    const runtime = await runtimeFor(tool(() => report()));
+    await runtime.run('demo.verdict', {}, { dryRun: true });
+    const [entry] = await runtime.auditTail(1);
+    expect(entry?.dry_run).toBe(true);
+    expect(entry?.run_id).toBeTruthy();
+    runtime.close();
+  });
+
   it('refuses an unknown argument before the tool runs', async () => {
     let ran = false;
     const runtime = await runtimeFor({
@@ -101,6 +110,28 @@ describe('a manifest from the engine', () => {
 
   it('refuses a data shape without its required map', () => {
     expect(() => assertManifest({ ...good, data: { shape: 'object' } }, 0)).toThrow(/data\.required/);
+  });
+
+  it('accepts a nested data schema and refuses an unknown nested kind', () => {
+    const manifest = {
+      ...good,
+      data: {
+        shape: 'object',
+        required: {
+          rows: { shape: 'array', row: { values: { shape: 'array', items: 'number' } } },
+        },
+      },
+    };
+    expect(assertManifest(manifest, 0).data).toEqual(manifest.data);
+    expect(() =>
+      assertManifest(
+        {
+          ...good,
+          data: { shape: 'object', required: { rows: { shape: 'array', items: 'record' } } },
+        },
+        0,
+      ),
+    ).toThrow(/valid data schema/);
   });
 });
 

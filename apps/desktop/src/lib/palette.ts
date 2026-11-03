@@ -6,7 +6,7 @@
  * instead of asking the user to spell.
  */
 
-import { similarity } from '@gimlet-eye/core';
+import { similarity } from '@gimlet-works/core';
 
 import type { ToolManifest } from './engine';
 import { modLabel, searchText } from './format';

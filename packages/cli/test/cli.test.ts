@@ -4,12 +4,13 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GimletError } from '@gimlet-eye/core';
-import { nodeHost } from '@gimlet-eye/core/host-node';
+import { GimletError } from '@gimlet-works/core';
+import { nodeHost } from '@gimlet-works/core/host-node';
 import { categoryOrUsage } from '../src/commands.js';
 import { parseArgs } from '../src/cli.js';
 import { collectFiles, executeBatch } from '../src/batch.js';
 import { completionScript, manPage } from '../src/completions.js';
+import { commandName } from '../src/name.js';
 import { configure, finish, formatFromArgv, write, writeFailure } from '../src/output.js';
 import { BATCH_FLAGS, COMMANDS, GLOBAL_FLAGS } from '../src/surface.js';
 
@@ -30,7 +31,12 @@ describe('failures in the shape the caller asked for', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     writeFailure('not_found', 'not found: /nope', 'text');
 
-    expect(stderr.mock.calls.map((call) => String(call[0])).join('')).toBe('gimlet: not found: /nope\n');
+    expect(stderr.mock.calls.map((call) => String(call[0])).join('')).toBe('gimlet-works: not found: /nope\n');
+  });
+
+  it('recognises the legacy executable name', () => {
+    expect(commandName('/usr/bin/gimlet')).toBe('gimlet');
+    expect(commandName('/usr/bin/gimlet-works')).toBe('gimlet-works');
   });
 
   it('finds the format even when parsing the command failed', () => {
@@ -122,12 +128,13 @@ describe('command parsing', () => {
       const script = completionScript(shell);
       for (const entry of COMMANDS) expect(script).toContain(entry.command.split(' ')[0]);
     }
-    expect(completionScript('bash')).toContain('complete -F _gimlet gimlet');
+    expect(completionScript('bash')).toContain('complete -F _gimlet_works gimlet-works gimlet');
+    expect(completionScript('fish')).toContain('complete -c gimlet-works');
     expect(completionScript('fish')).toContain('complete -c gimlet');
-    expect(completionScript('zsh')).toContain('#compdef gimlet');
+    expect(completionScript('zsh')).toContain('#compdef gimlet-works gimlet');
 
     const man = manPage();
-    expect(man).toContain('.TH GIMLET 1');
+    expect(man).toContain('.TH GIMLET-WORKS 1');
     expect(man).toContain('.SH COMMANDS');
     expect(man).toContain('.SH BATCH OPTIONS');
     expect(man).toContain('.SH ENVIRONMENT');
@@ -196,11 +203,12 @@ describe('batch execution', () => {
   it('finds files, honours --ext, and names each one in the aggregate', async () => {
     dir = await mkdtemp(join(tmpdir(), 'gimlet-batch-'));
     await writeFile(join(dir, 'a.jpg'), 'x');
+    await writeFile(join(dir, 'b.jpg'), 'x');
     await writeFile(join(dir, 'b.txt'), 'x');
     const host = nodeHost();
 
     const files = await collectFiles(host, [dir], ['jpg'], true);
-    expect(files).toEqual([join(dir, 'a.jpg')]);
+    expect(files).toEqual([join(dir, 'a.jpg'), join(dir, 'b.jpg')]);
 
     const printed: string[] = [];
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
@@ -208,11 +216,13 @@ describe('batch execution', () => {
       return true;
     });
     const seen: string[] = [];
+    const runMetadata: { runId: string; runIndex: number; runCount: number }[] = [];
     const summary = await executeBatch(
       host,
       {
-        async run(_tool, args) {
+        async run(_tool, args, metadata) {
           seen.push(String(args['input']));
+          if (metadata !== undefined) runMetadata.push(metadata);
           return { tool: 'demo', status: 'ok', summary: 'fine', duration_ms: 1 };
         },
       },
@@ -229,9 +239,11 @@ describe('batch execution', () => {
       'text',
     );
 
-    expect(seen).toEqual([join(dir, 'a.jpg')]);
+    expect(seen).toEqual([join(dir, 'a.jpg'), join(dir, 'b.jpg')]);
+    expect(runMetadata.map(({ runIndex, runCount }) => [runIndex, runCount])).toEqual([[1, 2], [2, 2]]);
+    expect(new Set(runMetadata.map(({ runId }) => runId)).size).toBe(1);
     expect(summary.status).toBe('ok');
-    expect(printed.join('')).toContain('1 of 1 file(s): 1 ok, 0 warning(s), 0 error(s)');
+    expect(printed.join('')).toContain('2 of 2 file(s): 2 ok, 0 warning(s), 0 error(s)');
   });
 
   it('turns a failing file into a high finding', async () => {

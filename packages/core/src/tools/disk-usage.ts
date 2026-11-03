@@ -46,7 +46,7 @@ export const diskUsage: LocalTool = {
     const wanted = optString(args, 'path');
 
     let rows = (await readRows(ctx)).filter((row) => row.total_kb > 0);
-    if (!includePseudo) rows = rows.filter((row) => !isPseudo(row.filesystem));
+    if (!includePseudo) rows = rows.filter((row) => !isPseudo(row.filesystem, row.mount));
 
     if (wanted !== undefined) {
       if (!(await ctx.host.exists(wanted))) throw notFound(`${wanted} does not exist`);
@@ -131,10 +131,12 @@ export function parseDf(raw: string): DiskRow[] {
   return rows;
 }
 
-export function isPseudo(filesystem: string): boolean {
+export function isPseudo(filesystem: string, mount = ''): boolean {
   return (
     ['tmpfs', 'devtmpfs', 'devfs', 'udev', 'none', 'efivarfs', 'squashfs'].includes(filesystem) ||
-    filesystem.startsWith('cgroup')
+    filesystem.startsWith('cgroup') ||
+    mount === '/snap' ||
+    mount.startsWith('/snap/')
   );
 }
 

@@ -6,7 +6,7 @@
  * every file: a hash is enough to notice that something moved.
  */
 
-import { sha256Hex } from '@gimlet-eye/engine';
+import { sha256Hex } from '@gimlet-works/engine';
 
 import { booleanOr, integerOr, optString, stringOr } from '../args.js';
 import { invalidArgs, notFound, toolFailed } from '../errors.js';

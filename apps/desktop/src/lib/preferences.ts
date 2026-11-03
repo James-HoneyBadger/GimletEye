@@ -15,8 +15,8 @@ export interface Preferences {
   recents?: string[];
 }
 
-export const PREFERENCES_KEY = 'gimlet.ui.v2';
-export const LEGACY_PREFERENCES_KEY = 'gimlet.ui.v1';
+export const PREFERENCES_KEY = 'gimlet-works.ui.v3';
+export const LEGACY_PREFERENCES_KEYS = ['gimlet.ui.v2', 'gimlet.ui.v1'] as const;
 
 function strings(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
@@ -65,7 +65,9 @@ function parse(storage: Readable, key: string): Preferences {
  * theme where they left it rather than a second first run.
  */
 export function readPreferences(storage: Readable): Preferences {
-  const current = parse(storage, PREFERENCES_KEY);
-  if (Object.keys(current).length > 0) return current;
-  return parse(storage, LEGACY_PREFERENCES_KEY);
+  for (const key of [PREFERENCES_KEY, ...LEGACY_PREFERENCES_KEYS]) {
+    const preferences = parse(storage, key);
+    if (Object.keys(preferences).length > 0) return preferences;
+  }
+  return {};
 }

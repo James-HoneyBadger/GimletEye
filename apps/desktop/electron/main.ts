@@ -17,12 +17,13 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, session, shell 
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { isWithin } from '@gimlet-eye/core';
+import { isWithin } from '@gimlet-works/core';
 
 import { createApi } from './api.js';
 import { clampBounds, type Bounds } from './bounds.js';
 import { registerHandlers, type PickerMode } from './handlers.js';
 import { installMenu } from './menu.js';
+import { desktopProfilePath } from './profile.js';
 import { createRuntimeLoader } from './runtime.js';
 import { installSessionPolicy } from './session-policy.js';
 import { readWindowBounds, writeWindowBounds } from './window-state.js';
@@ -32,6 +33,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 // Every renderer runs sandboxed, including any the shell creates later. Set
 // before the app is ready, which is when Electron reads it.
 app.enableSandbox();
+
+if (!app.commandLine.hasSwitch('user-data-dir')) {
+  app.setPath('userData', desktopProfilePath(app.getPath('userData'), app.getPath('appData')));
+}
 
 let window: BrowserWindow | null = null;
 
@@ -113,8 +118,8 @@ function senderIsWindow(event: Electron.IpcMainInvokeEvent): boolean {
 function showAbout(): void {
   const options = {
     type: 'info' as const,
-    title: 'About Gimlet Eye',
-    message: `Gimlet Eye ${app.getVersion()}`,
+    title: 'About Gimlet Works',
+    message: `Gimlet Works ${app.getVersion()}`,
     detail: `Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · Node ${process.versions.node}\n\nEverything runs locally: nothing leaves this machine.`,
     buttons: ['OK'],
   };

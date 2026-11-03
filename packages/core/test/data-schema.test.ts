@@ -15,7 +15,7 @@ import { NODE_TOOLS } from '../src/node.js';
 import { Runtime } from '../src/runtime.js';
 import { fakeHost } from './fake-host.js';
 import type { LocalTool } from '../src/local.js';
-import type { ToolManifest } from '../src/manifest.js';
+import type { DataFieldSpec, ToolManifest } from '../src/manifest.js';
 
 const manifest = (data?: ToolManifest['data']): ToolManifest => ({
   id: 'demo.shape',
@@ -53,6 +53,12 @@ describe('checking data against its schema', () => {
     expect(problems).toEqual(['data.bytes should be number but is string']);
   });
 
+  it('rejects present values with no supported report kind', () => {
+    expect(dataProblems(manifest(spec), { input: undefined, bytes: 1, output: null })).toEqual([
+      'data.input should be string but is unknown',
+    ]);
+  });
+
   it('catches a missing field and an undeclared one', () => {
     expect(dataProblems(manifest(spec), { input: 'a', bytes: 1 })).toContain('data.output is declared but missing');
     expect(dataProblems(manifest(spec), { input: 'a', bytes: 1, output: null, extra: 1 })).toContain(
@@ -73,6 +79,41 @@ describe('checking data against its schema', () => {
     expect(dataProblems(table, [{ mount: '/', use_percent: 4 }])).toEqual([]);
     expect(dataProblems(table, { mount: '/' })).toEqual(['data should be an array but is object']);
     expect(dataProblems(table, [{ mount: '/' }])).toEqual(['data[0].use_percent is declared but missing']);
+  });
+
+  it('checks nested objects, table rows, and scalar array items', () => {
+    const nested = manifest({
+      shape: 'object',
+      required: {
+        host: {
+          shape: 'object',
+          required: { name: 'string' },
+          optional: { cores: 'number' },
+        },
+        samples: { shape: 'array', items: 'number' },
+        segments: { shape: 'array', row: { offset: 'number', label: 'string' } },
+      },
+    });
+
+    expect(
+      dataProblems(nested, {
+        host: { name: 'demo', cores: 4 },
+        samples: [1, 2],
+        segments: [{ offset: 0, label: 'EXIF' }],
+      }),
+    ).toEqual([]);
+    expect(
+      dataProblems(nested, {
+        host: { name: 7, extra: true },
+        samples: [1, 'two'],
+        segments: [{ offset: 'zero', label: 'EXIF' }],
+      }),
+    ).toEqual([
+      'data.host.name should be string but is number',
+      'data.host.extra is not in the declared schema',
+      'data.samples[1] should be number but is string',
+      'data.segments[0].offset should be number but is string',
+    ]);
   });
 
   it('declares nothing and checks nothing when the manifest has no schema', () => {
@@ -105,6 +146,19 @@ describe('the runtime choke point', () => {
     runtime.close();
   });
 
+  it('refuses a nested value that drifts from the manifest', async () => {
+    const tool: LocalTool = {
+      manifest: manifest({
+        shape: 'object',
+        required: { host: { shape: 'object', required: { cores: 'number' } } },
+      }),
+      run: async () => report({ host: { cores: 'many' } }),
+    };
+    const runtime = await runtimeFor(tool);
+    await expect(runtime.run('demo.shape', {})).rejects.toThrow(/data\.host\.cores should be number/);
+    runtime.close();
+  });
+
   it('passes a report that matches', async () => {
     const tool: LocalTool = {
       manifest: manifest({ shape: 'object', required: { bytes: 'number' } }),
@@ -127,14 +181,33 @@ describe('the shipped tools', () => {
 
   it('every declared field is one the checker understands', () => {
     const known = new Set(['string', 'number', 'boolean', 'null', 'object', 'array', 'unknown']);
+
+    const checkSpec = (toolId: string, field: string, value: DataFieldSpec): void => {
+      if (typeof value === 'string') {
+        for (const kind of value.split('|')) {
+          expect(known.has(kind), `${toolId}.${field} declares '${kind}'`).toBe(true);
+        }
+        return;
+      }
+      if (value.shape === 'object') {
+        for (const [name, nested] of Object.entries({ ...value.required, ...value.optional })) {
+          checkSpec(toolId, `${field}.${name}`, nested);
+        }
+        return;
+      }
+      for (const [name, nested] of Object.entries(value.row ?? {})) {
+        checkSpec(toolId, `${field}.${name}`, nested);
+      }
+      if (value.items !== undefined) checkSpec(toolId, `${field}[]`, value.items);
+    };
+
     for (const tool of NODE_TOOLS) {
       const spec = tool.manifest.data!;
       const fields = spec.shape === 'array' ? (spec.row ?? {}) : { ...spec.required, ...spec.optional };
-      for (const [field, accepted] of Object.entries(fields)) {
-        for (const kind of String(accepted).split('|')) {
-          expect(known.has(kind), `${tool.manifest.id}.${field} declares '${kind}'`).toBe(true);
-        }
+      for (const [field, accepted] of Object.entries(fields) as [string, DataFieldSpec][]) {
+        checkSpec(tool.manifest.id, field, accepted);
       }
+      if (spec.shape === 'array' && spec.items !== undefined) checkSpec(tool.manifest.id, '[]', spec.items);
     }
   });
 });

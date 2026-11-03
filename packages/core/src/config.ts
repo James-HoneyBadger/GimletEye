@@ -27,6 +27,7 @@ export interface AuditSettings {
   enabled: boolean;
   /** Overrides the default `<root>/audit.jsonl`. */
   path?: string;
+  /** Maximum retained logical runs; entries in one batch share a run id. */
   max_entries: number;
 }
 

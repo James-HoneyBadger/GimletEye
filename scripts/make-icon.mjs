@@ -6,7 +6,7 @@
 // Run it with the app's own Electron, not with node: the `electron` package
 // exports a path to the binary, so a plain `node` run cannot import `app`.
 //
-//   npm run icon -w @gimlet-eye/desktop
+//   npm run icon -w @gimlet-works/desktop
 //   npx electron scripts/make-icon.mjs          # the same thing, from the root
 //
 // Writes apps/desktop/build/icon.png at 512x512, which electron-builder picks up

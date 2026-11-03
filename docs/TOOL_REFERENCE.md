@@ -4,7 +4,9 @@ Every tool in the catalogue, with an example invocation and the output it produc
 
 `scripts/check-tool-reference.sh` fails when a tool exists that this file does not mention, so a new tool cannot ship undocumented.
 
-Generated 2026-10-31 on Linux aarch64 with `gimlet 1.1.0`.
+Generated 2026-10-31 on Linux aarch64 with `gimlet 1.1.0` (Gimlet Eye).
+Commands were updated to `gimlet-works` and checkout paths made relative during
+the rename; the recorded output remains the original snapshot.
 
 ## Crypto
 
@@ -14,7 +16,7 @@ Decrypt a file — Open an authenticated container with its passphrase
 *writes, engine*
 
 ```console
-$ gimlet crypto.decrypt input=/tmp/gimlet-reference-bw90dndx/photo.gimlet passphrase_env=DEMO_PASSPHRASE output=/tmp/gimlet-reference-bw90dndx/decrypted.jpg
+$ gimlet-works crypto.decrypt input=/tmp/gimlet-reference-bw90dndx/photo.gimlet passphrase_env=DEMO_PASSPHRASE output=/tmp/gimlet-reference-bw90dndx/decrypted.jpg
 ✔ crypto.decrypt  (183 ms)
   decrypted /tmp/gimlet-reference-bw90dndx/photo.gimlet → /tmp/gimlet-reference-bw90dndx/decrypted.jpg (chacha20-poly1305, 1 chunk(s))
 
@@ -36,13 +38,13 @@ Encrypt a file — Seal a file into an authenticated container using a passphras
 *writes, engine*
 
 ```console
-$ gimlet crypto.encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-bw90dndx/example.gimlet passphrase_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.encrypt input=./packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-bw90dndx/example.gimlet passphrase_env=DEMO_PASSPHRASE
 ✔ crypto.encrypt  (178 ms)
-  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg → /tmp/gimlet-reference-bw90dndx/example.gimlet (chacha20-poly1305, argon2id, 1 chunk(s))
+  encrypted ./packages/engine/test/fixtures/photo-exif-gps.jpg → /tmp/gimlet-reference-bw90dndx/example.gimlet (chacha20-poly1305, argon2id, 1 chunk(s))
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "output": "/tmp/gimlet-reference-bw90dndx/example.gimlet",
     "algorithm": "chacha20-poly1305",
     "kdf": "argon2id",
@@ -59,13 +61,13 @@ Encrypt for a GnuPG recipient — Produce an OpenPGP message with the system gpg
 *writes, engine*
 
 ```console
-$ gimlet crypto.gpg-encrypt input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg recipient=D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C output=/tmp/gimlet-reference-bw90dndx/photo.gpg
+$ gimlet-works crypto.gpg-encrypt input=./packages/engine/test/fixtures/photo-exif-gps.jpg recipient=D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C output=/tmp/gimlet-reference-bw90dndx/photo.gpg
 ✔ crypto.gpg-encrypt  (5 ms)
-  encrypted /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg for D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C → /tmp/gimlet-reference-bw90dndx/photo.gpg (315 bytes)
+  encrypted ./packages/engine/test/fixtures/photo-exif-gps.jpg for D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C → /tmp/gimlet-reference-bw90dndx/photo.gpg (315 bytes)
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "output": "/tmp/gimlet-reference-bw90dndx/photo.gpg",
     "recipient": "D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C",
     "output_bytes": 315,
@@ -80,13 +82,13 @@ Verify a GnuPG signature — Check a detached signature with the system gpg and 
 *engine*
 
 ```console
-$ gimlet crypto.gpg-verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-bw90dndx/photo.gpg.sig
+$ gimlet-works crypto.gpg-verify input=./packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-bw90dndx/photo.gpg.sig
 ✔ crypto.gpg-verify  (6 ms)
-  signature is valid for /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg (key D2B651C948BEAD40)
+  signature is valid for ./packages/engine/test/fixtures/photo-exif-gps.jpg (key D2B651C948BEAD40)
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "signature": "/tmp/gimlet-reference-bw90dndx/photo.gpg.sig",
     "valid": true,
     "fingerprint": "D2B651C948BEAD40EF0C7AAF2B0E2661334FD00C",
@@ -101,7 +103,7 @@ Inspect a container — Report the cipher, KDF parameters, and lengths of an enc
 *engine*
 
 ```console
-$ gimlet crypto.inspect input=/tmp/gimlet-reference-bw90dndx/photo.gimlet
+$ gimlet-works crypto.inspect input=/tmp/gimlet-reference-bw90dndx/photo.gimlet
 ✔ crypto.inspect  (2 ms)
   /tmp/gimlet-reference-bw90dndx/photo.gimlet · chacha20-poly1305 · argon2id · 19 MiB · 2 iteration(s) · 1 lane(s) · chunked
 
@@ -125,7 +127,7 @@ Export a key — Write a key from the keystore to a key file; the secret needs a
 *writes, engine*
 
 ```console
-$ gimlet crypto.key-export selector=demo output=/tmp/gimlet-reference-bw90dndx/example.pub passphrase_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.key-export selector=demo output=/tmp/gimlet-reference-bw90dndx/example.pub passphrase_env=DEMO_PASSPHRASE
 ✔ crypto.key-export  (179 ms)
   exported 'demo' to /tmp/gimlet-reference-bw90dndx/example.pub
 
@@ -146,7 +148,7 @@ Import a key — Add a key from a key file into the sealed keystore
 *writes, engine*
 
 ```console
-$ gimlet crypto.key-import key=/tmp/gimlet-reference-bw90dndx/example.pub label=imported public_only=true passphrase_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.key-import key=/tmp/gimlet-reference-bw90dndx/example.pub label=imported public_only=true passphrase_env=DEMO_PASSPHRASE
 ✔ crypto.key-import  (333 ms)
   imported 'imported' (ed25519) into /tmp/gimlet-reference-bw90dndx/home/keystore.gimlet
 
@@ -168,7 +170,7 @@ List keys — List the keys in the sealed keystore: id, label, kind, and public 
 *engine*
 
 ```console
-$ gimlet crypto.key-list passphrase_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.key-list passphrase_env=DEMO_PASSPHRASE
 ✔ crypto.key-list  (177 ms)
   2 key(s): 2 signing, 0 recipient(s)
 
@@ -192,7 +194,7 @@ Rotate the keystore passphrase — Re-seal every key under a new passphrase; key
 *writes, engine*
 
 ```console
-$ gimlet crypto.key-rotate passphrase_env=DEMO_PASSPHRASE new_passphrase_env=DEMO_NEW_PASSPHRASE --dry-run
+$ gimlet-works crypto.key-rotate passphrase_env=DEMO_PASSPHRASE new_passphrase_env=DEMO_NEW_PASSPHRASE --dry-run
 ✔ crypto.key-rotate  (179 ms)
   would re-seal 2 key(s) under a new passphrase
 
@@ -211,7 +213,7 @@ Generate a key — Create an Ed25519 signing key or an X25519 recipient key, in 
 *writes, engine*
 
 ```console
-$ gimlet crypto.keygen label=example kind=ed25519 keystore=true passphrase_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.keygen label=example kind=ed25519 keystore=true passphrase_env=DEMO_PASSPHRASE
 ✔ crypto.keygen  (335 ms)
   added 'example' to /tmp/gimlet-reference-bw90dndx/home/keystore.gimlet
 
@@ -235,7 +237,7 @@ Password audit — Offline strength and pattern audit of an existing password
 *engine*
 
 ```console
-$ gimlet crypto.pass-audit password_env=DEMO_PASSPHRASE
+$ gimlet-works crypto.pass-audit password_env=DEMO_PASSPHRASE
 ✔ crypto.pass-audit  (1 ms)
   score 4 of 4, 117.7 bits, 0 issue(s)
 
@@ -259,7 +261,7 @@ Generate passwords — Cryptographically secure passwords with an estimated entr
 *engine*
 
 ```console
-$ gimlet crypto.passgen length=24
+$ gimlet-works crypto.passgen length=24
 ✔ crypto.passgen  (1 ms)
   1 password(s) · 24 chars · ~154.2 bits each
 
@@ -281,7 +283,7 @@ SHA-256 digest — Hash text or a file with SHA-256
 *engine*
 
 ```console
-$ gimlet crypto.sha256 path=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
+$ gimlet-works crypto.sha256 path=./packages/engine/test/fixtures/photo-exif-gps.jpg
 ✔ crypto.sha256  (1 ms)
   sha256:fb6b9d85c1b2cb8fb511aed587e253a9a9d9a720ba019f4384cd5169c93ea152
 
@@ -289,7 +291,7 @@ Data
   {
     "sha256": "fb6b9d85c1b2cb8fb511aed587e253a9a9d9a720ba019f4384cd5169c93ea152",
     "size_bytes": 195,
-    "source": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "source": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "backend": "node"
   }
 ```
@@ -300,13 +302,13 @@ Sign a file — Produce a detached Ed25519 signature for a file
 *writes, engine*
 
 ```console
-$ gimlet crypto.sign input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg key=/tmp/gimlet-reference-bw90dndx/signing.key output=/tmp/gimlet-reference-bw90dndx/example.sig
+$ gimlet-works crypto.sign input=./packages/engine/test/fixtures/photo-exif-gps.jpg key=/tmp/gimlet-reference-bw90dndx/signing.key output=/tmp/gimlet-reference-bw90dndx/example.sig
 ✔ crypto.sign  (4 ms)
-  signed /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
+  signed ./packages/engine/test/fixtures/photo-exif-gps.jpg
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "signature": "/tmp/gimlet-reference-bw90dndx/example.sig",
     "algorithm": "ed25519",
     "signature_hex": "4d1157fbd4e4d1e783629b1ff3fde7918778996ed35d875fa8e00cdc05868b3f4b123de2d5026cb5a99852a1f0e27dbf102b0654d7a6585d3c118120878e7300",
@@ -320,13 +322,13 @@ Verify a signature — Check a detached Ed25519 signature against a public key
 *engine*
 
 ```console
-$ gimlet crypto.verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-bw90dndx/setup.sig key=/tmp/gimlet-reference-bw90dndx/demo.pub
+$ gimlet-works crypto.verify input=./packages/engine/test/fixtures/photo-exif-gps.jpg signature=/tmp/gimlet-reference-bw90dndx/setup.sig key=/tmp/gimlet-reference-bw90dndx/demo.pub
 ✔ crypto.verify  (3 ms)
-  /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg: signature is valid
+  ./packages/engine/test/fixtures/photo-exif-gps.jpg: signature is valid
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "signature": "/tmp/gimlet-reference-bw90dndx/setup.sig",
     "key": "/tmp/gimlet-reference-bw90dndx/demo.pub",
     "public_key": "7ffcf63c3de1e92a8e3833e72cce0ae8ab285bab3398cfdcacc6da928e801b7c",
@@ -343,16 +345,16 @@ Inspect metadata — Report embedded EXIF, GPS, text, and comment regions in a c
 *engine*
 
 ```console
-$ gimlet privacy.metadata-scan input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
+$ gimlet-works privacy.metadata-scan input=./packages/engine/test/fixtures/photo-exif-gps.jpg
 ! privacy.metadata-scan  (4 ms)
-  /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg · jpeg · 3 segments · 177 bytes removable (identity, text, time)
+  ./packages/engine/test/fixtures/photo-exif-gps.jpg · jpeg · 3 segments · 177 bytes removable (identity, text, time)
 
 Findings
   ! [medium  ] metadata.present: 177 bytes removable under this policy: Comment, EXIF (including GPS)
 
 Data
   {
-    "path": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "path": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "format": "jpeg",
     "size_bytes": 195,
     "metadata_bytes": 177,
@@ -367,13 +369,13 @@ Remove metadata — Rewrite a file without selected metadata, optionally reducin
 *writes, engine*
 
 ```console
-$ gimlet privacy.metadata-strip input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-bw90dndx/stripped.jpg profile=privacy
+$ gimlet-works privacy.metadata-strip input=./packages/engine/test/fixtures/photo-exif-gps.jpg output=/tmp/gimlet-reference-bw90dndx/stripped.jpg profile=privacy
 ✔ privacy.metadata-strip  (3 ms)
-  cleaned /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg — removed 177 bytes (identity, text, time)
+  cleaned ./packages/engine/test/fixtures/photo-exif-gps.jpg — removed 177 bytes (identity, text, time)
 
 Data
   {
-    "input": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "input": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "output": "/tmp/gimlet-reference-bw90dndx/stripped.jpg",
     "format": "jpeg",
     "original_bytes": 195,
@@ -391,16 +393,16 @@ Verify metadata removal — Assert that a file carries no metadata selected by t
 *engine*
 
 ```console
-$ gimlet privacy.metadata-verify input=/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg
+$ gimlet-works privacy.metadata-verify input=./packages/engine/test/fixtures/photo-exif-gps.jpg
 ✖ privacy.metadata-verify  (2 ms)
-  /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg carries metadata (identity, text, time)
+  ./packages/engine/test/fixtures/photo-exif-gps.jpg carries metadata (identity, text, time)
 
 Findings
-  ▲ [high    ] metadata.remaining: /home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg still carries 177 bytes of metadata: Comment, EXIF (including GPS)
+  ▲ [high    ] metadata.remaining: ./packages/engine/test/fixtures/photo-exif-gps.jpg still carries 177 bytes of metadata: Comment, EXIF (including GPS)
 
 Data
   {
-    "path": "/home/james/GimletEye/packages/engine/test/fixtures/photo-exif-gps.jpg",
+    "path": "./packages/engine/test/fixtures/photo-exif-gps.jpg",
     "format": "jpeg",
     "metadata_bytes": 177,
     "removable_bytes": 177,
@@ -417,7 +419,7 @@ Configuration drift — Snapshot file hashes under a path and report what change
 *writes, native*
 
 ```console
-$ gimlet sysadmin.config-drift input=/tmp/gimlet-reference-bw90dndx max_depth=1 snapshot=true
+$ gimlet-works sysadmin.config-drift input=/tmp/gimlet-reference-bw90dndx max_depth=1 snapshot=true
 ✔ sysadmin.config-drift  (8 ms)
   recorded 11 file(s) as snapshot 'default'
 
@@ -431,7 +433,7 @@ Disk usage — Filesystem utilisation with warning and critical thresholds
 *native*
 
 ```console
-$ gimlet sysadmin.disk-usage path=/
+$ gimlet-works sysadmin.disk-usage path=/
 ✔ sysadmin.disk-usage  (3 ms)
   1 filesystem(s) checked, highest utilisation 67%
 
@@ -454,7 +456,7 @@ Failed logins — Repeated authentication failures, grouped by account and sourc
 *native*
 
 ```console
-$ gimlet sysadmin.failed-login-detector
+$ gimlet-works sysadmin.failed-login-detector
 ✔ sysadmin.failed-login-detector  (1 ms)
   no auth log found; nothing counted
 
@@ -471,7 +473,7 @@ File permissions — Entries anyone may write, and setuid or setgid files, under
 *native*
 
 ```console
-$ gimlet sysadmin.file-permissions path=/tmp/gimlet-reference-bw90dndx max_depth=1
+$ gimlet-works sysadmin.file-permissions path=/tmp/gimlet-reference-bw90dndx max_depth=1
 ✔ sysadmin.file-permissions  (3 ms)
   14 entries scanned, 0 issue(s)
 
@@ -485,7 +487,7 @@ Kernel hardening — Sysctls that expose one user to another, and what this host
 *native*
 
 ```console
-$ gimlet sysadmin.kernel-hardening
+$ gimlet-works sysadmin.kernel-hardening
 ✖ sysadmin.kernel-hardening  (7 ms)
   2 exposed and 0 weakened of 9 readable settings
 
@@ -509,7 +511,7 @@ Network interfaces — Interfaces, their state, MTU and address, and the default
 *native*
 
 ```console
-$ gimlet sysadmin.network
+$ gimlet-works sysadmin.network
 ! sysadmin.network  (4 ms)
   2 interface(s), 1 up, default via 10.211.55.2 on enp0s5
 
@@ -533,7 +535,7 @@ System information — Host identity, kernel, uptime, load, CPU, and memory snap
 *native*
 
 ```console
-$ gimlet sysadmin.system-info
+$ gimlet-works sysadmin.system-info
 ✔ sysadmin.system-info  (3 ms)
   debian-gnu-linux-12-11 · Debian GNU/Linux 13 (trixie) · 4 cores · up 0d 2h 12m
 
@@ -557,7 +559,7 @@ User audit — uid 0 accounts, missing passwords, shadow permissions, duplicate 
 *native*
 
 ```console
-$ gimlet sysadmin.user-audit
+$ gimlet-works sysadmin.user-audit
 ✔ sysadmin.user-audit  (2 ms)
   42 account(s) checked, 0 issue(s)
 
@@ -571,4 +573,3 @@ Data
 ## Examples that did not run here
 
 None: every example above ran to completion on this host.
-

@@ -1,3 +1,10 @@
+gimlet-works-toolkit (1.1.0-1) unstable; urgency=medium
+
+  * Rename the toolkit to Gimlet Works and transition the gimlet package to
+    gimlet-works while retaining the legacy command and existing state.
+
+ -- Gimlet Works maintainers <maintainers@example.invalid>  Mon, 02 Nov 2026 20:07:44 -0600
+
 gimlet-eye-toolkit (1.1.0) unstable; urgency=medium
 
   * The window is rebuilt around two views -- the parameters and the report --

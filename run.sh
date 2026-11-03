@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and launch Gimlet Eye.
+# Build and launch Gimlet Works.
 #
 #   ./run.sh              the desktop app (builds it if needed)
 #   ./run.sh --cli ...    the command line, e.g. ./run.sh --cli system-info
@@ -22,13 +22,13 @@ fail() { printf '\033[31mrun: %s\033[0m\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'USAGE'
-Build and launch Gimlet Eye.
+Build and launch Gimlet Works.
 
   ./run.sh                 the desktop app (default)
   ./run.sh --cli <args>    run the command line instead
   ./run.sh --build         rebuild before launching
 
-Environment: GIMLET_HOME (see docs/USER_GUIDE.md).
+Environment: GIMLET_WORKS_HOME (see docs/USER_GUIDE.md).
 USAGE
 }
 
@@ -79,7 +79,7 @@ build_ui() {
     install_node_deps
     if [ "$force" -eq 1 ] || ui_stale; then
         step "building the UI bundle"
-        npm run build:ui -w @gimlet-eye/desktop --silent
+        npm run build:ui -w @gimlet-works/desktop --silent
     else
         info "UI is up to date"
     fi

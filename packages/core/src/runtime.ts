@@ -6,7 +6,7 @@
  * run it did not make here.
  */
 
-import { AuditLog, auditEntry } from './audit.js';
+import { AuditLog, auditEntry, newRunId, type AuditContext } from './audit.js';
 import { guardedHost } from './capabilities.js';
 import { loadConfig, type Config } from './config.js';
 import { GimletError, asGimletError, unknownTool } from './errors.js';
@@ -30,6 +30,9 @@ import { sealed, type Report } from './report.js';
 
 export interface RunOptions {
   dryRun?: boolean;
+  runId?: string;
+  runIndex?: number;
+  runCount?: number;
 }
 
 export interface RunResult {
@@ -144,16 +147,23 @@ export class Runtime {
     // error before a tool touches anything.
     validateRun(manifest, args);
     const dryRun = options.dryRun ?? this.dryRun;
+    const runId = options.runId ?? newRunId();
     const started = Date.now();
     const argKeys = Object.keys(args).sort();
+    const auditContext: AuditContext = {
+      runId,
+      dryRun,
+      ...(options.runIndex === undefined ? {} : { runIndex: options.runIndex }),
+      ...(options.runCount === undefined ? {} : { runCount: options.runCount }),
+    };
 
     try {
       const report = await this.execute(manifest.id, args, dryRun);
-      await this.record(manifest.id, report.status, Date.now() - started, argKeys);
+      await this.record(manifest.id, report.status, Date.now() - started, argKeys, auditContext);
       return { tool: manifest.id, report };
     } catch (error) {
       const failure = asGimletError(error);
-      await this.record(manifest.id, 'error', Date.now() - started, argKeys);
+      await this.record(manifest.id, 'error', Date.now() - started, argKeys, auditContext);
       throw failure;
     }
   }
@@ -187,10 +197,16 @@ export class Runtime {
     return deriveVerdict(report);
   }
 
-  private async record(tool: string, status: Report['status'], durationMs: number, argKeys: string[]): Promise<void> {
+  private async record(
+    tool: string,
+    status: Report['status'],
+    durationMs: number,
+    argKeys: string[],
+    context: AuditContext,
+  ): Promise<void> {
     if (!this.config.audit.enabled) return;
     try {
-      await this.audit.record(auditEntry(tool, status, durationMs, argKeys));
+      await this.audit.record(auditEntry(tool, status, durationMs, argKeys, context));
     } catch (error) {
       // A trail that cannot be written must not fail the run that succeeded, but
       // it must be visible.

@@ -116,7 +116,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run build -w @gimlet-eye/engine
+      - run: npm run build -w @gimlet-works/engine
       - run: npx vitest run packages/engine/test/corpus.test.ts
 
   # Gate 2 asks for evidence that the pieces agree, and the vitest suite mocks
@@ -136,10 +136,10 @@ jobs:
       - name: Build the app and the packages it imports
         run: |
           npm run build
-          npm run build:ui -w @gimlet-eye/desktop
-          npm run electron:build -w @gimlet-eye/desktop
+          npm run build:ui -w @gimlet-works/desktop
+          npm run electron:build -w @gimlet-works/desktop
       - name: Drive the real window
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x900x24" npm run e2e -w @gimlet-eye/desktop
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x900x24" npm run e2e -w @gimlet-works/desktop
 
   # Gate 4: install, upgrade, and roll back with real state, in a container.
   rehearsal:
@@ -149,6 +149,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -173,16 +176,16 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      # `build:ui` builds @gimlet-eye/core first, which the type-check needs.
+      # `build:ui` builds @gimlet-works/core first, which the type-check needs.
       - name: UI bundle
-        run: npm run build:ui -w @gimlet-eye/desktop
+        run: npm run build:ui -w @gimlet-works/desktop
       - name: Type-check the frontend
-        run: npm run typecheck -w @gimlet-eye/desktop
+        run: npm run typecheck -w @gimlet-works/desktop
       # The shell is TypeScript now. This compiles it against the same core the
       # CLI uses, and needs no system webview — which is also why the apt step
       # that used to stall this job is gone.
       - name: Shell builds
-        run: npm run electron:build -w @gimlet-eye/desktop
+        run: npm run electron:build -w @gimlet-works/desktop
       # Electron downloads its binary on first use rather than during `npm ci`,
       # so it has to exist before the sandbox helper can be adjusted. Running
       # `install.js` explicitly is a no-op when the binary is already there.
@@ -207,7 +210,7 @@ jobs:
       # The installer icon is rendered rather than checked in, so this proves the
       # script that renders it still runs. xvfb stands in for the display.
       - name: The installer icon renders
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-eye/desktop
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" npm run icon -w @gimlet-works/desktop
 
   packaging:
     name: packaging (version agreement, staged layout)

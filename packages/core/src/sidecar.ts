@@ -215,24 +215,53 @@ export function assertManifest(value: unknown, index: number): ToolManifest {
 
   if (manifest.data !== undefined) {
     const data = manifest.data as unknown as Record<string, unknown>;
-    if (typeof data !== 'object' || data === null) throw malformed('data is not an object');
+    if (!isRecord(data)) throw malformed('data is not an object');
     if (data['shape'] !== 'object' && data['shape'] !== 'array') {
       throw malformed('data.shape is neither object nor array');
     }
-    if (
-      data['shape'] === 'object' &&
-      (typeof data['required'] !== 'object' || data['required'] === null || Array.isArray(data['required']))
-    ) {
+    if (data['shape'] === 'object' && !isRecord(data['required'])) {
       throw malformed('data.required is not an object');
     }
-    if (
-      data['shape'] === 'array' &&
-      data['row'] !== undefined &&
-      (typeof data['row'] !== 'object' || data['row'] === null || Array.isArray(data['row']))
-    ) {
+    if (data['shape'] === 'array' && data['row'] !== undefined && !isRecord(data['row'])) {
       throw malformed('data.row is not an object');
     }
+    if (!isDataSpec(manifest.data)) throw malformed('data is not a valid data schema');
   }
 
   return manifest as ToolManifest;
+}
+
+const DATA_KINDS = new Set(['string', 'number', 'boolean', 'null', 'object', 'array', 'unknown']);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDataFieldSpec(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const kinds = value.split('|');
+    return kinds.length > 0 && kinds.every((kind) => DATA_KINDS.has(kind));
+  }
+  return isDataSpec(value);
+}
+
+function isDataFieldMap(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && Object.values(value).every(isDataFieldSpec);
+}
+
+function isDataSpec(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  if (value['shape'] === 'object') {
+    return (
+      isDataFieldMap(value['required']) &&
+      (value['optional'] === undefined || isDataFieldMap(value['optional']))
+    );
+  }
+  if (value['shape'] === 'array') {
+    return (
+      (value['row'] === undefined || isDataFieldMap(value['row'])) &&
+      (value['items'] === undefined || isDataFieldSpec(value['items']))
+    );
+  }
+  return false;
 }

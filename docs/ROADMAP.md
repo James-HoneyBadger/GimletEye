@@ -282,7 +282,7 @@ the host never told a pack that a run was a dry run, so the SDK rule "honour
   release job rebuilds the tag from a second directory and refuses to publish on
   a mismatch.
 - [x] **Packaging**: `debian/`, `packaging/arch/PKGBUILD` (parsed by `makepkg
-  --printsrcinfo`), `packaging/fedora/gimlet-eye-toolkit.spec`, and `cargo install`
+  --printsrcinfo`), `packaging/fedora/gimlet-works-toolkit.spec`, and `cargo install`
   from a tag. `scripts/check-packaging.sh` fails when any of them names a version
   other than the workspace's, and CI builds the `.deb` on every push.
 - [x] **Install → upgrade → rollback rehearsal** in a container, carrying a real

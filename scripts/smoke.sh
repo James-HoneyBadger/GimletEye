@@ -13,11 +13,11 @@ cd "$root"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-export GIMLET_HOME="$work/home"
+export GIMLET_WORKS_HOME="$work/home"
 export NOTES_PASS="smoke-passphrase"
 export KEY_PASS="smoke-key-passphrase"
 
-CLI="$root/packages/cli/bin/gimlet"
+CLI="$root/packages/cli/bin/gimlet-works"
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 fail() { printf '\033[31msmoke: %s\033[0m\n' "$*" >&2; exit 1; }
@@ -69,7 +69,7 @@ printf '   audit ok\n'
 
 step "keystore"
 "$CLI" crypto.keygen label=smoke kind=x25519 keystore=true passphrase_env=KEY_PASS >/dev/null
-[ -f "$GIMLET_HOME/keystore.gimlet" ] || fail "no keystore written"
+[ -f "$GIMLET_WORKS_HOME/keystore.gimlet" ] || fail "no keystore written"
 "$CLI" crypto.key-list passphrase_env=KEY_PASS --format json | node -e '
 let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
   const keys = JSON.parse(d).data.keys;

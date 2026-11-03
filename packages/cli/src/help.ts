@@ -1,9 +1,10 @@
-import { VERSION } from '@gimlet-eye/core';
+import { VERSION } from '@gimlet-works/core';
 
+import { commandName } from './name.js';
 import { BATCH_FLAGS, COMMANDS, ENVIRONMENT, GLOBAL_FLAGS, type CommandEntry } from './surface.js';
 
 export function versionText(): string {
-  return `gimlet ${VERSION}`;
+  return `${commandName()} ${VERSION}`;
 }
 
 function section(title: string, entries: readonly CommandEntry[]): string {
@@ -16,13 +17,13 @@ function section(title: string, entries: readonly CommandEntry[]): string {
 }
 
 export function helpText(): string {
-  return `Gimlet Eye ${VERSION} — one workbench for system, crypto, and privacy operations
+  return `Gimlet Works ${VERSION} — one workbench for system, crypto, and privacy operations
 
-Any tool can be invoked directly: \`gimlet system-info\` is shorthand for
-\`gimlet run system-info\`.
+Any tool can be invoked directly: \`gimlet-works system-info\` is shorthand for
+\`gimlet-works run system-info\`. The legacy \`gimlet\` command remains an alias.
 
 USAGE
-    gimlet [OPTIONS] <COMMAND>
+    gimlet-works [OPTIONS] <COMMAND>
 
 ${section('COMMANDS', COMMANDS)}
 ${section('OPTIONS', GLOBAL_FLAGS)}

@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NODE_TOOLS } from '@gimlet-eye/core/node';
+import { NODE_TOOLS } from '@gimlet-works/core/node';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = join(here, '..');
@@ -27,6 +27,7 @@ const app = join(here, '..');
 const { _electron: electron } = await import('playwright');
 
 const home = mkdtempSync(join(tmpdir(), 'gimlet-e2e-'));
+const appEnv = { ...process.env, GIMLET_WORKS_HOME: home, GIMLET_WORKS_SIDECAR: join(home, 'no-engine') };
 const steps = [];
 const step = (name) => {
   steps.push(name);
@@ -41,7 +42,7 @@ try {
     // A fresh profile: preferences and recents live in localStorage, and a
     // previous run's shortcuts would change what the sidebar renders.
     args: [app, '--ozone-platform=x11', `--user-data-dir=${join(home, 'electron')}`],
-    env: { ...process.env, GIMLET_HOME: home, GIMLET_SIDECAR: join(home, 'no-engine') },
+    env: appEnv,
     timeout: 60_000,
   });
 
@@ -57,7 +58,7 @@ try {
 
   // `show: false` until the renderer is ready, so this waits for a real page.
   await window.waitForSelector('.sidebar', { timeout: 30_000 });
-  assert.equal(await window.title(), 'Gimlet Eye');
+  assert.equal(await window.title(), 'Gimlet Works');
   step('the window opens on the real page');
 
   // The catalogue comes from the main process over IPC, so a broken channel
@@ -126,6 +127,42 @@ try {
   // No argument values in the trail: the passphrase rule applies to every tool.
   assert.ok(!audit.join('\n').includes('hello'), 'the audit trail must not carry argument values');
   step('the trail carries names, not values');
+
+  if (process.platform === 'linux') {
+    await electronApp.close();
+    electronApp = undefined;
+    const config = join(home, 'profiles');
+    const legacy = join(config, '@gimlet-eye', 'desktop');
+    const env = { ...appEnv, XDG_CONFIG_HOME: config };
+
+    electronApp = await electron.launch({
+      args: [app, '--ozone-platform=x11', `--user-data-dir=${legacy}`],
+      env,
+      timeout: 60_000,
+    });
+    const seed = await electronApp.firstWindow();
+    await seed.waitForSelector('.sidebar');
+    await seed.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('gimlet.ui.v2', JSON.stringify({ theme: 'light', density: 'compact' }));
+    });
+    await electronApp.close();
+    electronApp = undefined;
+
+    electronApp = await electron.launch({ args: [app, '--ozone-platform=x11'], env, timeout: 60_000 });
+    const migrated = await electronApp.firstWindow();
+    await migrated.waitForSelector('.sidebar');
+    assert.equal(await electronApp.evaluate(({ app }) => app.getPath('userData')), legacy);
+    assert.equal(await migrated.evaluate(() => document.documentElement.dataset.density), 'compact');
+    await migrated.click('#toggle-theme');
+    assert.ok(await migrated.evaluate(() => localStorage.getItem('gimlet-works.ui.v3')));
+    await electronApp.close();
+    electronApp = undefined;
+
+    electronApp = await electron.launch({ args: [app, '--ozone-platform=x11'], env, timeout: 60_000 });
+    assert.equal(await electronApp.evaluate(({ app }) => app.getPath('userData')), legacy);
+    step('legacy desktop preferences survive migration and restart');
+  }
 } catch (error) {
   failure = error;
 } finally {

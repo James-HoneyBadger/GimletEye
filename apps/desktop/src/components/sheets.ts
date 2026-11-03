@@ -43,6 +43,10 @@ function historyBody(state: AppState): string {
                   title="Open ${escapeHtml(entry.tool)}">${escapeHtml(entry.tool)}</button>
           <span class="run-meta muted" data-volatile>${escapeHtml(formatWhen(entry.ts))}</span>
           <span class="run-meta muted" data-volatile>${humanDuration(entry.duration_ms)}</span>
+          ${entry.dry_run === true ? '<span class="run-meta muted">dry run</span>' : ''}
+          ${entry.run_count !== undefined && entry.run_count > 1
+            ? `<span class="run-meta muted" title="Run ${escapeHtml(entry.run_id ?? 'legacy')}">batch ${entry.run_index ?? '?'} of ${entry.run_count}</span>`
+            : ''}
           ${(entry.arg_keys ?? []).length > 0
             ? `<span class="run-args">${entry.arg_keys!
                 .map((key) => `<code>${escapeHtml(key)}</code>`)
