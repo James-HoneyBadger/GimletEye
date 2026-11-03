@@ -12,7 +12,10 @@ are small relative to it. Three of them are defects a user can hit today.
 > function-level items in `optInteger`, `samePath`, `passgen`, `strip`, and the
 > engine manifest boundary. D7 is closed as well: private CSPRNG temporary names,
 > and a store that changed since it was opened is refused with `conflict` rather
-> than overwritten. Open: D3's `secret` argument kind, D9, D10, D13, and the two
+> than overwritten. (The pattern D6 cites, `keystore.save()`, turned out to be the
+> weaker of the two writers — fixed temporary name, no conflict check — and has
+> since been deleted; `publishStore` in `packages/core` is now the only thing that
+> writes a keystore.) Open: D3's `secret` argument kind, D9, D10, D13, and the two
 > frozen-file items (`sealed()` and `generateKeyPair`).
 >
 > **Since this review.** The window has been rebuilt (§5 item 7 shipped: the

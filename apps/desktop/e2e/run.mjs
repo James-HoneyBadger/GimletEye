@@ -21,6 +21,11 @@ import { fileURLToPath } from 'node:url';
 
 import { NODE_TOOLS } from '@gimlet-works/core/node';
 
+// The allowlist the shell actually enforces, not a copy of it: a second regex
+// here would agree with a loosened policy instead of catching it. `make e2e`
+// builds the shell first, so the compiled module is there.
+import { isLocalScheme } from '../electron/dist/session-policy.js';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const app = join(here, '..');
 
@@ -53,7 +58,7 @@ try {
   // claim is tested rather than asserted in a comment.
   const external = [];
   window.on('request', (request) => {
-    if (!/^(file|data|blob|devtools|chrome-extension):/i.test(request.url())) external.push(request.url());
+    if (!isLocalScheme(request.url())) external.push(request.url());
   });
 
   // `show: false` until the renderer is ready, so this waits for a real page.

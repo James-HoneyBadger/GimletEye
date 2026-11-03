@@ -10,7 +10,7 @@ Containers written before the project was renamed from Mellivora ToolKit carry
 the magic `MELV` and the extension `.melv`. They are read exactly like the
 current files — the magic is checked against both, and nothing else in the
 format changed — so no backup has to be rewritten. This build never writes
-`MELV`, and the committed fixtures under `crates/crypto/tests/fixtures/` are
+`MELV`, and the committed fixtures under `packages/engine/test/fixtures/` are
 those older files, kept because reading them is what proves it.
 
 ## Layout
@@ -241,11 +241,11 @@ of a field, or the derivation inputs requires:
 
 ## A second implementation
 
-This document is the format's definition, not a description of the Rust code, and
-that is checked rather than asserted: `crates/crypto/tests/interop/read_container.py`
-is a reader written from this file alone — Python, no Rust, no shared code. It
-opens version 1, version 2, and version 3, and
-`crates/crypto/tests/second_implementation.rs` runs it in CI against both
+This document is the format's definition, not a description of the code, and
+that is checked rather than asserted: `packages/engine/test/fixtures/read_container.py`
+is a reader written from this file alone — Python, importing nothing from this
+tree. It opens version 1, version 2, and version 3, and
+`packages/engine/test/container.test.ts` runs it on every test pass against both
 committed fixtures and against a multi-chunk file written by the current build,
 then feeds it a tampered chunk and requires a failure.
 

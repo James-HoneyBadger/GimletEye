@@ -169,6 +169,9 @@ export const gpgVerify: LocalTool = {
       '--status-fd',
       '1',
       '--verify',
+      // `--` so a path that begins with `-` stays a filename rather than
+      // becoming an option, whatever gpg's parser decides next.
+      '--',
       signature,
       input,
     ]);
@@ -233,7 +236,8 @@ export const gpgEncrypt: LocalTool = {
       recipient,
     ];
     if (overwrite) command.push('--yes');
-    command.push(input);
+    // `--` so an input path beginning with `-` is a filename, not an option.
+    command.push('--', input);
 
     if (ctx.dryRun) {
       return sealed({

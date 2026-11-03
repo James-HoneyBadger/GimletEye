@@ -4,11 +4,16 @@ import type { Session } from 'electron';
  * Schemes this window may load.
  *
  * The app is a local document: `file:` for the bundle, `data:` for the inline
- * icon, `blob:` for a downloaded report. Everything else is cancelled, so "no
- * telemetry, no network" is enforced by the session rather than inferred from
- * there being no `fetch` in the source.
+ * icon, `blob:` for a downloaded report. `devtools:` is the inspector's own
+ * scheme, which only this process can open. Everything else is cancelled, so
+ * "no telemetry, no network" is enforced by the session rather than inferred
+ * from there being no `fetch` in the source.
+ *
+ * `chrome-extension:` used to be here too. No extension is ever loaded into this
+ * session — `app.enableSandbox()` with no `extensions` path leaves none — so the
+ * entry only widened what a future change could reach.
  */
-export const LOCAL_SCHEME = /^(file|data|blob|devtools|chrome-extension):/i;
+export const LOCAL_SCHEME = /^(file|data|blob|devtools):/i;
 
 export function isLocalScheme(url: string): boolean {
   return LOCAL_SCHEME.test(url);

@@ -8,11 +8,14 @@
  *
  * Secrets leave this module only through the accessors a tool needs. `EntryView`
  * is what a report may contain, and it has no secret field to leak.
+ *
+ * This module seals and opens bytes; it never touches a path. Publishing is
+ * `publishStore` in `packages/core`, which is also where the read-modify-write
+ * conflict check lives — one writer for the file, so a second session cannot be
+ * overwritten by a stale copy.
  */
 
-import { chmod, mkdir, open as openFile, readFile, rename, unlink } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import { dirname } from 'node:path';
 
 import { openWithPassphrase, sealWithPassphrase } from './container.js';
 import { hexDecodeExact, hexEncode } from './hex.js';
@@ -177,46 +180,6 @@ export function open(sealed: Buffer, passphrase: string | Uint8Array): Keystore 
   } catch (error) {
     throw new Error(`the keystore could not be read after opening: ${(error as Error).message}`);
   }
-}
-
-export async function load(path: string, passphrase: string | Uint8Array): Promise<Keystore> {
-  let sealed: Buffer;
-  try {
-    sealed = await readFile(path);
-  } catch {
-    throw new Error(`no keystore at ${path} (create one with crypto.keygen keystore=true)`);
-  }
-  return open(sealed, passphrase);
-}
-
-/** Seal and write atomically, owner-only: a half-written keystore loses every key in it. */
-export async function save(path: string, passphrase: string | Uint8Array, store: Keystore): Promise<void> {
-  const sealed = seal(store, passphrase);
-  const temp = `${path}.tmp`;
-  const directory = dirname(path);
-  if (directory !== '' && directory !== '.') await mkdir(directory, { recursive: true });
-
-  // Created 0600 as well as renamed into place as 0600: the creation mode is the
-  // one that holds if this process dies between the write and the rename, and a
-  // leftover keystore that is world-readable is not a leftover worth having.
-  const handle = await openFile(temp, 'w', 0o600);
-  try {
-    await handle.writeFile(sealed);
-    await handle.sync();
-  } catch (error) {
-    await handle.close();
-    await unlink(temp).catch(() => undefined);
-    throw error;
-  }
-  await handle.close();
-
-  try {
-    await rename(temp, path);
-  } catch (error) {
-    await unlink(temp).catch(() => undefined);
-    throw error;
-  }
-  await chmod(path, 0o600);
 }
 
 /** The name the tools give the store under a home directory. */

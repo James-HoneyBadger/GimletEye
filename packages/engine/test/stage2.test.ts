@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,14 +18,14 @@ import {
   generatePasswords,
   insert,
   KEYSTORE_FILE,
-  load,
   newId,
+  open,
   openWithPassphrase,
   parseDocument,
   privateKeyObject,
   publicKeyObject,
   remove,
-  save,
+  seal,
   SCHEMA_VERSION,
   secretOf,
   sha256Hex,
@@ -155,21 +155,14 @@ describe('passphrase generation', () => {
 describe('the sealed keystore', () => {
   const PASSPHRASE = 'keystore passphrase';
 
-  it('saves and loads, owner-only, leaving no temporary file behind', async () => {
-    const work = await scratch();
-    const path = join(work, KEYSTORE_FILE);
+  it('round-trips through the seal', () => {
     const pair = generateKeyPair(ED25519);
     const store = {
       schema_version: SCHEMA_VERSION,
       entries: [createEntry(pair, 'work signing key', '2026-10-27T12:00:00Z', '0011223344556677')],
     };
 
-    await save(path, PASSPHRASE, store);
-    const mode = (await stat(path)).mode & 0o777;
-    expect(mode.toString(8)).toBe('600');
-    expect(await readdir(work)).toEqual([KEYSTORE_FILE]);
-
-    const loaded = await load(path, PASSPHRASE);
+    const loaded = open(seal(store, PASSPHRASE), PASSPHRASE);
     expect(loaded).toEqual(store);
     expect(secretOf(loaded.entries[0]!).equals(pair.secret)).toBe(true);
   });
@@ -178,16 +171,20 @@ describe('the sealed keystore', () => {
     const work = await scratch();
     const path = join(work, KEYSTORE_FILE);
     const pair = generateKeyPair(X25519);
-    await save(path, PASSPHRASE, {
-      schema_version: SCHEMA_VERSION,
-      entries: [createEntry(pair, 'recipient', '2026-10-27T12:00:00Z', 'ffeeddccbbaa9988')],
-    });
+    const sealed = seal(
+      {
+        schema_version: SCHEMA_VERSION,
+        entries: [createEntry(pair, 'recipient', '2026-10-27T12:00:00Z', 'ffeeddccbbaa9988')],
+      },
+      PASSPHRASE,
+    );
+    await writeFile(path, sealed, { mode: 0o600 });
 
-    await expect(load(path, 'wrong')).rejects.toThrow(/could not be read after opening|damaged file/);
+    expect(() => open(sealed, 'wrong')).toThrow(/damaged file/);
 
     // And the same bytes open as a container, which is the whole design.
-    const sealed = await readFile(path);
-    const plaintext = JSON.parse(openWithPassphrase(sealed, PASSPHRASE).toString('utf8'));
+    const onDisk = await readFile(path);
+    const plaintext = JSON.parse(openWithPassphrase(onDisk, PASSPHRASE).toString('utf8'));
     expect(plaintext.schema_version).toBe(SCHEMA_VERSION);
   });
 
@@ -248,11 +245,6 @@ describe('the sealed keystore', () => {
     expect(() => parseDocument({ schema_version: 2, entries: [] })).toThrow(/newer than this build/);
     expect(() => parseDocument({ entries: [] })).toThrow(/schema_version/);
     expect(() => parseDocument({ schema_version: 1, entries: [{ id: 'a', label: 'b' }] })).toThrow(/kind/);
-  });
-
-  it('says where to create a keystore when there is none', async () => {
-    const work = await scratch();
-    await expect(load(join(work, 'missing.gimlet'), PASSPHRASE)).rejects.toThrow(/crypto.keygen keystore=true/);
   });
 
   it('generates ids of the documented width', () => {

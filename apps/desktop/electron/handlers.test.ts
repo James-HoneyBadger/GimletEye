@@ -121,7 +121,8 @@ describe('the IPC surface', () => {
     const channels = new Map<string, (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown>();
     registerHandlers({
       ipc: { handle: (channel, listener) => channels.set(channel, listener) },
-      api: { health: async () => health } as DesktopApi,
+      // Only the channel under test is reached: the sender check runs first.
+      api: { health: async () => health } as unknown as DesktopApi,
       isWindow: (event) => event.sender.id === 1,
       pick: async () => ({ path: null }),
       reveal: async () => ({ ok: true }),

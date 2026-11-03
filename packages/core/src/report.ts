@@ -165,7 +165,7 @@ function renderCsv(report: Report): string {
     for (const item of report.data) {
       for (const key of Object.keys(item)) if (!columns.includes(key)) columns.push(key);
     }
-    const out = [columns.join(',')];
+    const out = [columns.map(csvEscape).join(',')];
     for (const item of report.data) {
       out.push(columns.map((column) => csvEscape(item[column])).join(','));
     }

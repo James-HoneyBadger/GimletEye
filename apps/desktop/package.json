@@ -11,7 +11,7 @@
     "dev": "npm run build:ui && npm run electron:start",
     "build": "npm run build:ui && npm run electron:build",
     "build:ui": "npm run build --prefix ../.. --workspace @gimlet-works/core && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.test.json",
     "test": "vitest run",
     "dev:ui": "vite",
     "electron:build": "tsc -p electron",

@@ -26,8 +26,9 @@ versus actual behaviour. Please do not include real credentials in a report.
 
 There is no telemetry, no auto-update check, and no remote logging. The desktop
 window's session cancels every request whose scheme is not local (`file:`,
-`data:`, `blob:`), and the end-to-end test fails if the window asks for anything
-else.
+`data:`, `blob:`, and `devtools:` for the inspector), and the end-to-end test
+fails if the window asks for anything else — it asks the shell's own
+`isLocalScheme`, so the test and the policy cannot drift apart.
 
 ## Threat model
 
