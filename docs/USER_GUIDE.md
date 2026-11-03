@@ -25,7 +25,7 @@ gimlet-works doctor
 `doctor` prints where state lives, what was found, and where the audit trail is:
 
 ```text
-gimlet-works 1.1.0
+gimlet-works 1.2.0
 platform    linux/aarch64
 home        /home/you/.config/gimlet-works
 config      /home/you/.config/gimlet-works/config.toml (defaults)

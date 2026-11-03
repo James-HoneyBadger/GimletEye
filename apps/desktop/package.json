@@ -2,7 +2,7 @@
   "name": "@gimlet-works/desktop",
   "productName": "Gimlet Works",
   "desktopName": "gimlet-works-desktop.desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Gimlet Works desktop workbench",
