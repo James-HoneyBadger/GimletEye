@@ -205,7 +205,7 @@ the freeze, and what each one needed are in
 packages/
   core/       catalogue, report, args, config, audit, and the tools themselves
   engine/     the .gimlet container, keys, keystore, signing, and the metadata scrub
-  cli/        `gimlet` — a Node CLI over packages/core
+  cli/        `gimlet-works` — a Node CLI over packages/core
 apps/desktop/ Electron shell (TS) + frontend; the main process owns the OS boundary
 docs/         architecture, compatibility, roadmap, ADRs
 scripts/      developer tooling

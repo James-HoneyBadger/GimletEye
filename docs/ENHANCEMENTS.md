@@ -345,7 +345,7 @@ design, but it is currently only documented in code
 |---|---|---|
 | ~~MSRV CI job~~ | gone with the Rust; the Node floor is `engines.node` and `setup-node`. | — |
 | ~~End-to-end UI tests against a live engine~~ | **Shipped**: the `e2e` job drives the real window with Playwright. | — |
-| ~~Visual regression for the window~~ | **Shipped**: `make shots` captures nine states at two sizes and two themes with volatile values masked; `make shots-check` diffs a capture against the PNGs in `e2e/baselines`, which are generated under the `e2e` job's runner. | — |
+| ~~Visual regression for the window~~ | **Harness shipped**: `make shots` captures nine states at two sizes and two themes with volatile values masked, and `make shots-check` diffs a capture against `e2e/baselines` — which holds only a README until a set is generated under the `e2e` job's runner and committed, so the diff has no baseline to run against yet. | — |
 | ~~Benchmarks for large files~~ | **Shipped in 0.9**: `make bench` (`scripts/bench.mjs`) with floors for hashing, the container, and the scrub. | — |
 | ~~Reproducible release artifacts~~ | **Shipped**: the `reproducible` job rebuilds and compares, and `SHA256SUMS` is signed. | — |
 | Report JSON Schema export | `gimlet-works tools show --schema` emitting a schema from `DataSpec`, so a consumer stops hand-writing a parser and a field drift fails their build, not their production. | S |

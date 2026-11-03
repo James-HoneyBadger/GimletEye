@@ -183,9 +183,12 @@ $GIMLET_WORKS_HOME (Linux default: ~/.config/gimlet-works)
 ├── config.toml
 ├── audit.jsonl
 ├── data/
-├── cache/
-└── plugins/          # unused since 0.8; kept so a backup restores cleanly
+└── cache/
 ```
+
+An install that predates 0.8 may also still carry a `plugins/` directory. This
+build neither creates nor reads it, and it is left alone so that a backup
+restores cleanly.
 
 An existing `~/.config/gimlet`, then `~/.config/mellivora`, is used when the
 new root does not exist. `GIMLET_HOME` remains an override, and a
@@ -277,7 +280,7 @@ A tool that touches key material or a file format goes beside the primitives in
 | Desktop | Generated forms, validation, the compose/report round trip, palette ranking, typing from `DataSpec`, diffs, focus management | `apps/desktop/src/**/*.test.ts` (vitest + jsdom, mocked bridge) |
 | Shell | Channel validation and failure envelopes, session policy, menu roles, remembered window bounds | `apps/desktop/electron/*.test.ts` (fakes, no Electron) |
 | End to end (window) | The real window: palette, a run, the report, diagnostics, the audit trail, no network request | `apps/desktop/e2e/run.mjs` (`make e2e`) |
-| Visual | Nine states at two sizes and two themes, diffed against PNGs generated under the `e2e` job's runner and screen size | `apps/desktop/e2e/shots.mjs` (`make shots`, `make shots-check`) |
+| Visual | Nine states at two sizes and two themes, captured with volatile values masked | `apps/desktop/e2e/shots.mjs` (`make shots` writes a capture; `make shots-check` diffs it against `e2e/baselines`, which holds only a README until a set is generated under the `e2e` job's runner) |
 | Engine | Tool behaviour, container versions, keystore, parsers | `packages/engine/test` (vitest) |
 | Container format | A second implementation reads what this build writes | `packages/engine/test/fixtures/read_container.py` |
 | Parser corpus | The inputs the Rust fuzz targets saved, replayed | `packages/engine/test/corpus.test.ts` |
@@ -291,8 +294,10 @@ gap is recorded rather than glossed: ADR 0010 lists it as a cost.
 
 ## 10. Build, CI, and release
 
-`make check` runs what CI runs: `tsc` over every package, `vitest`, and the
-documentation gates.
+`make check` runs the fast half of what CI runs: `tsc` over every package,
+`vitest`, and the four documentation gates. CI adds the jobs that need a runner
+or a container — corpus replay, the Electron `e2e` drive, the install/upgrade
+rehearsal, packaging, the dependency audit, and the quiet-period check.
 
 A release publishes one thing: the CLI package tree and the desktop app, both
 containing the same packages. There is no binary to publish alongside them, and
@@ -304,8 +309,9 @@ nothing that can be out of step.
   can type-check it and the `e2e` job can drive it under `xvfb-run`, but opening
   the window by hand needs a desktop session.
 - **Two builds on one machine.** A dev checkout and an installed app share
-  the state root, so the audit trail interleaves. That is why the trail is
-  written through a rename.
+  the state root, so the audit trail interleaves. Appends are single-line writes
+  for that reason, and pruning — the one read-modify-write — goes through a
+  sibling temporary file and a rename.
 - **Windows paths.** Path arithmetic in `packages/core` handles both separators,
   but only Linux has been exercised end to end.
 - **No scheduler, no watch mode.** A run is a run.

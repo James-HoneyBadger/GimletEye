@@ -42,10 +42,18 @@ Everything lives under one root. For a fresh install this defaults to
 
 | Path | Mode | What it is | Back it up |
 |---|---|---|---|
-| `config.toml` | 0644 | configuration; safe to commit to a config-management repo | yes |
+| the root itself | **0700** | created owner-only | — |
+| `config.toml` | 0644\* | configuration; safe to commit to a config-management repo | yes |
 | `keystore.gimlet` | **0600** | sealed keys; unreadable without the passphrase | **yes** |
-| `audit.jsonl` | 0644 | one JSON line per tool execution, argument *names* only | yes |
-| `cache/`, `data/` | 0755 | working space | no |
+| `audit.jsonl` | 0644\* | one JSON line per tool execution, argument *names* only | yes |
+| `cache/`, `data/` | 0755\* | working space | no |
+
+\* Forced only where it matters. The root and the keystore are created
+owner-only whatever the umask says; everything else is created with the default
+mode for a new file or directory, so it is `0644`/`0755` under the usual
+`umask 022` and looser under a looser one. The audit trail and the config hold
+tool names and settings, never values, which is why the keystore is the only
+file whose mode is worth asserting.
 
 Backing up `keystore.gimlet` without its passphrase is worthless, and backing up
 the passphrase next to it defeats the seal. Keep them apart.

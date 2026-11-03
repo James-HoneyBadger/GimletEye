@@ -27,11 +27,15 @@ apps/desktop/
 │   ├── lib/shortcuts.ts  one table for the hints, the sheet, and the handler
 │   └── styles/tokens.css the type, space, radius, colour and density vocabulary
 ├── e2e/run.mjs           the real window, driven end to end
-├── e2e/shots.mjs         deterministic screenshots; baselines/ holds the set
+├── e2e/shots.mjs         deterministic screenshots against e2e/baselines
 ├── dist/                 the built UI (vite)
 ├── build/                the installer icon, rendered from the UI tokens
 └── release/              installers, when `npm run package` is used
 ```
+
+`e2e/baselines` holds only a README until someone generates the set under the
+`e2e` job's runner; until then `npm run shots-check` says there is nothing to
+compare against and exits non-zero.
 
 Data flows one way:
 

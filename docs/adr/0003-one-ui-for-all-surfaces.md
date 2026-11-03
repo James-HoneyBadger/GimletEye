@@ -1,6 +1,8 @@
 # 0003 — One UI for desktop and browser
 
-- **Status:** Accepted
+- **Status:** Accepted; the browser and HTTP surfaces are superseded by
+  [0008](0008-typescript-surfaces-rust-engine.md) — the shared UI package became
+  the desktop frontend
 - **Date:** 2026-10-23
 
 ## Context
