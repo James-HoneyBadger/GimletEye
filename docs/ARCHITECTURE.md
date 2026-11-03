@@ -308,6 +308,16 @@ nothing that can be out of step.
 - **The window needs a display.** The shell is Electron, so a headless checkout
   can type-check it and the `e2e` job can drive it under `xvfb-run`, but opening
   the window by hand needs a desktop session.
+- **Three Chromium lines on a VM.** A display with no vsync source — a virtual
+  GPU under X11, for instance — makes Chromium log
+  `GetVSyncParametersIfAvailable() failed` for 1, 2, and 3 times at startup, then
+  fall back to its own frame pacing. It is Chromium's logging from a child
+  process, not the app's: it stops after three, nothing reads vsync, and no
+  report or test is affected. The `e2e` job and the screenshot harness run under
+  Xvfb, which takes the software GL path, so neither shows it. Suppressing it
+  costs more than it saves — `--disable-gpu-vsync` is not forwarded by Electron,
+  and `--disable-gpu` would change the rasterisation the screenshot harness
+  compares.
 - **Two builds on one machine.** A dev checkout and an installed app share
   the state root, so the audit trail interleaves. Appends are single-line writes
   for that reason, and pruning — the one read-modify-write — goes through a
