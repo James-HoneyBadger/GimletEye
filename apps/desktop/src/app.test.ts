@@ -143,7 +143,7 @@ describe('workbench shell', () => {
     await vi.waitFor(() => expect(document.querySelector('.status--ok')).not.toBeNull());
     expect(document.querySelector('.report-verdict p')?.textContent).toContain('read 4 bytes');
     const copyCommand = document.querySelector('.report-actions [data-copy]');
-    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.echo input=/tmp/a.txt');
+    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet-works run demo.echo input=/tmp/a.txt');
   });
 
   it('runs again from the report with the values it used', async () => {
@@ -203,7 +203,7 @@ describe('workbench shell', () => {
 
     await vi.waitFor(() => expect(document.querySelector('.callout--info')?.textContent).toContain('Nothing was written'));
     const copyCommand = document.querySelector('.report-actions [data-copy]');
-    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet run demo.write --dry-run');
+    expect(copyCommand?.getAttribute('data-copy')).toBe('gimlet-works run demo.write --dry-run');
   });
 
   it('moves focus into the form after a pointer selection, not the list', async () => {

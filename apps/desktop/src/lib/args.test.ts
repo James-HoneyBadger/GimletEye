@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { toPayload, validateArgs } from './args';
-import type { ToolManifest } from '@gimlet-eye/core';
+import type { ToolManifest } from '@gimlet-works/core';
 
 const tool: ToolManifest = {
   id: 'demo',

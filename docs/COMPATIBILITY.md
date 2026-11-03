@@ -7,7 +7,8 @@ This document states the policy.
 
 ## Surfaces
 
-Two programs ship: the `gimlet` command line and the desktop app. They share one
+Two programs ship: the `gimlet-works` command line and the desktop app. The
+`gimlet` launcher remains a compatible alias. They share one
 implementation (`packages/core`), so anything below that names a tool id, a report
 field, or a configuration key applies to both.
 
@@ -28,9 +29,10 @@ is part of the contract, not because it accepts third-party code.
 | `.gimlet` container | Versioned | Version byte in the header; v1, v2, and v3 files must always open, and an independent reader in `packages/engine/test/fixtures/read_container.py` proves [CONTAINER.md](CONTAINER.md) is enough to implement it |
 | Keystore (`keystore.gimlet`) | Versioned | `schema_version` in the sealed document; a newer schema is refused, not guessed |
 | Environment variables | Stable | `GIMLET_*`; new ones are additive |
-| `Report.data` shape | Stable | Declared per tool in `ToolManifest.data` (`shape`, `required`, `optional`), checked by the runtime before a surface sees the report, and compared with real reports by `scripts/check-data-schema.sh`. A union like `number\|null` is written where a dry run returns null |
+| `Report.data` shape | Stable | Declared per tool in `ToolManifest.data`; nested objects, array items, and table rows are checked by the runtime before a surface sees the report |
 | `Report.data` keys | Stable | Renames keep the old key for one minor (see the `algorithm`/`kind` example below) |
-| Failure output | Stable | With `--format json`, a failure writes `{"error": {"code", "message"}}` to stderr; other formats write one `gimlet: …` line. Exit status is 0 for ok, 1 for a failed run, 2 for a command the user typed wrong |
+| Audit JSONL entries | Additive | New optional `run_id`, `dry_run`, `run_index`, and `run_count` fields; old entries without them remain readable |
+| Failure output | Stable | With `--format json`, a failure writes `{"error": {"code", "message"}}` to stderr; other formats use `gimlet-works: …`, or `gimlet: …` when invoked through the legacy alias. Exit status is 0 for ok, 1 for a failed run, 2 for a command the user typed wrong |
 
 Anything not in this table — internal module layout, parser helpers, the UI's
 DOM — can change at any time.
@@ -56,24 +58,25 @@ rather than rejected.
 The commands and flags below are public API: they are what scripts and packaging
 recipes invoke, so a rename is a breaking change and follows the deprecation
 policy just like a field rename.
+Each command below also works through the legacy `gimlet` launcher.
 
 | Command | Purpose | Flags it adds |
 |---|---|---|
-| `gimlet <tool-id> [KEY=VALUE…]` | Shorthand for `run` | — |
-| `gimlet run <tool> [KEY=VALUE…]` | Run one tool | — |
-| `gimlet batch <tool> <PATH…>` | Run a tool over many files, one report per file plus an aggregate | `--arg`, `--input-arg`, `--concurrency`, `-c`, `--fail-fast`, `--ext`, `--no-recursive` |
-| `gimlet tools list` | The catalogue as a table | `--category` |
-| `gimlet tools show <id>` | One manifest as JSON | — |
-| `gimlet config show` | The effective configuration | — |
-| `gimlet config init` | Write a default config file | `--force` |
-| `gimlet config path` | Where the config file is looked for | — |
-| `gimlet audit` | Recent audit records | `--limit` |
-| `gimlet doctor` | Check the installation | — |
-| `gimlet tui` | Browse and run tools in the terminal | — |
-| `gimlet completions <shell>` | A completion script for bash, zsh, or fish | — |
-| `gimlet man` | The man page, in roff | — |
-| `gimlet help` | The help text | — |
-| `gimlet version` | The version | — |
+| `gimlet-works <tool-id> [KEY=VALUE…]` | Shorthand for `run` | — |
+| `gimlet-works run <tool> [KEY=VALUE…]` | Run one tool | — |
+| `gimlet-works batch <tool> <PATH…>` | Run a tool over many files, one report per file plus an aggregate | `--arg`, `--input-arg`, `--concurrency`, `-c`, `--fail-fast`, `--ext`, `--no-recursive` |
+| `gimlet-works tools list` | The catalogue as a table | `--category` |
+| `gimlet-works tools show <id>` | One manifest as JSON | — |
+| `gimlet-works config show` | The effective configuration | — |
+| `gimlet-works config init` | Write a default config file | `--force` |
+| `gimlet-works config path` | Where the config file is looked for | — |
+| `gimlet-works audit` | Recent audit records | `--limit` |
+| `gimlet-works doctor` | Check the installation | — |
+| `gimlet-works tui` | Browse and run tools in the terminal | — |
+| `gimlet-works completions <shell>` | A completion script for bash, zsh, or fish | — |
+| `gimlet-works man` | The man page, in roff | — |
+| `gimlet-works help` | The help text | — |
+| `gimlet-works version` | The version | — |
 
 Global flags, accepted before or after the command:
 
@@ -118,13 +121,22 @@ anything runs.
   correct response is to run the command again.
 - A tool that takes a passphrase masks it in the desktop, hides the argument
   line in the terminal, and shows `passphrase=<redacted>` in a copied command.
+- Audit records contain argument names only. `max_entries` limits logical runs;
+  batch entries sharing a `run_id` are kept or pruned together.
 
 ### Environment variables
 
 | Variable | Meaning |
 |---|---|
-| `GIMLET_HOME` | The state root; defaults to `~/.config/gimlet` |
-| `GIMLET_SIDECAR` | Optional path to a separate engine, for comparing two implementations; the built-in tools do not need it |
+| `GIMLET_WORKS_HOME` | Override the state root; `--home` takes precedence |
+| `GIMLET_HOME` | Legacy state-root override, used when `GIMLET_WORKS_HOME` is unset or empty |
+| `GIMLET_WORKS_SIDECAR` | Optional path to a separate engine; the built-in tools do not need it |
+| `GIMLET_SIDECAR` | Legacy engine override, used when `GIMLET_WORKS_SIDECAR` is unset or empty |
+
+Without an override, new installations use the platform config directory's
+`gimlet-works` folder. An existing `gimlet` or `mellivora` folder is reused if
+the new folder is absent. See the [administrator guide](ADMIN_GUIDE.md#upgrading-and-rolling-back)
+for rollback and desktop-profile details.
 
 ## The report contract
 
@@ -154,6 +166,9 @@ reports a serious problem cannot also report success.
 
 Two JSON Schema files are published with every release and are public API in the
 sense above:
+
+Their historical `https://gimleteye.dev/schema/...` `$id` values are intentionally
+unchanged so existing schema references continue to identify the same contracts.
 
 | File | Describes |
 |---|---|

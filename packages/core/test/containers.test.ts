@@ -85,7 +85,7 @@ describe('crypto.encrypt / crypto.decrypt, in process', () => {
 
   it('writes a version 3 container when given recipient keys', async () => {
     const host = binaryHost({ '/work/notes.txt': Buffer.from('for two keys') });
-    const { generateRecipientKey, encodePublic } = await import('@gimlet-eye/engine');
+    const { generateRecipientKey, encodePublic } = await import('@gimlet-works/engine');
     const alice = generateRecipientKey();
 
     const report = await encryptFile.run(ctxFor(host), {

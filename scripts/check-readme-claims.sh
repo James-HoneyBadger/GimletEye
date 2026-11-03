@@ -17,16 +17,16 @@ cd "$root"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-export GIMLET_HOME="$work/home"
-mkdir -p "$GIMLET_HOME"
-M="./packages/cli/bin/gimlet"
+export GIMLET_WORKS_HOME="$work/home"
+mkdir -p "$GIMLET_WORKS_HOME"
+M="./packages/cli/bin/gimlet-works"
 
 if [ ! -x "$M" ]; then
     echo "build the CLI first: npm run build" >&2
     exit 1
 fi
 # The CLI needs no engine: every tool it names is built in.
-unset GIMLET_SIDECAR || true
+unset GIMLET_WORKS_SIDECAR GIMLET_SIDECAR || true
 
 pass=0
 fail=0
@@ -44,12 +44,14 @@ echo "== the front page, run as written"
 
 version="$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" packages/core/src/version.ts | head -1)"
 $M --version | grep -qF "$version"
-check "gimlet --version reports $version" $?
+check "gimlet-works --version reports $version" $?
 
-$M system-info --format json | jq -e '.data.load.avg_1m' >/dev/null
+$M system-info --format json >"$work/system-info.json"
+jq -e '.data.load.avg_1m' "$work/system-info.json" >/dev/null
 check "system-info reports the load average" $?
 
-$M disk-usage --format json | jq -e '.data | length > 0' >/dev/null
+$M disk-usage --format json >"$work/disk-usage.json"
+jq -e '.data | length > 0' "$work/disk-usage.json" >/dev/null
 check "disk-usage reports filesystems" $?
 
 $M passgen length=32 --format json | jq -e '.data' >/dev/null
@@ -127,7 +129,6 @@ check "a recipient container is not opened by a passphrase" $?
 # (Nothing that starts a server belongs here: `serve` blocks by design, and a
 # check script that hangs is worse than one that checks less.)
 
-rm -rf "$GIMLET_HOME"
 printf '\n\033[1m%s ok, %s failed\033[0m\n' "$pass" "$fail"
 
 cat <<'EOF'

@@ -82,4 +82,30 @@ describe('the manifest contract', () => {
     const manifest = { ...NODE_TOOLS[0]!.manifest, data: { shape: 'object' } };
     expect(validManifest(manifest)).toBe(false);
   });
+
+  it('accepts recursively declared data and rejects an invalid nested shape', () => {
+    const base = NODE_TOOLS[0]!.manifest;
+    const manifest = {
+      ...base,
+      data: {
+        shape: 'object',
+        required: {
+          rows: {
+            shape: 'array',
+            row: { details: { shape: 'object', required: { count: 'number' } } },
+          },
+        },
+      },
+    };
+    expect(validManifest(manifest), why(validManifest)).toBe(true);
+    expect(
+      validManifest({
+        ...manifest,
+        data: {
+          shape: 'object',
+          required: { rows: { shape: 'array', items: { shape: 'record' } } },
+        },
+      }),
+    ).toBe(false);
+  });
 });

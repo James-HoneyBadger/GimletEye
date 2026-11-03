@@ -258,7 +258,7 @@ export function renderReport(state: AppState): string {
   }
 
   const json = JSON.stringify(report, null, 2);
-  const command = state.runs.get(report.tool) ?? `gimlet run ${report.tool}`;
+  const command = state.runs.get(report.tool) ?? `gimlet-works run ${report.tool}`;
 
   let body: string;
   switch (state.reportTab) {

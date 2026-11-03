@@ -16,8 +16,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { symlinkSync } from 'node:fs';
-import { nodeHost } from '@gimlet-eye/core/host-node';
-import { removableBytes, scan, policyAll } from '@gimlet-eye/engine';
+import { nodeHost } from '@gimlet-works/core/host-node';
+import { removableBytes, scan, policyAll } from '@gimlet-works/engine';
 import { defaultConfig } from '../src/config.js';
 import { pathsUnder } from '../src/paths.js';
 import { metadataStrip } from '../src/tools/metadata.js';

@@ -6,7 +6,7 @@
  * a new flag appears in all four places or in none.
  */
 
-import { VERSION } from '@gimlet-eye/core';
+import { VERSION } from '@gimlet-works/core';
 
 import { BATCH_FLAGS, COMMANDS, ENVIRONMENT, GLOBAL_FLAGS, type CommandEntry } from './surface.js';
 
@@ -48,8 +48,8 @@ function bash(): string {
     })
     .filter((line): line is string => line !== undefined);
 
-  return `# gimlet completion for bash: gimlet completions bash > /etc/bash_completion.d/gimlet
-_gimlet() {
+  return `# gimlet-works completion for bash: gimlet-works completions bash > /etc/bash_completion.d/gimlet-works
+_gimlet_works() {
     local cur
     cur="\${COMP_WORDS[COMP_CWORD]}"
     local commands="${heads.join(' ')}"
@@ -63,35 +63,40 @@ ${cases.join('\n')}
         *) COMPREPLY=( $(compgen -W "$flags" -- "$cur") ) ;;
     esac
 }
-complete -F _gimlet gimlet
+complete -F _gimlet_works gimlet-works gimlet
 `;
 }
 
 function fish(): string {
-  const lines: string[] = ['# gimlet completion for fish: gimlet completions fish > ~/.config/fish/completions/gimlet.fish'];
+  const lines: string[] = [
+    '# gimlet-works completion for fish: gimlet-works completions fish > ~/.config/fish/completions/gimlet-works.fish',
+    '# To autoload completion for the legacy alias, also copy that file to gimlet.fish.',
+  ];
   // Fish quotes with '…', so an apostrophe in a summary has to go rather than
   // close the string early.
   const text = (value: string): string => value.replaceAll("'", '');
-  for (const entry of COMMANDS) {
-    const [head, sub] = entry.command.split(' ');
-    if (sub === undefined) {
-      lines.push(`complete -c gimlet -f -n __fish_use_subcommand -a '${head}' -d '${text(entry.summary)}'`);
-    } else {
-      lines.push(
-        `complete -c gimlet -f -n '__fish_seen_subcommand_from ${head}' -a '${sub}' -d '${text(entry.summary)}'`,
-      );
+  for (const name of ['gimlet-works', 'gimlet']) {
+    for (const entry of COMMANDS) {
+      const [head, sub] = entry.command.split(' ');
+      if (sub === undefined) {
+        lines.push(`complete -c ${name} -f -n __fish_use_subcommand -a '${head}' -d '${text(entry.summary)}'`);
+      } else {
+        lines.push(
+          `complete -c ${name} -f -n '__fish_seen_subcommand_from ${head}' -a '${sub}' -d '${text(entry.summary)}'`,
+        );
+      }
     }
-  }
-  for (const entry of [...GLOBAL_FLAGS, ...BATCH_FLAGS]) {
-    const names = flagNames(entry);
-    const long = names.find((name) => name.startsWith('--'));
-    const short = names.find((name) => /^-\w$/.test(name));
-    const parts = ['complete -c gimlet'];
-    if (short !== undefined) parts.push(`-s ${short.slice(1)}`);
-    if (long !== undefined) parts.push(`-l ${long.slice(2)}`);
-    if (entry.args !== '') parts.push('-r');
-    parts.push(`-d '${entry.summary.replaceAll("'", '')}'`);
-    lines.push(parts.join(' '));
+    for (const entry of [...GLOBAL_FLAGS, ...BATCH_FLAGS]) {
+      const names = flagNames(entry);
+      const long = names.find((flag) => flag.startsWith('--'));
+      const short = names.find((flag) => /^-\w$/.test(flag));
+      const parts = [`complete -c ${name}`];
+      if (short !== undefined) parts.push(`-s ${short.slice(1)}`);
+      if (long !== undefined) parts.push(`-l ${long.slice(2)}`);
+      if (entry.args !== '') parts.push('-r');
+      parts.push(`-d '${text(entry.summary)}'`);
+      lines.push(parts.join(' '));
+    }
   }
   return `${lines.join('\n')}\n`;
 }
@@ -100,21 +105,21 @@ function zsh(): string {
   const described = COMMANDS.map(
     (entry) => `        '${entry.command.replaceAll("'", '')}:${entry.summary.replaceAll("'", '')}'`,
   );
-  return `#compdef gimlet
-# gimlet completion for zsh: gimlet completions zsh > "${'${fpath[1]}'}/_gimlet"
-_gimlet() {
+  return `#compdef gimlet-works gimlet
+# gimlet-works completion for zsh: gimlet-works completions zsh > "${'${fpath[1]}'}/_gimlet-works"
+_gimlet_works() {
     local -a commands flags
     commands=(
 ${described.join('\n')}
     )
     flags=(${[...GLOBAL_FLAGS, ...BATCH_FLAGS].flatMap(flagNames).join(' ')})
     if (( CURRENT == 2 )); then
-        _describe -t commands 'gimlet command' commands
+        _describe -t commands 'gimlet-works command' commands
     else
         _values 'option' "$flags[@]"
     fi
 }
-_gimlet "$@"
+_gimlet_works "$@"
 `;
 }
 
@@ -124,7 +129,7 @@ export function completionScript(shell: Shell): string {
   return fish();
 }
 
-/** Roff for `man 1 gimlet`; no date field, so two builds of a tag match. */
+/** Roff for `man 1 gimlet-works`; no date field, so two builds of a tag match. */
 export function manPage(): string {
   const section = (title: string, entries: readonly CommandEntry[], render: (entry: CommandEntry) => string): string =>
     `.SH ${title}\n${entries.map(render).join('\n')}\n`;
@@ -133,15 +138,16 @@ export function manPage(): string {
   const command = (entry: CommandEntry): string =>
     `.TP\n.B ${escape(`${entry.command} ${entry.args}`.trim())}\n${escape(entry.summary)}`;
 
-  return `.TH GIMLET 1 "" "gimlet ${VERSION}" "Gimlet Eye manual"
+  return `.TH GIMLET-WORKS 1 "" "gimlet-works ${VERSION}" "Gimlet Works manual"
 .SH NAME
-gimlet \\- one workbench for system, crypto, and privacy operations
+gimlet-works \\- one workbench for system, crypto, and privacy operations
 .SH SYNOPSIS
-.B gimlet
+.B gimlet-works
 [\\fIOPTIONS\\fR] \\fICOMMAND\\fR [\\fIARGS\\fR]
 .SH DESCRIPTION
-Every tool is reachable as \\fBgimlet <tool-id> [KEY=VALUE ...]\\fR, and the
-desktop app runs the same catalogue, reports, and audit trail.
+Every tool is reachable as \\fBgimlet-works <tool-id> [KEY=VALUE ...]\\fR, and
+the desktop app runs the same catalogue, reports, and audit trail. The legacy
+\\fBgimlet\\fR command is an alias.
 ${section('COMMANDS', COMMANDS, command)}
 ${section('OPTIONS', GLOBAL_FLAGS, command)}
 ${section('BATCH OPTIONS', BATCH_FLAGS, command)}
@@ -155,7 +161,7 @@ for an error verdict or a failed run, and
 for a command typed wrong.
 .SH FILES
 .TP
-.I ~/.config/gimlet
-The default state root: config, audit trail, and keystore.
+.I ~/.config/gimlet-works
+The default state root on Linux: config, audit trail, and keystore.
 `;
 }

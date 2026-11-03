@@ -1,4 +1,4 @@
-import { describeArgs, type DescribedArg } from '@gimlet-eye/core';
+import { describeArgs, type DescribedArg } from '@gimlet-works/core';
 
 import type { ArgSpec, ToolManifest } from '../lib/engine';
 import { elapsed, escapeHtml, modLabel, titleCase } from '../lib/format';

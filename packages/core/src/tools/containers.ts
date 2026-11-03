@@ -27,9 +27,9 @@ import {
   type CipherId,
   type PassphraseSetup,
   type RecipientSetup,
-} from '@gimlet-eye/engine';
-import { chunkCount, sealForRecipients, sealWithPassphrase } from '@gimlet-eye/engine';
-import { decodePublic, decodeSecret } from '@gimlet-eye/engine';
+} from '@gimlet-works/engine';
+import { chunkCount, sealForRecipients, sealWithPassphrase } from '@gimlet-works/engine';
+import { decodePublic, decodeSecret } from '@gimlet-works/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { refuseSamePath } from './guard.js';

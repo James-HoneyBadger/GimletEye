@@ -13,7 +13,7 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-CLI="${GIMLET_BIN:-packages/cli/bin/gimlet}"
+CLI="${GIMLET_WORKS_BIN:-${GIMLET_BIN:-packages/cli/bin/gimlet-works}}"
 [ -x "$CLI" ] || { echo "build the CLI first: npm run build" >&2; exit 1; }
 
 work="$(mktemp -d)"
@@ -54,7 +54,8 @@ for tool in catalogue:
         # A tool can return more than one shape across its paths (a dry run, a
         # keystore write, a file write), so both sides are unions of kinds.
         observed_kinds = set(kinds.split('|'))
-        allowed_kinds = set(declared[field].split('|'))
+        field_spec = declared[field]
+        allowed_kinds = {field_spec['shape']} if isinstance(field_spec, dict) else set(field_spec.split('|'))
         if not observed_kinds <= allowed_kinds:
             problems.append(f"{tool_id}: {field!r} declared {declared[field]!r} but returned {kinds}")
     for field in sorted(spec.get('required', {})):

@@ -16,13 +16,13 @@ import {
   inspect,
   parseKind,
   type KeyKind,
-} from '@gimlet-eye/engine';
+} from '@gimlet-works/engine';
 
 import { booleanOr, optString, requireString, stringOr } from '../args.js';
 import { io, notFound } from '../errors.js';
 import { keystorePath } from '../paths.js';
 import { publishStore } from './store-file.js';
-import { createEntry, insert, open as openKeystore, SCHEMA_VERSION, seal as sealKeystore } from '@gimlet-eye/engine';
+import { createEntry, insert, open as openKeystore, SCHEMA_VERSION, seal as sealKeystore } from '@gimlet-works/engine';
 import { sealed, type Report } from '../report.js';
 import type { Args } from '../args.js';
 import type { LocalTool, ToolRunContext } from '../local.js';

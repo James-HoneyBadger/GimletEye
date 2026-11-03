@@ -5,7 +5,7 @@
  * and a narrow terminal can be exercised without resizing anything.
  */
 
-import { isSecretArg, render, type Report, type ToolManifest } from '@gimlet-eye/core';
+import { isSecretArg, render, type Report, type ToolManifest } from '@gimlet-works/core';
 
 import { visible, type TuiState } from './state.js';
 
@@ -44,7 +44,7 @@ function header(state: TuiState, manifests: readonly ToolManifest[], width: numb
   const total = manifests.length;
   const shown = visible(manifests, state.filter).length;
   const filtered = state.filter === '' ? '' : `  filter: ${state.filter}`;
-  return truncate(`Gimlet Eye · ${shown}/${total} tools${filtered}`, width);
+  return truncate(`Gimlet Works · ${shown}/${total} tools${filtered}`, width);
 }
 
 function listLines(

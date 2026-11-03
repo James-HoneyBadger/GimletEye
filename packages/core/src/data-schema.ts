@@ -12,7 +12,7 @@
  */
 
 import { internal } from './errors.js';
-import type { DataField, DataSpec, ToolManifest } from './manifest.js';
+import type { DataField, DataFieldSpec, DataSpec, ToolManifest } from './manifest.js';
 
 export function kindOf(value: unknown): DataField {
   if (value === null) return 'null';
@@ -33,35 +33,59 @@ export function kindOf(value: unknown): DataField {
 
 function accepts(spec: string, value: unknown): boolean {
   const kind = kindOf(value);
-  if (kind === 'unknown' || spec === 'unknown') return spec === 'unknown' || kind === 'unknown';
   return spec.split('|').includes(kind);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function valueProblems(where: string, spec: DataFieldSpec, value: unknown): string[] {
+  if (typeof spec === 'string') {
+    return accepts(spec, value) ? [] : [`${where} should be ${spec} but is ${kindOf(value)}`];
+  }
+
+  if (spec.shape === 'object') {
+    if (!isRecord(value)) return [`${where} should be an object but is ${kindOf(value)}`];
+    return checkFields(where, value, spec.required, spec.optional);
+  }
+
+  if (!Array.isArray(value)) return [`${where} should be an array but is ${kindOf(value)}`];
+  if (spec.row !== undefined) {
+    return value.flatMap((row, index) =>
+      isRecord(row)
+        ? checkFields(`${where}[${index}]`, row, spec.row!, undefined)
+        : [`${where}[${index}] should be an object but is ${kindOf(row)}`],
+    );
+  }
+  if (spec.items !== undefined) {
+    return value.flatMap((item, index) => valueProblems(`${where}[${index}]`, spec.items!, item));
+  }
+  return [];
 }
 
 function checkFields(
   where: string,
   fields: Record<string, unknown>,
-  declared: Record<string, string>,
-  optional: Record<string, string> | undefined,
-  required: boolean,
+  declared: Record<string, DataFieldSpec>,
+  optional: Record<string, DataFieldSpec> | undefined,
 ): string[] {
   const problems: string[] = [];
   for (const [key, spec] of Object.entries(declared)) {
-    if (!(key in fields)) {
-      if (required) problems.push(`${where}.${key} is declared but missing`);
+    if (!Object.hasOwn(fields, key)) {
+      problems.push(`${where}.${key} is declared but missing`);
       continue;
     }
-    if (!accepts(spec, fields[key])) {
-      problems.push(`${where}.${key} should be ${spec} but is ${kindOf(fields[key])}`);
-    }
+    problems.push(...valueProblems(`${where}.${key}`, spec, fields[key]));
   }
   for (const [key, spec] of Object.entries(optional ?? {})) {
     // Absent is fine; present with the wrong type is not.
-    if (key in fields && !accepts(spec, fields[key])) {
-      problems.push(`${where}.${key} should be ${spec} but is ${kindOf(fields[key])}`);
+    if (Object.hasOwn(fields, key)) {
+      problems.push(...valueProblems(`${where}.${key}`, spec, fields[key]));
     }
   }
   for (const key of Object.keys(fields)) {
-    if (!(key in declared) && !(optional !== undefined && key in optional)) {
+    if (!Object.hasOwn(declared, key) && !(optional !== undefined && Object.hasOwn(optional, key))) {
       problems.push(`${where}.${key} is not in the declared schema`);
     }
   }
@@ -79,20 +103,7 @@ export function dataProblems(manifest: ToolManifest, data: unknown): string[] {
   const spec: DataSpec | undefined = manifest.data;
   if (spec === undefined) return [];
 
-  if (spec.shape === 'array') {
-    if (!Array.isArray(data)) return [`data should be an array but is ${kindOf(data)}`];
-    if (spec.row === undefined) return [];
-    return data.flatMap((row, index) =>
-      row === null || typeof row !== 'object' || Array.isArray(row)
-        ? [`data[${index}] should be an object but is ${kindOf(row)}`]
-        : checkFields(`data[${index}]`, row as Record<string, unknown>, spec.row!, undefined, true),
-    );
-  }
-
-  if (Array.isArray(data) || data === null || typeof data !== 'object') {
-    return [`data should be an object but is ${kindOf(data)}`];
-  }
-  return checkFields('data', data as Record<string, unknown>, spec.required, spec.optional, true);
+  return valueProblems('data', spec, data);
 }
 
 /** Throw when a report does not match the schema its own manifest declares. */

@@ -56,7 +56,7 @@ import.
 The dependency rules are one-directional:
 
 - the surfaces depend on `packages/core`, and on `packages/engine` only through
-  the `@gimlet-eye/core/node` entry point;
+  the `@gimlet-works/core/node` entry point;
 - `packages/core`'s barrel stays browser-safe — no `node:*` — because the desktop
   UI imports it; anything that needs Node is a separate entry point;
 - the engine depends on nothing in core and never on a surface, so it can be
@@ -128,19 +128,19 @@ Three properties matter:
   input that is ~106 MiB of peak RSS; buffering the file whole was ~909 MiB. The
   reader and writer are one implementation each, and the whole-buffer entry points
   call them, so the two cannot drift.
-- **An optional second opinion.** `GIMLET_SIDECAR` can still point at a separate
+- **An optional second opinion.** `GIMLET_WORKS_SIDECAR` can point at a separate
   engine, and it is used when one is present, but its absence is a supported
   state: every tool is built in. What it buys is an independent implementation to
   compare against, which is how the ports in ADR 0010 were checked.
 
 ## 5. Surfaces
 
-**`gimlet` (CLI).** `packages/cli` parses arguments, loads a `Runtime`, renders a
+**`gimlet-works` (CLI).** `packages/cli` parses arguments, loads a `Runtime`, renders a
 report, and maps the verdict to an exit code (`0` ok, `1` error, `2` usage). It
 owns no behaviour of its own: `run`, `batch`, `tools`, `config`, `audit`, and
 `doctor` are all a few lines over `packages/core`.
 
-**Terminal surface.** `gimlet tui` is a fourth surface over the same
+**Terminal surface.** `gimlet-works tui` is a fourth surface over the same
 `packages/core`: the catalogue, filtering, argument entry, and report rendering
 live in `packages/cli/src/tui` as pure functions, with one thin session loop that
 owns the TTY. It calls `Runtime.run` like the CLI does, so a run started in the
@@ -179,7 +179,7 @@ be restored — are tested without Electron by passing in fakes.
 One TOML file, one state root:
 
 ```
-$GIMLET_HOME (default: ~/.config/gimlet)
+$GIMLET_WORKS_HOME (Linux default: ~/.config/gimlet-works)
 ├── config.toml
 ├── audit.jsonl
 ├── data/
@@ -187,9 +187,10 @@ $GIMLET_HOME (default: ~/.config/gimlet)
 └── plugins/          # unused since 0.8; kept so a backup restores cleanly
 ```
 
-A home written before the rename, `~/.config/mellivora`, is used when
-`~/.config/gimlet` does not exist, and a `keystore.melv` inside it is opened
-where it is: renaming the project must not strand a keystore or an audit trail.
+An existing `~/.config/gimlet`, then `~/.config/mellivora`, is used when the
+new root does not exist. `GIMLET_HOME` remains an override, and a
+`keystore.melv` is opened where it is: renaming the project must not strand a
+keystore or an audit trail.
 
 ```toml
 schema_version = 1
@@ -213,11 +214,12 @@ A configuration written by a newer build is refused (the schema version is
 checked); one written by an older build loads, with any sections belonging to
 surfaces that no longer exist ignored rather than rejected.
 
-The audit trail records one JSON object per line: timestamp, tool id, verdict,
-duration, and argument **names**. Values never appear. A failed run is recorded
-too — repeated failures are exactly what a trail is for. Writes go through a
-sibling temporary file and a rename, so two surfaces running at once cannot
-interleave a partial line.
+The audit trail records one JSON object per tool execution: timestamp, tool id,
+verdict, duration, argument **names**, run id, and dry-run state. Values never
+appear. Batch rows share a run id and carry their position; retention keeps or
+prunes a logical run together. A failed run is recorded too — repeated failures
+are exactly what a trail is for. Appends are single-line writes; pruning uses a
+sibling temporary file and rename, but concurrent pruners can still race.
 
 ## 7. Security model
 
@@ -302,7 +304,7 @@ nothing that can be out of step.
   can type-check it and the `e2e` job can drive it under `xvfb-run`, but opening
   the window by hand needs a desktop session.
 - **Two builds on one machine.** A dev checkout and an installed app share
-  `$GIMLET_HOME`, so the audit trail interleaves. That is why the trail is
+  the state root, so the audit trail interleaves. That is why the trail is
   written through a rename.
 - **Windows paths.** Path arithmetic in `packages/core` handles both separators,
   but only Linux has been exercised end to end.

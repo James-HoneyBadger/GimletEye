@@ -55,6 +55,8 @@ export const BATCH_FLAGS: readonly CommandEntry[] = [
 ];
 
 export const ENVIRONMENT: readonly CommandEntry[] = [
-  { command: 'GIMLET_HOME', args: '', summary: 'Toolkit home; a config at ~/.config/gimlet is the default' },
-  { command: 'GIMLET_SIDECAR', args: '', summary: 'Path to the engine binary, when it is not installed beside this program' },
+  { command: 'GIMLET_WORKS_HOME', args: '', summary: 'Toolkit home; defaults to the platform config directory' },
+  { command: 'GIMLET_HOME', args: '', summary: 'Legacy alias for GIMLET_WORKS_HOME' },
+  { command: 'GIMLET_WORKS_SIDECAR', args: '', summary: 'Path to an optional separate engine' },
+  { command: 'GIMLET_SIDECAR', args: '', summary: 'Legacy alias for GIMLET_WORKS_SIDECAR' },
 ];

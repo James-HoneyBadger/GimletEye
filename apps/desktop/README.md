@@ -1,4 +1,4 @@
-# The Gimlet Eye window
+# The Gimlet Works window
 
 An Electron 45 window around `packages/core`. The UI is the same TypeScript the
 CLI renders reports with, and the main process holds the only `Runtime`: the
@@ -17,7 +17,7 @@ apps/desktop/
 │   ├── runtime.ts        one runtime, retried after a failed load
 │   ├── bounds.ts         remembered geometry, clamped to the displays that exist
 │   ├── window-state.ts   the four numbers, read and written in the profile
-│   ├── preload.cts       fixed channels -> window.gimlet (CommonJS)
+│   ├── preload.cts       fixed channels -> window.gimletWorks (CommonJS)
 │   └── api.ts            health/doctor/tools/run/audit, Electron-free and tested
 ├── src/                  frontend: components, store, actions
 │   ├── lib/bridge.ts     the renderer's view of the machine
@@ -36,7 +36,7 @@ apps/desktop/
 Data flows one way:
 
 ```
-renderer (no Node)  ──window.gimlet.health/tools/run/audit──▶  main process
+renderer (no Node)  ──window.gimletWorks.health/tools/run/audit──▶  main process
                                                                   │
                                                        Runtime + node:fs
 ```
@@ -56,7 +56,7 @@ renderer (no Node)  ──window.gimlet.health/tools/run/audit──▶  main pr
   request refused, and a single-instance lock so two windows cannot race on one
   keystore.
 - **The engine is in the bundle, not beside it.** `packages/engine` is TypeScript
-  imported by `packages/core`, and the shell imports `@gimlet-eye/core/host-node`,
+  imported by `packages/core`, and the shell imports `@gimlet-works/core/host-node`,
   so the window runs exactly the code the CLI does, with nothing staged next to
   it and no second binary to keep in step.
 

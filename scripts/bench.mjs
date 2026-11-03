@@ -22,8 +22,8 @@ import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 
-import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node'
-import { nodeHost } from '@gimlet-eye/core/host-node'
+import { NODE_TOOLS, Runtime } from '@gimlet-works/core/node'
+import { nodeHost } from '@gimlet-works/core/host-node'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const fixture = path.join(root, 'packages/engine/test/fixtures/photo-exif-gps.jpg')

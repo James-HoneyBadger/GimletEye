@@ -57,8 +57,8 @@ function harness(overrides: Partial<DesktopApi> = {}) {
 describe('the IPC surface', () => {
   it('answers health and doctor with the runtime snapshot', async () => {
     const { call } = harness();
-    await expect(call('gimlet:health')).resolves.toEqual(health);
-    await expect(call('gimlet:doctor')).resolves.toEqual(health);
+    await expect(call('gimlet-works:health')).resolves.toEqual(health);
+    await expect(call('gimlet-works:doctor')).resolves.toEqual(health);
   });
 
   it('turns a failure into a message rather than an exception with a channel name', async () => {
@@ -67,7 +67,7 @@ describe('the IPC surface', () => {
         throw new Error('not found: /nope');
       }) as never,
     });
-    await expect(call('gimlet:run', 'crypto.sha256', { text: 'x' }, false)).resolves.toEqual({
+    await expect(call('gimlet-works:run', 'crypto.sha256', { text: 'x' }, false)).resolves.toEqual({
       ok: false,
       message: 'not found: /nope',
     });
@@ -75,19 +75,19 @@ describe('the IPC surface', () => {
 
   it('refuses an argument that is the wrong shape', async () => {
     const { call } = harness();
-    await expect(call('gimlet:run', '', {}, false)).resolves.toEqual({
+    await expect(call('gimlet-works:run', '', {}, false)).resolves.toEqual({
       ok: false,
       message: 'tool must be a non-empty string',
     });
-    await expect(call('gimlet:run', 'crypto.sha256', {}, 'yes')).resolves.toEqual({
+    await expect(call('gimlet-works:run', 'crypto.sha256', {}, 'yes')).resolves.toEqual({
       ok: false,
       message: 'dryRun must be a boolean',
     });
-    await expect(call('gimlet:pick', 'everything')).resolves.toEqual({
+    await expect(call('gimlet-works:pick', 'everything')).resolves.toEqual({
       ok: false,
       message: "mode must be 'file', 'directory', or 'either'",
     });
-    await expect(call('gimlet:reveal', 42)).resolves.toEqual({
+    await expect(call('gimlet-works:reveal', 42)).resolves.toEqual({
       ok: false,
       message: 'target must be a non-empty string',
     });
@@ -95,23 +95,23 @@ describe('the IPC surface', () => {
 
   it('clamps the audit limit instead of trusting it', async () => {
     const { call } = harness();
-    await expect(call('gimlet:audit', 0)).resolves.toMatchObject({ limit: 50 });
-    await expect(call('gimlet:audit', 1.5)).resolves.toMatchObject({ limit: 50 });
-    await expect(call('gimlet:audit', 7)).resolves.toMatchObject({ limit: 7 });
+    await expect(call('gimlet-works:audit', 0)).resolves.toMatchObject({ limit: 50 });
+    await expect(call('gimlet-works:audit', 1.5)).resolves.toMatchObject({ limit: 50 });
+    await expect(call('gimlet-works:audit', 7)).resolves.toMatchObject({ limit: 7 });
   });
 
   it('passes the picker mode through', async () => {
     const { call, picks } = harness();
-    await expect(call('gimlet:pick', 'either')).resolves.toEqual({ path: '/tmp/chosen' });
+    await expect(call('gimlet-works:pick', 'either')).resolves.toEqual({ path: '/tmp/chosen' });
     expect(picks).toEqual(['either']);
   });
 
   it('copies only reasonable text', async () => {
     const { call, copies } = harness();
-    await expect(call('gimlet:copy', 'hello')).resolves.toEqual({ ok: true });
+    await expect(call('gimlet-works:copy', 'hello')).resolves.toEqual({ ok: true });
     expect(copies).toEqual(['hello']);
-    await expect(call('gimlet:copy', 42)).resolves.toMatchObject({ ok: false });
-    await expect(call('gimlet:copy', 'x'.repeat(1_000_001))).resolves.toEqual({
+    await expect(call('gimlet-works:copy', 42)).resolves.toMatchObject({ ok: false });
+    await expect(call('gimlet-works:copy', 'x'.repeat(1_000_001))).resolves.toEqual({
       ok: false,
       message: 'refusing to copy more than 1 MB',
     });
@@ -127,7 +127,7 @@ describe('the IPC surface', () => {
       reveal: async () => ({ ok: true }),
       copy: () => undefined,
     });
-    const listener = channels.get('gimlet:health');
+    const listener = channels.get('gimlet-works:health');
     const result = listener?.({ sender: { id: 2 } } as unknown as IpcMainInvokeEvent);
     await expect(Promise.resolve(result)).rejects.toThrow('unexpected sender');
   });

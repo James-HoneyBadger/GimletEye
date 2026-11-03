@@ -6,7 +6,7 @@
  * without a TTY, which CI does not have.
  */
 
-import type { Report, ToolManifest } from '@gimlet-eye/core';
+import type { Report, ToolManifest } from '@gimlet-works/core';
 
 export type Mode = 'browse' | 'args' | 'result';
 

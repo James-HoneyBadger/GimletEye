@@ -6,7 +6,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { accessSync, constants, existsSync, statSync } from 'node:fs';
 import {
   access,
   appendFile as appendToFile,
@@ -22,7 +22,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { GimletError, asErrorCode, internal, io, notFound } from './errors.js';
@@ -239,17 +239,18 @@ export function execOnce(
 /**
  * Where the engine binary lives.
  *
- * `GIMLET_SIDECAR` wins, then the install layout, then `PATH`.
+ * `GIMLET_WORKS_SIDECAR` wins, followed by the legacy `GIMLET_SIDECAR`,
+ * the install layout, and `PATH`.
  *
  * This only matters for the optional engine: every tool is built in, so an
- * install with no `gimlet-sidecar` anywhere is normal and complete. The install
+ * install with no sidecar anywhere is normal and complete. The install
  * layout is found from *this module*, not from `process.execPath`: a packaged CLI
- * runs as `/usr/bin/node /usr/lib/gimlet/cli/main.js`, so the directory holding
+ * runs as `/usr/bin/node /usr/lib/gimlet-works/cli/main.js`, so the directory holding
  * `node` says nothing about where an engine would be:
  *
- *     /usr/lib/gimlet/gimlet-sidecar           (optional)
- *     /usr/lib/gimlet/core/dist/host-node.js   <- this file
- *     /usr/bin/gimlet -> ../lib/gimlet/bin/gimlet
+ *     /usr/lib/gimlet-works/gimlet-works-sidecar           (optional)
+ *     /usr/lib/gimlet-works/core/dist/host-node.js          <- this file
+ *     /usr/bin/gimlet-works -> ../lib/gimlet-works/cli/bin/gimlet-works
  */
 export interface SidecarLookup {
   /** Overrides the running module's URL; used by the tests. */
@@ -260,23 +261,46 @@ export interface SidecarLookup {
 
 export function sidecarPath(lookup: SidecarLookup = {}): string {
   const env = lookup.env ?? process.env;
-  const override = env['GIMLET_SIDECAR'];
+  const override = env['GIMLET_WORKS_SIDECAR'] || env['GIMLET_SIDECAR'];
   if (override) return override;
 
-  const name = process.platform === 'win32' ? 'gimlet-sidecar.exe' : 'gimlet-sidecar';
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  const names = [`gimlet-works-sidecar${suffix}`, `gimlet-sidecar${suffix}`];
   const modulePath = fileURLToPath(lookup.moduleUrl ?? import.meta.url);
+  const installed = dirname(dirname(dirname(modulePath)));
+  const beside = dirname(lookup.execPath ?? process.execPath);
 
-  // Up from `.../core/dist/host-node.js` to the directory that holds the engine.
-  const installed = join(dirname(dirname(dirname(modulePath))), name);
-  if (existsSync(installed)) return installed;
+  for (const name of names) {
+    for (const dir of [installed, beside]) {
+      const candidate = join(dir, name);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
 
-  // A single-directory install, where node and the engine sit together.
-  const beside = join(dirname(lookup.execPath ?? process.execPath), name);
-  if (existsSync(beside)) return beside;
-
-  // No build-tree tier: the engine is TypeScript and in the bundle, so a separate
-  // implementation is reached by pointing GIMLET_SIDECAR at it.
-  return name;
+  // The legacy name may still be on PATH even when the new name is not.
+  const defaultPath = process.platform === 'win32' ? (process.env['PATH'] ?? process.env['Path']) : '/usr/bin:/bin';
+  const searchPath = env['PATH'] ?? env['Path'] ?? defaultPath;
+  if (searchPath !== undefined) {
+    for (const name of names) {
+      for (const dir of searchPath.split(delimiter)) {
+        const candidate = join(dir || process.cwd(), name);
+        try {
+          accessSync(candidate, constants.X_OK);
+          if (statSync(candidate).isFile()) return candidate;
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            'code' in error &&
+            (error.code === 'ENOENT' || error.code === 'ENOTDIR' || error.code === 'EACCES' || error.code === 'EPERM')
+          ) {
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+  }
+  return names[0]!;
 }
 
 interface Pending {

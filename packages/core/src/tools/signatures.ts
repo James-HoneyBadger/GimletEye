@@ -7,7 +7,7 @@
  * is an error, which is what `--strict` gates on.
  */
 
-import { decodePublic, decodeSecret, encodeSecret, signBytes, verifyBytes } from '@gimlet-eye/engine';
+import { decodePublic, decodeSecret, encodeSecret, signBytes, verifyBytes } from '@gimlet-works/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { invalidArgs, io, notFound } from '../errors.js';

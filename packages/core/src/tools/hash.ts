@@ -5,7 +5,7 @@
  * because a tool is its identifier and its output shape, not its language.
  */
 
-import { sha256Hex } from '@gimlet-eye/engine';
+import { sha256Hex } from '@gimlet-works/engine';
 
 import { optString, requireString } from '../args.js';
 import { invalidArgs, notFound } from '../errors.js';

@@ -45,7 +45,7 @@ const MAX_CLIPBOARD = 1_000_000;
  * what a failure looks like — are testable without launching Electron.
  */
 export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: HandlerDependencies): void {
-  ipc.handle('gimlet:health', async (event) => {
+  ipc.handle('gimlet-works:health', async (event) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     try {
       return await api.health();
@@ -54,7 +54,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
     }
   });
 
-  ipc.handle('gimlet:doctor', async (event) => {
+  ipc.handle('gimlet-works:doctor', async (event) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     try {
       return await api.doctor();
@@ -63,7 +63,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
     }
   });
 
-  ipc.handle('gimlet:tools', async (event) => {
+  ipc.handle('gimlet-works:tools', async (event) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     try {
       return await api.tools();
@@ -72,7 +72,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
     }
   });
 
-  ipc.handle('gimlet:run', async (event, tool: unknown, args: unknown, dryRun: unknown) => {
+  ipc.handle('gimlet-works:run', async (event, tool: unknown, args: unknown, dryRun: unknown) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     if (typeof tool !== 'string' || tool === '') return failure(new Error('tool must be a non-empty string'));
     if (typeof dryRun !== 'boolean') return failure(new Error('dryRun must be a boolean'));
@@ -83,7 +83,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
     }
   });
 
-  ipc.handle('gimlet:audit', async (event, limit: unknown) => {
+  ipc.handle('gimlet-works:audit', async (event, limit: unknown) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     const count = typeof limit === 'number' && Number.isInteger(limit) && limit > 0 ? limit : 50;
     try {
@@ -93,7 +93,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
     }
   });
 
-  ipc.handle('gimlet:pick', async (event, mode: unknown) => {
+  ipc.handle('gimlet-works:pick', async (event, mode: unknown) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     if (mode !== 'file' && mode !== 'directory' && mode !== 'either') {
       return failure(new Error("mode must be 'file', 'directory', or 'either'"));
@@ -107,7 +107,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
 
   // Only what the runtime owns can be opened from here: the window may ask for a
   // folder it was told about, never for an arbitrary path.
-  ipc.handle('gimlet:reveal', async (event, target: unknown) => {
+  ipc.handle('gimlet-works:reveal', async (event, target: unknown) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     if (typeof target !== 'string' || target === '') return failure(new Error('target must be a non-empty string'));
     try {
@@ -119,7 +119,7 @@ export function registerHandlers({ ipc, api, isWindow, pick, reveal, copy }: Han
 
   // Copying is a desktop capability, not a web permission: the session denies
   // every permission request, so the renderer asks the main process instead.
-  ipc.handle('gimlet:copy', async (event, text: unknown) => {
+  ipc.handle('gimlet-works:copy', async (event, text: unknown) => {
     if (!isWindow(event)) throw new Error('unexpected sender');
     if (typeof text !== 'string') return failure(new Error('text must be a string'));
     if (text.length > MAX_CLIPBOARD) return failure(new Error('refusing to copy more than 1 MB'));

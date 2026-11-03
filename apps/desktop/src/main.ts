@@ -406,7 +406,7 @@ root.addEventListener('change', (event) => {
 
 // A file dragged from the desktop is a real path. The preload resolves it (the
 // page cannot) and leaves the answer on the drop zone.
-root.addEventListener('gimlet:dropped', (event) => {
+root.addEventListener('gimlet-works:dropped', (event) => {
   const zone = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-drop-zone]') : null;
   const path = zone?.dataset.droppedPath;
   if (!zone || !path) return;

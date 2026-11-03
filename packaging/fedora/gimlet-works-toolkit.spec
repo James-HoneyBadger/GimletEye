@@ -1,14 +1,14 @@
-# Fedora packaging for Gimlet Eye.
+# Fedora packaging for Gimlet Works.
 #
 # The version is checked against packages/core/src/version.ts by
 # scripts/check-packaging.sh.
-Name:           gimlet-eye-toolkit
+Name:           gimlet-works-toolkit
 Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Local workbench for system, crypto, and metadata tasks
 License:        MIT
-URL:            https://github.com/James-HoneyBadger/GimletEye
-Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+URL:            https://github.com/James-HoneyBadger/GimletWorks
+Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 BuildRequires:  nodejs >= 20
 BuildRequires:  npm
 # The staging script is bash.
@@ -16,6 +16,8 @@ Requires:       bash
 Recommends:     gnupg
 Requires:       glibc
 Requires:       nodejs >= 20
+Provides:       gimlet-eye-toolkit = %{version}-%{release}
+Obsoletes:      gimlet-eye-toolkit <= %{version}-%{release}
 
 %description
 One tool registry, one report format, one configuration file, one audit trail,
@@ -27,7 +29,7 @@ package contains the command line, which runs every tool in process; the desktop
 app is packaged separately.
 
 %prep
-%autosetup -n %{name}-%{version}
+%autosetup -n GimletWorks-%{version}
 
 %build
 npm ci
@@ -39,8 +41,9 @@ npm run build
 
 %files
 %{_bindir}/gimlet
-%{_libdir}/gimlet
-%{_docdir}/%{name}
+%{_bindir}/gimlet-works
+%{_prefix}/lib/gimlet-works
+%{_docdir}/gimlet-works
 %license LICENSE
 
 %changelog

@@ -1,5 +1,5 @@
-import { NODE_TOOLS, Runtime } from '@gimlet-eye/core/node';
-import { nodeHost } from '@gimlet-eye/core/host-node';
+import { NODE_TOOLS, Runtime } from '@gimlet-works/core/node';
+import { nodeHost } from '@gimlet-works/core/host-node';
 
 export type RuntimeLoader = () => Promise<Runtime>;
 

@@ -6,7 +6,7 @@
  * how a caller learns that an 8-character password is not a stored secret.
  */
 
-import { generatePasswords } from '@gimlet-eye/engine';
+import { generatePasswords } from '@gimlet-works/engine';
 
 import { booleanOr, integerOr } from '../args.js';
 import { sealed, type Report } from '../report.js';

@@ -16,7 +16,7 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 
 import { runTui, splitArgs } from '../src/tui/session.js';
-import type { Runtime, ToolManifest } from '@gimlet-eye/core';
+import type { Runtime, ToolManifest } from '@gimlet-works/core';
 
 /** The little of a TTY that the loop touches. */
 class FakeTerminal extends EventEmitter {

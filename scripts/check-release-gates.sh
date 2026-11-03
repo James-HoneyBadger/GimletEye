@@ -123,7 +123,7 @@ ci_row() {
     esac
 }
 
-echo "Gimlet Eye — release gate report"
+echo "Gimlet Works — release gate report"
 echo
 
 echo "Gate 1 — the pillars we already claim are finished"

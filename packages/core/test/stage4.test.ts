@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { strip, policyProfile } from '@gimlet-eye/engine';
+import { strip, policyProfile } from '@gimlet-works/engine';
 
 import { defaultConfig } from '../src/config.js';
 import { sha256 } from '../src/tools/hash.js';

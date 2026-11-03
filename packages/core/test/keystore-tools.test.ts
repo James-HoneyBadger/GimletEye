@@ -9,7 +9,7 @@ import {
   open as openKeystore,
   SCHEMA_VERSION,
   seal as sealKeystore,
-} from '@gimlet-eye/engine';
+} from '@gimlet-works/engine';
 import { pathsUnder } from '../src/paths.js';
 import { defaultConfig } from '../src/config.js';
 import { generateKey } from '../src/tools/keys.js';

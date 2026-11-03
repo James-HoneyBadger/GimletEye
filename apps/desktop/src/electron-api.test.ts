@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Runtime, Report } from '@gimlet-eye/core';
+import type { Runtime, Report } from '@gimlet-works/core';
 
 import { createApi } from '../electron/api.js';
 

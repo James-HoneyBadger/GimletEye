@@ -1,4 +1,4 @@
-import { isSecretArg } from '@gimlet-eye/core';
+import { isSecretArg } from '@gimlet-works/core';
 
 /** `⌘` on macOS, `Ctrl` elsewhere. */
 export const modLabel: string =
@@ -91,7 +91,7 @@ function shellArg(value: unknown): string {
  * CLI are two views of one engine, so a run is never trapped in the window.
  */
 export function cliCommand(toolId: string, args: Record<string, unknown>, dryRun: boolean): string {
-  const parts = ['gimlet', 'run', toolId];
+  const parts = ['gimlet-works', 'run', toolId];
   for (const [key, value] of Object.entries(args)) {
     if (value === undefined || value === '') continue;
     // A passphrase is written to the clipboard by this button and shown in its

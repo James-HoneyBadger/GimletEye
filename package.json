@@ -1,9 +1,9 @@
 {
-  "name": "gimlet-eye",
+  "name": "gimlet-works",
   "private": true,
   "version": "1.1.0",
   "type": "module",
-  "description": "Gimlet Eye — desktop workbench and command line for system, crypto, and metadata tasks",
+  "description": "Gimlet Works — desktop workbench and command line for system, crypto, and metadata tasks",
   "workspaces": [
     "packages/*",
     "apps/desktop"
@@ -12,9 +12,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build -w @gimlet-eye/core -w @gimlet-eye/engine -w @gimlet-eye/cli",
-    "build:desktop": "npm run build -w @gimlet-eye/desktop",
-    "typecheck": "tsc -b packages/core packages/engine packages/cli && npm run typecheck -w @gimlet-eye/desktop",
+    "build": "npm run build -w @gimlet-works/core -w @gimlet-works/engine -w @gimlet-works/cli",
+    "build:desktop": "npm run build -w @gimlet-works/desktop",
+    "typecheck": "tsc -b packages/core packages/engine packages/cli && npm run typecheck -w @gimlet-works/desktop",
     "test": "vitest run",
     "cli": "node packages/cli/dist/main.js"
   },

@@ -1,14 +1,16 @@
 {
-  "name": "@gimlet-eye/desktop",
+  "name": "@gimlet-works/desktop",
+  "productName": "Gimlet Works",
+  "desktopName": "gimlet-works-desktop.desktop",
   "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Gimlet Eye desktop workbench",
+  "description": "Gimlet Works desktop workbench",
   "main": "electron/dist/main.js",
   "scripts": {
     "dev": "npm run build:ui && npm run electron:start",
     "build": "npm run build:ui && npm run electron:build",
-    "build:ui": "npm run build --prefix ../.. --workspace @gimlet-eye/core && vite build",
+    "build:ui": "npm run build --prefix ../.. --workspace @gimlet-works/core && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev:ui": "vite",
@@ -19,7 +21,7 @@
     "e2e": "node e2e/run.mjs"
   },
   "dependencies": {
-    "@gimlet-eye/core": "*"
+    "@gimlet-works/core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
@@ -32,8 +34,8 @@
     "vitest": "^4.1.12"
   },
   "build": {
-    "appId": "dev.gimleteye.desktop",
-    "productName": "Gimlet Eye",
+    "appId": "dev.gimletworks.desktop",
+    "productName": "Gimlet Works",
     "directories": {
       "output": "release"
     },
@@ -48,7 +50,8 @@
         "AppImage"
       ],
       "category": "Utility",
-      "maintainer": "Gimlet Eye contributors"
+      "maintainer": "Gimlet Works contributors",
+      "syncDesktopName": true
     },
     "mac": {
       "target": [
@@ -61,9 +64,20 @@
         "nsis"
       ]
     },
-    "executableName": "gimlet-eye",
-    "artifactName": "gimlet-eye-${version}-${arch}.${ext}"
+    "deb": {
+      "packageName": "gimlet-works-desktop",
+      "fpm": [
+        "--replaces=gimlet-eye",
+        "--conflicts=gimlet-eye",
+        "--provides=gimlet-eye"
+      ]
+    },
+    "nsis": {
+      "guid": "38f02069-fb9a-59a7-9e5c-f022bf2bf607"
+    },
+    "executableName": "gimlet-works-desktop",
+    "artifactName": "gimlet-works-desktop-${version}-${arch}.${ext}"
   },
-  "author": "Gimlet Eye contributors",
-  "homepage": "https://github.com/James-HoneyBadger/GimletEye"
+  "author": "Gimlet Works contributors",
+  "homepage": "https://github.com/James-HoneyBadger/GimletWorks"
 }

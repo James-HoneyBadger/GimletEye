@@ -7,12 +7,12 @@ than three without.
 ## Set up
 
 ```bash
-git clone https://github.com/James-HoneyBadger/GimletEye
-cd GimletEye
+git clone https://github.com/James-HoneyBadger/GimletWorks
+cd GimletWorks
 
 npm install                                   # CLI + desktop + tests
 npm run build                                 # every package and the CLI
-./packages/cli/bin/gimlet doctor
+./packages/cli/bin/gimlet-works doctor
 ```
 
 `./run.sh --cli system-info` builds whatever is out of date first, if you would

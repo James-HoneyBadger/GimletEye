@@ -1,29 +1,32 @@
-# Arch packaging for Gimlet Eye.
+# Arch packaging for Gimlet Works.
 #
 # The version here is checked against package.json by scripts/check-packaging.sh,
 # so a release cannot ship a PKGBUILD that names a different version than the
 # CLI it builds.
-pkgname=gimlet-eye-toolkit
+pkgname=gimlet-works-toolkit
 pkgver=1.1.0
 pkgrel=1
 pkgdesc="Local workbench for system, crypto, and metadata tasks"
 arch=('x86_64' 'aarch64')
-url="https://github.com/James-HoneyBadger/GimletEye"
+url="https://github.com/James-HoneyBadger/GimletWorks"
 license=('MIT')
 depends=('gcc-libs' 'nodejs>=20')
+provides=("gimlet-eye-toolkit=$pkgver")
+conflicts=('gimlet-eye-toolkit')
+replaces=('gimlet-eye-toolkit')
 makedepends=('npm')
 optdepends=('gnupg: OpenPGP interop (crypto.gpg-*)')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
-    cd "$pkgname-$pkgver"
+    cd "GimletWorks-$pkgver"
     npm ci
     npm run build
 }
 
 package() {
-    cd "$pkgname-$pkgver"
+    cd "GimletWorks-$pkgver"
     # One definition of the layout, shared with the deb and rpm recipes.
     ./scripts/stage-package.sh "$pkgdir"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

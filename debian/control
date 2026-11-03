@@ -1,19 +1,22 @@
-Source: gimlet-eye-toolkit
+Source: gimlet-works-toolkit
 Section: utils
 Priority: optional
-Maintainer: Gimlet Eye maintainers <maintainers@example.invalid>
+Maintainer: Gimlet Works maintainers <maintainers@example.invalid>
 # One toolchain: the build is TypeScript. scripts/rehearse-upgrade.sh installs
 # Node 20 into a container to prove that.
 Build-Depends: debhelper-compat (= 13), nodejs (>= 20), npm
 Standards-Version: 4.6.2
-Homepage: https://github.com/James-HoneyBadger/GimletEye
-Vcs-Git: https://github.com/James-HoneyBadger/GimletEye.git
+Homepage: https://github.com/James-HoneyBadger/GimletWorks
+Vcs-Git: https://github.com/James-HoneyBadger/GimletWorks.git
 Rules-Requires-Root: no
 
-Package: gimlet
+Package: gimlet-works
 Architecture: any
 Depends: ${misc:Depends}, nodejs (>= 20)
 Recommends: gnupg
+Breaks: gimlet (<< ${binary:Version})
+Replaces: gimlet (<< ${binary:Version})
+Provides: gimlet
 Description: local workbench for system, crypto, and metadata tasks
  One tool registry, one report format, one configuration file, one audit trail,
  and one command line for system administration, file encryption and signing,
@@ -21,3 +24,11 @@ Description: local workbench for system, crypto, and metadata tasks
  .
  Everything runs locally: no network calls, no telemetry, no auto-update. There
  is no daemon and no listening port.
+
+Package: gimlet
+Section: oldlibs
+Architecture: all
+Depends: ${misc:Depends}, gimlet-works (= ${binary:Version})
+Description: transitional package for Gimlet Works
+ This package upgrades the former gimlet package to gimlet-works.
+ It can be removed after the upgrade.

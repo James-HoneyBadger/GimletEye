@@ -5,7 +5,7 @@
  * catalogue, the report shape, the configuration, the audit trail, and the
  * conversation with the verified engine all live here.
  *
- * The Node host is a second entry point (`@gimlet-eye/core/host-node`) rather
+ * The Node host is a second entry point (`@gimlet-works/core/host-node`) rather
  * than an export of this barrel: a webview bundle must not contain `node:fs`,
  * and pulling it in breaks the desktop build.
  */

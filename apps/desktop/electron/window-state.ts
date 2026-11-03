@@ -6,7 +6,7 @@ import type { Bounds } from './bounds.js';
 /**
  * The window's last geometry, remembered as four numbers.
  *
- * Read and written in the profile directory, not `GIMLET_HOME`: where the window
+ * Read and written in the profile directory, not `GIMLET_WORKS_HOME`: where the window
  * sat is a property of this desktop, not of the toolkit's data. A file that cannot
  * be read, or that holds something else, is treated as "no memory" rather than as
  * an error — a broken preference must never stop the app opening.

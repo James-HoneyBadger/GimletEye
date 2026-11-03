@@ -12,6 +12,7 @@ import {
 import { containsPath, isPseudo, parseDf, diskUsage } from '../src/tools/disk-usage.js';
 import { defaultConfig } from '../src/config.js';
 import { fakeHost } from './fake-host.js';
+import { Runtime } from '../src/runtime.js';
 
 describe('system-info parsing', () => {
   it('reads os-release, including quoted values', () => {
@@ -80,6 +81,21 @@ describe('system-info tool', () => {
     expect(report.status).toBe('ok');
   });
 
+  it('keeps a sparse, swapless host report valid at the runtime boundary', async () => {
+    const host = fakeHost();
+    host.files.set('/proc/sys/kernel/hostname', 'demo\n');
+    host.files.set('/proc/cpuinfo', 'processor\t: 0\nmodel name\t: Example ARM CPU\n');
+    host.files.set('/proc/meminfo', 'MemTotal: 1000 kB\nMemAvailable: 500 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n');
+    const runtime = await Runtime.load(host, { home: '/home/tester/.gimlet', localTools: [systemInfo] });
+
+    const { report } = await runtime.run('sysadmin.system-info', {});
+    expect(report.data).toMatchObject({ arch: host.arch, hostname: 'demo' });
+    expect(report.data).toHaveProperty('cpu.model', 'Example ARM CPU');
+    expect(report.data).not.toHaveProperty('cpu.mhz');
+    expect(report.data).not.toHaveProperty('swap');
+    runtime.close();
+  });
+
   it('refuses a host with no /proc', async () => {
     const host = fakeHost();
     await expect(systemInfo.run({ host, config: defaultConfig(), dryRun: false }, {})).rejects.toThrow(
@@ -111,6 +127,8 @@ describe('disk-usage parsing', () => {
     expect(isPseudo('tmpfs')).toBe(true);
     expect(isPseudo('cgroup2')).toBe(true);
     expect(isPseudo('/dev/nvme0n1p2')).toBe(false);
+    expect(isPseudo('/dev/loop1', '/snap/example/42')).toBe(true);
+    expect(isPseudo('/dev/loop1', '/mnt/disk-image')).toBe(false);
   });
 
   it('matches a nested path against its mount', () => {
@@ -151,6 +169,24 @@ describe('disk-usage tool', () => {
     const report = await diskUsage.run({ host, config: defaultConfig(), dryRun: false }, { path: '/data/x' });
     expect(report.data).toHaveLength(1);
     expect((report.data as { mount: string }[])[0]?.mount).toBe('/data');
+  });
+
+  it('ignores mounted Snap images by default but includes them with all=true', async () => {
+    const host = fakeHost();
+    host.execResult = {
+      code: 0,
+      stdout:
+        'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 100 50 50 50% /\n/dev/loop1 100 100 0 100% /snap/example/42\n',
+      stderr: '',
+    };
+
+    const normal = await diskUsage.run({ host, config: defaultConfig(), dryRun: false }, {});
+    expect(normal.status).toBe('ok');
+    expect(normal.data).toMatchObject([{ filesystem: '/dev/sda1', mount: '/' }]);
+
+    const all = await diskUsage.run({ host, config: defaultConfig(), dryRun: false }, { all: true });
+    expect(all.status).toBe('error');
+    expect(all.data).toHaveLength(2);
   });
 
   it('reports a missing path rather than an empty table', async () => {

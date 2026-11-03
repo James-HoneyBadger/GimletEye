@@ -15,7 +15,7 @@ type Reply<T> = T | { ok: false; message: string };
  * Ask a fixed channel, and turn a failure envelope back into an Error.
  *
  * The main process resolves failures rather than throwing them: a thrown
- * message arrives here as "Error invoking remote method 'gimlet:run': …",
+ * message arrives here as "Error invoking remote method 'gimlet-works:run': …",
  * which is plumbing the person in front of the window should never read.
  */
 async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -45,23 +45,23 @@ window.addEventListener(
     }
     if (path === '') return;
     zone.setAttribute('data-dropped-path', path);
-    zone.dispatchEvent(new Event('gimlet:dropped', { bubbles: true }));
+    zone.dispatchEvent(new Event('gimlet-works:dropped', { bubbles: true }));
   },
   true,
 );
 
-const gimlet = {
-  health: (): Promise<unknown> => call('gimlet:health'),
-  doctor: (): Promise<unknown> => call('gimlet:doctor'),
-  tools: (): Promise<unknown> => call('gimlet:tools'),
+const gimletWorks = {
+  health: (): Promise<unknown> => call('gimlet-works:health'),
+  doctor: (): Promise<unknown> => call('gimlet-works:doctor'),
+  tools: (): Promise<unknown> => call('gimlet-works:tools'),
   run: (tool: string, args: Record<string, string | number | boolean | null>, dryRun: boolean): Promise<unknown> =>
-    call('gimlet:run', tool, args, dryRun),
-  audit: (limit: number): Promise<unknown> => call('gimlet:audit', limit),
-  pick: (mode: 'file' | 'directory' | 'either'): Promise<unknown> => call('gimlet:pick', mode),
-  reveal: (path: string): Promise<unknown> => call('gimlet:reveal', path),
-  copy: (text: string): Promise<unknown> => call('gimlet:copy', text),
+    call('gimlet-works:run', tool, args, dryRun),
+  audit: (limit: number): Promise<unknown> => call('gimlet-works:audit', limit),
+  pick: (mode: 'file' | 'directory' | 'either'): Promise<unknown> => call('gimlet-works:pick', mode),
+  reveal: (path: string): Promise<unknown> => call('gimlet-works:reveal', path),
+  copy: (text: string): Promise<unknown> => call('gimlet-works:copy', text),
 };
 
-contextBridge.exposeInMainWorld('gimlet', gimlet);
+contextBridge.exposeInMainWorld('gimletWorks', gimletWorks);
 
-export type GimletBridge = typeof gimlet;
+export type GimletWorksBridge = typeof gimletWorks;

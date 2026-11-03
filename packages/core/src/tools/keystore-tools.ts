@@ -26,7 +26,7 @@ import {
   viewOf,
   type Keystore,
   type KeyKind,
-} from '@gimlet-eye/engine';
+} from '@gimlet-works/engine';
 
 import { booleanOr, optString, requireString } from '../args.js';
 import { invalidArgs, io, notFound } from '../errors.js';

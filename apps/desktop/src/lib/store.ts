@@ -1,4 +1,4 @@
-import { summariseAudit, type AuditEntry } from '@gimlet-eye/core';
+import { summariseAudit, type AuditEntry } from '@gimlet-works/core';
 
 import type { Sort } from './data';
 import type { DoctorSnapshot, Health, Report, Severity, Status, ToolManifest } from './engine';

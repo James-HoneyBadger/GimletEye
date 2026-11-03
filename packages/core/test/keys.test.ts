@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { hexDecodeExact, open as openKeystore, SCHEMA_VERSION } from '@gimlet-eye/engine';
+import { hexDecodeExact, open as openKeystore, SCHEMA_VERSION } from '@gimlet-works/engine';
 import { pathsUnder } from '../src/paths.js';
 import { defaultConfig } from '../src/config.js';
 import { NODE_TOOLS } from '../src/node.js';

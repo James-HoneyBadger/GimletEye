@@ -6,7 +6,7 @@
  * the fallback for a build without the bridge (and for tests).
  */
 export async function copyText(text: string): Promise<void> {
-  const bridge = typeof window === 'undefined' ? undefined : window.gimlet;
+  const bridge = typeof window === 'undefined' ? undefined : window.gimletWorks;
   if (bridge?.copy) {
     await bridge.copy(text);
     return;

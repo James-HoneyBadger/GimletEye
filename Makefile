@@ -14,7 +14,7 @@ cli: ## Build every package and the CLI
 	$(NPM) run build
 
 ui: ## Build the desktop UI bundle
-	$(NPM) run build:ui -w @gimlet-eye/desktop
+	$(NPM) run build:ui -w @gimlet-works/desktop
 
 package-check: build ## Stage the package and run it the way an install would
 	./scripts/check-packaging.sh
@@ -45,7 +45,7 @@ gates: ## Report whether 1.0 may be cut: every ADR 0006 gate, verified or open
 	./scripts/check-release-gates.sh
 
 desktop: build ## Build the desktop app
-	$(NPM) run build -w @gimlet-eye/desktop
+	$(NPM) run build -w @gimlet-works/desktop
 
 run: build ## Launch the desktop app from this checkout
 	./run.sh
@@ -57,7 +57,7 @@ smoke: ## End-to-end check of the CLI
 	./scripts/smoke.sh
 
 e2e: build ## Drive the real window: run a tool, read the report and the trail
-	$(NPM) run e2e -w @gimlet-eye/desktop
+	$(NPM) run e2e -w @gimlet-works/desktop
 
 shots: build ## Capture the window in its baseline states (writes e2e/shots)
 	node apps/desktop/e2e/shots.mjs

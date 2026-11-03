@@ -6,8 +6,8 @@
  * request *means* is here, and it takes a `Runtime` rather than creating one.
  */
 
-import { VERSION, type Args, type AuditEntry, type Report, type ToolManifest } from '@gimlet-eye/core';
-import type { Runtime } from '@gimlet-eye/core';
+import { VERSION, type Args, type AuditEntry, type Report, type ToolManifest } from '@gimlet-works/core';
+import type { Runtime } from '@gimlet-works/core';
 
 export interface Health {
   status: 'ok';

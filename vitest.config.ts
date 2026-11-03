@@ -10,9 +10,9 @@ export default defineConfig({
     // checkout must not depend on someone having run `npm run build` first.
     // The more specific entry point comes first.
     alias: [
-      { find: '@gimlet-eye/core/host-node', replacement: at('./packages/core/src/host-node.ts') },
-      { find: '@gimlet-eye/core/node', replacement: at('./packages/core/src/node.ts') },
-      { find: '@gimlet-eye/core', replacement: at('./packages/core/src/index.ts') },
+      { find: '@gimlet-works/core/host-node', replacement: at('./packages/core/src/host-node.ts') },
+      { find: '@gimlet-works/core/node', replacement: at('./packages/core/src/node.ts') },
+      { find: '@gimlet-works/core', replacement: at('./packages/core/src/index.ts') },
     ],
   },
   test: {

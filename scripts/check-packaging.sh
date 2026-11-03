@@ -48,31 +48,52 @@ check() {
 }
 
 check packaging/arch/PKGBUILD      's/^pkgver=\(.*\)$/\1/p'
-check packaging/fedora/gimlet-eye-toolkit.spec 's/^Version: *\(.*\)$/\1/p'
-check debian/changelog             's/^gimlet-eye-toolkit (\(.*\)) .*$/\1/p'
+check packaging/fedora/gimlet-works-toolkit.spec 's/^Version: *\(.*\)$/\1/p'
+check debian/changelog             's/^gimlet-works-toolkit (\([0-9][0-9.]*\)[^)]*) .*$/\1/p'
 
 # The Debian package name and the Arch package name are allowed to differ, but
 # both must install the same binary name - that is what users type.
-grep -q '^Package: gimlet$' debian/control || {
-    echo "debian/control must ship a package named 'gimlet'" >&2
+grep -q '^Package: gimlet-works$' debian/control || {
+    echo "debian/control must ship a package named 'gimlet-works'" >&2
     fail=1
 }
+grep -q '^Package: gimlet$' debian/control || {
+    echo "debian/control must retain the transitional 'gimlet' package" >&2
+    fail=1
+}
+# The shared staging script installs in /usr/lib even on lib64 distributions.
+for path in '%{_prefix}/lib/gimlet-works' '%{_docdir}/gimlet-works'; do
+    grep -Fxq "$path" packaging/fedora/gimlet-works-toolkit.spec || {
+        echo "the RPM file list must include $path" >&2
+        fail=1
+    }
+done
 # The three recipes must all stage through one script, because three
 # hand-written install sections drift the moment one of them is edited.
-for recipe in debian/rules packaging/arch/PKGBUILD packaging/fedora/gimlet-eye-toolkit.spec; do
+for recipe in debian/rules packaging/arch/PKGBUILD packaging/fedora/gimlet-works-toolkit.spec; do
     grep -q 'scripts/stage-package.sh' "$recipe" || {
         echo "$recipe must install through scripts/stage-package.sh" >&2
         fail=1
     }
 done
 
+node <<'NODE' || fail=1
+const desktop = require('./apps/desktop/package.json');
+const build = desktop.build;
+const expected = ['--replaces=gimlet-eye', '--conflicts=gimlet-eye', '--provides=gimlet-eye'];
+if (desktop.productName !== 'Gimlet Works' ||
+    build.appId !== 'dev.gimletworks.desktop' ||
+    build.nsis.guid !== '38f02069-fb9a-59a7-9e5c-f022bf2bf607' ||
+    !expected.every((option) => build.deb.fpm.includes(option))) {
+  console.error('desktop installer branding or upgrade metadata is missing');
+  process.exitCode = 1;
+}
+NODE
+
 if [ "$fail" -ne 0 ]; then
     cat >&2 <<EOF
 
-Packaging is out of step with the product version ($version).
-
-Update the version in every file above in the same commit that bumps
-packages/core/src/version.ts.
+Packaging metadata is inconsistent. Correct the failures above before release.
 EOF
     exit 1
 fi

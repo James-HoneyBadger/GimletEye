@@ -49,36 +49,36 @@ describe('searchText', () => {
 
 describe('cliCommand', () => {
   it('renders a copyable invocation', () => {
-    expect(cliCommand('crypto.passgen', { length: 32 }, false)).toBe('gimlet run crypto.passgen length=32');
+    expect(cliCommand('crypto.passgen', { length: 32 }, false)).toBe('gimlet-works run crypto.passgen length=32');
   });
 
   it('quotes values that need it', () => {
     expect(cliCommand('privacy.metadata-strip', { input: '/tmp/my photos/a.jpg' }, false)).toBe(
-      "gimlet run privacy.metadata-strip 'input=/tmp/my photos/a.jpg'",
+      "gimlet-works run privacy.metadata-strip 'input=/tmp/my photos/a.jpg'",
     );
   });
 
   it('escapes embedded single quotes', () => {
-    expect(cliCommand('demo', { note: "it's" }, false)).toBe("gimlet run demo 'note=it'\\''s'");
+    expect(cliCommand('demo', { note: "it's" }, false)).toBe("gimlet-works run demo 'note=it'\\''s'");
   });
 
   it('appends --dry-run only when asked', () => {
-    expect(cliCommand('demo', {}, true)).toBe('gimlet run demo --dry-run');
+    expect(cliCommand('demo', {}, true)).toBe('gimlet-works run demo --dry-run');
   });
 
   it('skips empty values', () => {
-    expect(cliCommand('demo', { a: '', b: 'x' }, false)).toBe('gimlet run demo b=x');
+    expect(cliCommand('demo', { a: '', b: 'x' }, false)).toBe('gimlet-works run demo b=x');
   });
 
   it('never puts a passphrase in a command that will be copied', () => {
     expect(cliCommand('crypto.encrypt', { input: 'a.txt', passphrase: 'hunter2' }, false)).toBe(
-      "gimlet run crypto.encrypt input=a.txt 'passphrase=<redacted>'",
+      "gimlet-works run crypto.encrypt input=a.txt 'passphrase=<redacted>'",
     );
     expect(cliCommand('crypto.key-rotate', { new_passphrase_env: 'X', passphrase: 'pw' }, false)).toBe(
-      "gimlet run crypto.key-rotate new_passphrase_env=X 'passphrase=<redacted>'",
+      "gimlet-works run crypto.key-rotate new_passphrase_env=X 'passphrase=<redacted>'",
     );
     // `secret=true` is a flag, not a secret: the unredacted command is correct.
-    expect(cliCommand('crypto.key-export', { secret: true }, false)).toBe('gimlet run crypto.key-export secret=true');
+    expect(cliCommand('crypto.key-export', { secret: true }, false)).toBe('gimlet-works run crypto.key-export secret=true');
   });
 });
 

@@ -19,7 +19,7 @@ import {
   visible,
 } from '../src/tui/state.js';
 import { splitArgs } from '../src/tui/session.js';
-import type { Report, ToolManifest } from '@gimlet-eye/core';
+import type { Report, ToolManifest } from '@gimlet-works/core';
 
 const manifest = (id: string, over: Partial<ToolManifest> = {}): ToolManifest => ({
   id,
@@ -143,7 +143,7 @@ describe('key decoding', () => {
 describe('the frame', () => {
   it('shows the count, the rows, and the cursor', () => {
     const frame = renderFrame({ ...initialState, filter: 'crypto' }, manifests, { width: 100, height: 20 });
-    expect(frame[0]).toBe('Gimlet Eye · 2/3 tools  filter: crypto');
+    expect(frame[0]).toBe('Gimlet Works · 2/3 tools  filter: crypto');
     expect(frame.some((line) => line.startsWith('> crypto.keygen'))).toBe(true);
     expect(frame.some((line) => line.startsWith('  crypto.sha256'))).toBe(true);
     expect(frame.at(-1)).toContain('enter run');

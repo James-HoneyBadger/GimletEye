@@ -34,7 +34,7 @@ export function menuTemplate({ platform, about }: MenuSettings): MenuItemConstru
     ],
   });
   template.push({ role: 'windowMenu' });
-  template.push({ label: 'Help', submenu: [{ label: 'About Gimlet Eye', click: () => about() }] });
+  template.push({ label: 'Help', submenu: [{ label: 'About Gimlet Works', click: () => about() }] });
   return template;
 }
 

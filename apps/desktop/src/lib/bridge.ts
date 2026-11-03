@@ -10,7 +10,7 @@
  * empty catalogue.
  */
 
-import type { Args, AuditEntry, Report, ToolManifest } from '@gimlet-eye/core';
+import type { Args, AuditEntry, Report, ToolManifest } from '@gimlet-works/core';
 
 export interface Health {
   status: 'ok';
@@ -32,7 +32,7 @@ export interface AuditTail {
   enabled: boolean;
 }
 
-export interface GimletBridge {
+export interface GimletWorksBridge {
   health(): Promise<Health>;
   doctor(): Promise<DoctorSnapshot>;
   tools(): Promise<ToolManifest[]>;
@@ -48,12 +48,12 @@ export interface GimletBridge {
 
 declare global {
   interface Window {
-    gimlet?: GimletBridge;
+    gimletWorks?: GimletWorksBridge;
   }
 }
 
-export function bridge(): GimletBridge {
-  const api = window.gimlet;
+export function bridge(): GimletWorksBridge {
+  const api = window.gimletWorks;
   if (api === undefined) {
     throw new Error('the desktop bridge is not available: launch the app, not the built page');
   }

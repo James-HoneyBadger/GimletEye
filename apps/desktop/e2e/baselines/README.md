@@ -10,7 +10,7 @@ architectures. Generate these under the **same conditions as the `e2e` job** —
 the result, and treat a local `--check` as advisory:
 
 ```bash
-npm ci && npm run build:ui -w @gimlet-eye/desktop
+npm ci && npm run build:ui -w @gimlet-works/desktop
 xvfb-run --auto-servernum --server-args="-screen 0 1280x900x24" \
   node apps/desktop/e2e/shots.mjs --update
 ```
