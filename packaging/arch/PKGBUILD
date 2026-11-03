@@ -4,7 +4,7 @@
 # so a release cannot ship a PKGBUILD that names a different version than the
 # CLI it builds.
 pkgname=gimlet-works-toolkit
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 pkgdesc="Local workbench for system, crypto, and metadata tasks"
 arch=('x86_64' 'aarch64')

@@ -4,19 +4,30 @@ All notable changes to Gimlet Works. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] — 2026-11-02
+
+The rename. The toolkit, its packages, its packaging, and its documentation
+carry one name now; the old command is still there, and everything an earlier
+version wrote — configuration, audit trail, keystore, containers, desktop
+preferences — is still read where it is.
+
+This release deliberately changes a frozen surface (recursive `DataSpec` in the
+manifest), so per ADR 0006 the two-release quiet-period countdown restarts here.
 
 ### Changed
 
 - Renamed Gimlet Eye to Gimlet Works. The new primary command is `gimlet-works`;
-  `gimlet` remains available for compatibility. Existing configuration, audit,
+  `gimlet` remains available for compatibility, installed as a second bin entry
+  and as a transitional Debian package, and the Arch and RPM recipes declare the
+  old package replaced rather than installed twice. Existing configuration, audit,
   keystore, encrypted files, and desktop preferences remain usable.
+- The published schemas keep their historical `gimleteye.dev` `$id` values, so a
+  consumer that references one still identifies the same contract.
 
 ### Added
 
 - Recursive `ToolManifest.data` schemas validate nested objects, table rows, and
-  array items. This is additive to the frozen manifest contract; the next release
-  must restart the quiet-period counter as required by the release policy.
+  array items. This is additive to the frozen manifest contract.
 - Audit entries carry a run id and dry-run state. Batch entries share a run id,
   include their position, and are retained/pruned as one logical run so a large
   batch does not evict the entire prior trail.
@@ -31,6 +42,14 @@ All notable changes to Gimlet Works. Format follows
   so a field name containing a comma or a quote no longer produces a broken row.
 - The OpenPGP interop tools separate their file arguments with `--`, so a path
   that begins with `-` is read as a path.
+- The keystore has one writer again. The engine's unused `save()`/`load()` pair
+  wrote through a fixed `${path}.tmp` with no conflict check and is gone; the
+  real-filesystem tests now drive `publishStore`, including the refusal to
+  publish over a store that changed while it was open.
+- The desktop shell's tests are type-checked. They were executed but never
+  compiled, which had already let one invalid cast through.
+- The session policy no longer permits `chrome-extension:`, which nothing loads
+  and SECURITY.md never documented.
 
 ## [1.1.0] — 2026-10-31
 

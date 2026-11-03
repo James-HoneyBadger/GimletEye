@@ -37,7 +37,9 @@ surfaces=(
 
 # The release that restarted the countdown. Move this in the same commit that
 # tags a release which deliberately changed a surface.
-restart_release="0.8.0"
+# 1.2.0 carries the additive recursive DataSpec change (ADR 0012's contract,
+# widened), so the two releases counted from here must not move a surface again.
+restart_release="1.2.0"
 
 # Numeric comparison of `vX.Y.Z` / `X.Y.Z`; prints -1, 0, or 1.
 compare() {

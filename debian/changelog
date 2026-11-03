@@ -1,9 +1,16 @@
-gimlet-works-toolkit (1.1.0-1) unstable; urgency=medium
+gimlet-works-toolkit (1.2.0-1) unstable; urgency=medium
 
   * Rename the toolkit to Gimlet Works and transition the gimlet package to
     gimlet-works while retaining the legacy command and existing state.
+  * Recursive ToolManifest.data schemas: nested objects, table rows, and array
+    items are declared and checked. Additive to the manifest contract, so the
+    quiet-period countdown restarts at this release.
+  * Audit entries carry a run id and dry-run state; a batch shares one and is
+    retained or pruned together.
+  * Fix CSV column escaping, and separate the OpenPGP tools' file arguments
+    with `--`.
 
- -- Gimlet Works maintainers <maintainers@example.invalid>  Mon, 02 Nov 2026 20:07:44 -0600
+ -- Gimlet Works maintainers <maintainers@example.invalid>  Mon, 02 Nov 2026 21:16:00 -0600
 
 gimlet-eye-toolkit (1.1.0) unstable; urgency=medium
 
